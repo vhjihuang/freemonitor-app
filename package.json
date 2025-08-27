@@ -1,0 +1,26 @@
+{
+  "name": "freemonitor-app",
+  "private": true,
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "clean": "rimraf node_modules pnpm-lock.yaml && pnpm -r exec -- rimraf node_modules || true"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.11",
+    "autoprefixer": "^10.4.21",
+    "only-allow": "^1.0.0",
+    "postcss": "^8.5.6",
+    "rimraf": "^5.0.0",
+    "tailwindcss": "^3.4.17",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  },
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=20.0.0 <23.0.0"
+  }
+}
