@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Device {
+  id        String   @id @default(cuid())
+  name      String
+  hostname  String
+  ipAddress String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  alerts    Alert[]
+  metrics   Metric[]
+
+  @@map("devices")
+}
+
+model Metric {
+  id        Int      @id @default(autoincrement())
+  deviceId  String
+  cpu       Float
+  memory    Float
+  disk      Float
+  timestamp DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("metrics")
+}
+
+model Alert {
+  id        Int      @id @default(autoincrement())
+  deviceId  String
+  message   String
+  severity  String
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
