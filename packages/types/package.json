@@ -1,13 +1,19 @@
 {
   "name": "@freemonitor/types",
   "version": "1.0.0",
+  "description": "Shared TypeScript types for FreeMonitor project",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
   },
+  "keywords": ["typescript", "types", "shared"],
+  "author": "Your Name",
+  "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.9.2",
+    "@types/node": "^20.14.0"
   }
 }
