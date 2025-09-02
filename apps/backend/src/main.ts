@@ -21,11 +21,7 @@ async function bootstrap() {
 
       Logger.warn(`400- Validation Failed: ${messages.join('; ')}`, 'Validation')
 
-       return new BadRequestException({
-          statusCode: 400,
-          error: 'Bad Request',
-          message: messages,
-        });
+       return new BadRequestException(messages);
     }
     // disableErrorMessages: false, 
   }));

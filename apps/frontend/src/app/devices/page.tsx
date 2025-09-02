@@ -9,7 +9,7 @@ import { DeviceCard } from '@/components/devices/DeviceCard';
 import { DeviceForm } from '@/components/devices/DeviceForm';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Server } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 export default function DevicesPage() {
   const { data: devices, isLoading, error, refetch } = useDevices();
@@ -79,6 +79,9 @@ export default function DevicesPage() {
 
       <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
         <DialogContent>
+          <DialogDescription className="sr-only">
+          Edit device settings
+        </DialogDescription>
           <DialogHeader>
             <DialogTitle>
               {editingDevice ? 'Edit Device' : 'Add New Device'}
