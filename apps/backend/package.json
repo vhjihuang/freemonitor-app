@@ -21,7 +21,8 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "pnpm prisma generate",
     "prisma:migrate": "pnpm prisma migrate deploy",
-    "prisma:studio": "pnpm prisma studio"
+    "prisma:studio": "pnpm prisma studio",
+    "postinstall": "prisma generate && prisma migrate deploy"
   },
   "dependencies": {
     "@freemonitor/types": "workspace:*",
