@@ -30,7 +30,7 @@ async function bootstrap() {
 
   // 启用 CORS（方便前端连接）
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:3001"],
+    origin: process.env.CORS_ORIGIN?.split(",") || ["freemonitor-app-frontend.vercel.app","http://localhost:3000", "http://localhost:3001"],
   });
 
   await app.listen(process.env.PORT || 3001);
