@@ -10,7 +10,7 @@
     "build": "nest build",
     "postbuild": "echo 'Build completed. Run migrations manually in production.'",
     "start": "node dist/src/main",
-    "start:prod": "node dist/src/main",
+    "start:prod": "pnpm prisma:migrate && node dist/src/main",
     "start:dev": "nodemon",
     "dev": "pnpm start:dev",
     "lint": "eslint 'src/**/*.{ts}' --max-warnings 0",
@@ -22,7 +22,7 @@
     "prisma:generate": "pnpm prisma generate",
     "prisma:migrate": "pnpm prisma migrate deploy",
     "prisma:studio": "pnpm prisma studio",
-    "postinstall": "prisma generate && prisma migrate deploy"
+    "postinstall": "pnpm prisma:generate"
   },
   "dependencies": {
     "@freemonitor/types": "workspace:*",
