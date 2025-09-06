@@ -150,6 +150,7 @@ model User {
   name                String?
   role                UserRole  @default(USER)
   isActive            Boolean   @default(true)
+  deletedAt           DateTime? // 添加软删除字段
   lastLoginAt         DateTime?
   failedLoginAttempts Int       @default(0) // 登录失败次数
   lockedUntil         DateTime? // 账户锁定截止时间（防暴力破解）

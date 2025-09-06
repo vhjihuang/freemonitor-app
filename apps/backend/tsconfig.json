@@ -21,6 +21,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "prisma"],
+  "include": ["src", "prisma", "test", "__tests__"],
   "exclude": ["node_modules", "dist", "tests"]
 }
