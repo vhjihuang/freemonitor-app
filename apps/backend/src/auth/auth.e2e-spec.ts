@@ -5,7 +5,7 @@ import { INestApplication } from "@nestjs/common";
 import { AuthModule } from "./auth.module";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ConfigModule } from "@nestjs/config";
-import jwtConfig from "../config/jwt.config"; // 确保路径正确
+import { jwtConfig } from "../config/jwt.config"; // 确保路径正确
 
 describe("Auth E2E", () => {
   let app: INestApplication;

@@ -7,7 +7,7 @@ export interface JwtConfig {
   refreshIn: string;
 }
 
-export interface devUser {
+export interface devUserConfig {
   id: string;
   email: string;
   name: string;
@@ -24,7 +24,7 @@ export const jwtConfig = registerAs(
   })
 );
 
-export const devUserConfig = registerAs("devUser", () => ({
+export const devUserConfig = registerAs("devUser", (): devUserConfig => ({
   id: process.env.DEV_USER_ID ?? "dev-user-id",
   email: process.env.DEV_USER_EMAIL ?? "dev@example.com",
   name: process.env.DEV_USER_NAME ?? "Dev User",
