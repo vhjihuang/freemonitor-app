@@ -2,6 +2,7 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { Logger, ValidationPipe, BadRequestException } from "@nestjs/common";
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -28,12 +29,16 @@ async function bootstrap() {
     })
   );
 
+  // ✅ 2. 注册全局异常过滤器
+  app.useGlobalFilters(new HttpExceptionFilter());
+  
   // 启用 CORS（方便前端连接）
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(",") || ["https://freemonitor-app-frontend.vercel.app","http://localhost:3000","http://localhost:3001"],
   });
 
-  await app.listen(process.env.PORT || 3001);
-  console.log(`🚀 Backend server running on http://localhost:3001`);
+  const port = process.env.PORT || 3001;
+  await app.listen(port);
+  Logger.log(`🚀 Backend server running on http://localhost:${port}`, "Bootstrap");
 }
 bootstrap();
