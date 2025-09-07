@@ -1,28 +1,32 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+
 import { AuthService } from './auth.service';
-import { JwtModule } from '@nestjs/jwt'
-import { ConfigService } from '@nestjs/config'
-import { PrismaService } from '../../prisma/prisma.service'
-import { HASHING_SERVICE } from '../hashing/hashing.service.token'
-import { BcryptHashingService } from '../hashing/hashing.service';
 import { AuthController } from './auth.controller';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { DevAuthGuard } from './guards/dev-auth.guard';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { HashingModule } from '../hashing/hashing.module';
 
 @Module({
-  imports: [JwtModule.registerAsync({
-    useFactory: (configService: ConfigService) => {
-      const jwtConfig = configService.get('jwt')
-      return {
-        secret: jwtConfig.secret,
-        signOptions: { expiresIn: jwtConfig.expiresIn}
-      }
-    },
-    inject: [ConfigService]
-  })],
+  imports: [
+    PrismaModule,
+    HashingModule,
+    JwtModule.registerAsync({
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('jwt.secret'),
+        signOptions: { expiresIn: configService.get('jwt.expiresIn') },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
   controllers: [AuthController],
-  providers: [AuthService, PrismaService, {
-    provide: HASHING_SERVICE,
-    useClass: BcryptHashingService
-  }],
-  exports: [AuthService]
+  providers: [
+    AuthService, 
+    JwtStrategy,
+    DevAuthGuard,
+  ],
+  exports: [AuthService, DevAuthGuard],
 })
 export class AuthModule {}

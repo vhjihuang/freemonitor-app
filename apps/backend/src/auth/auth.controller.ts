@@ -1,7 +1,7 @@
-import { Body, Controller, HttpCode, Post, Logger } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Logger, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
-
+import { ApiCommonResponses } from '../common/decorators/api-common-responses.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -9,7 +9,8 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
-  @HttpCode(200)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiCommonResponses()
   async login(@Body() loginDto: LoginDto) {
     this.logger.log(`Login attempt for ${loginDto.email}`);
     try {
