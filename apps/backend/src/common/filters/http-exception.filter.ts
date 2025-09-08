@@ -19,6 +19,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception.status || 500;
     const message = exception.message || 'Internal Server Error';
 
+    // 如果是 204 状态码，直接返回空响应
+    if (status === 204) {
+      return response.status(204).send();
+    }
+    
     // 构建统一响应体
     const errorResponse: ApiResponseDto = {
       statusCode: status,

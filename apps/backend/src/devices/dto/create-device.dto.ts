@@ -43,5 +43,5 @@ export class CreateDeviceDto {
   @IsUUID('all', { message: '设备组 ID 格式不正确' })
   @ValidateIf((dto) => dto.deviceGroupId !== null)
   @IsOptional()
-  deviceGroupId?: string;
+  deviceGroupId?: string | null ;
 }

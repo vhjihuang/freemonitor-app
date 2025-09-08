@@ -52,14 +52,14 @@ export class DeviceService {
       const device = await this.prisma.device.create({
         data: {
           name: createDeviceDto.name,
-          hostname: createDeviceDto.hostname,
+          hostname: createDeviceDto.hostname ?? createDeviceDto.name,
           ipAddress: createDeviceDto.ipAddress,
           description: createDeviceDto.description,
           type: createDeviceDto.type,
           location: createDeviceDto.location,
           tags: Array.isArray(createDeviceDto.tags) ? createDeviceDto.tags : [],
           userId: user.id,
-          deviceGroupId: createDeviceDto.deviceGroupId || null,
+          deviceGroupId: createDeviceDto.deviceGroupId ?? null,
         },
         select: DeviceService.SELECT,
       });
@@ -124,9 +124,9 @@ export class DeviceService {
     return device;
   }
 
-  async heartbeat(id: string, userId: string) {
+  async heartbeat(id: string, userId: string): Promise<void> {
     try {
-      return await this.prisma.device.update({
+      await this.prisma.device.update({
         where: { id, userId },
         data: {
           lastSeen: new Date(),

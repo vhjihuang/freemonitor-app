@@ -25,9 +25,9 @@ export const jwtConfig = registerAs(
 );
 
 export const devUserConfig = registerAs("devUser", (): devUserConfig => ({
-  id: process.env.DEV_USER_ID ?? "dev-user-id",
-  email: process.env.DEV_USER_EMAIL ?? "dev@example.com",
-  name: process.env.DEV_USER_NAME ?? "Dev User",
-  role: process.env.DEV_USER_ROLE ?? "ADMIN",
+  id: process.env.DEV_USER_ID ?? "cmf8gshjd00003z1v0wh8b8to",
+  email: process.env.DEV_USER_EMAIL ?? "e2e@freemonitor.dev",
+  name: process.env.DEV_USER_NAME ?? "E2E User",
+  role: process.env.DEV_USER_ROLE ?? "USER",
   isActive: true,
 }));

@@ -1,7 +1,7 @@
 // apps/backend/src/devices/devices.module.ts
 import { Module } from '@nestjs/common';
-import { DeviceService } from './devices.service';
-import { DeviceController } from './devices.controller';
+import { DeviceService } from './device.service';
+import { DeviceController } from './device.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
