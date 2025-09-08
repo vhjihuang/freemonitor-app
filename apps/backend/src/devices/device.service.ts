@@ -1,13 +1,9 @@
 // apps/backend/src/device/device.service.ts
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateDeviceDto } from './dto/create-device.dto';
-import { User } from '@prisma/client';
+import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { CreateDeviceDto } from "./dto/create-device.dto";
+import { UpdateDeviceDto } from "./dto/update-device.dto";
+import { User } from "@prisma/client";
 
 @Injectable()
 export class DeviceService {
@@ -36,7 +32,7 @@ export class DeviceService {
 
   async create(createDeviceDto: CreateDeviceDto, user: User) {
     if (!user || !user.id) {
-      throw new BadRequestException('用户信息无效');
+      throw new BadRequestException("用户信息无效");
     }
 
     if (createDeviceDto.deviceGroupId) {
@@ -44,7 +40,7 @@ export class DeviceService {
         where: { id: createDeviceDto.deviceGroupId, isActive: true },
       });
       if (!group) {
-        throw new NotFoundException('设备组不存在或已禁用');
+        throw new NotFoundException("设备组不存在或已禁用");
       }
     }
 
@@ -64,7 +60,7 @@ export class DeviceService {
         select: DeviceService.SELECT,
       });
 
-      this.logger.log('设备创建成功', {
+      this.logger.log("设备创建成功", {
         deviceId: device.id,
         userId: user.id,
         name: device.name,
@@ -73,35 +69,79 @@ export class DeviceService {
 
       return device;
     } catch (error) {
-      this.logger.error('创建设备失败', {
+      this.logger.error("创建设备失败", {
         userId: user.id,
         ipAddress: createDeviceDto.ipAddress,
         name: createDeviceDto.name,
         error: error.message,
       });
 
-      if (error.code === 'P2002') {
+      if (error.code === "P2002") {
         const target = error.meta?.target;
         const fields = Array.isArray(target) ? target : [target].filter(Boolean);
 
-        if (fields.includes('ipAddress')) {
-          throw new BadRequestException('设备 IP 地址已存在');
+        if (fields.includes("ipAddress")) {
+          throw new BadRequestException("设备 IP 地址已存在");
         }
-        if (fields.includes('hostname')) {
-          throw new BadRequestException('设备主机名已存在');
+        if (fields.includes("hostname")) {
+          throw new BadRequestException("设备主机名已存在");
         }
-        throw new BadRequestException('数据唯一性冲突');
+        throw new BadRequestException("数据唯一性冲突");
       }
 
       throw error;
     }
   }
 
+  async update(id: string, updateDeviceDto: UpdateDeviceDto, userId: string) {
+    const device = await this.prisma.device.findFirst({
+      where: { id, userId },
+    });
+    if (!device) {
+      throw new NotFoundException("设备不存在或无权访问");
+    }
+
+    return this.prisma.device.update({
+      where: {
+        id: device.id,
+      },
+      data: {
+        name: updateDeviceDto.name,
+        hostname: updateDeviceDto.hostname,
+        description: updateDeviceDto.description,
+        type: updateDeviceDto.type,
+        location: updateDeviceDto.location,
+        tags: {
+          set: updateDeviceDto.tags ?? [],
+        },
+        deviceGroupId: updateDeviceDto.deviceGroupId ?? null,
+      },
+      select: DeviceService.SELECT,
+    });
+  }
+
+  async softDelete(id: string, userId: string) {
+    const device = await this.prisma.device.findFirst({
+      where: { id, userId },
+    });
+
+    if (!device) {
+      throw new NotFoundException("设备不存在或无权访问");
+    }
+
+    return this.prisma.device.update({
+      where: { id },
+      data: {
+        isActive: false,
+      },
+    });
+  }
+
   async findAllByUser(userId: string) {
     return this.prisma.device.findMany({
       where: { userId, isActive: true },
       select: DeviceService.SELECT,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -112,13 +152,13 @@ export class DeviceService {
         deviceGroup: true,
         metrics: {
           take: 1,
-          orderBy: { timestamp: 'desc' },
+          orderBy: { timestamp: "desc" },
         },
       },
     });
 
     if (!device) {
-      throw new NotFoundException('设备不存在或无权访问');
+      throw new NotFoundException("设备不存在或无权访问");
     }
 
     return device;
@@ -130,7 +170,7 @@ export class DeviceService {
         where: { id, userId },
         data: {
           lastSeen: new Date(),
-          status: 'ONLINE',
+          status: "ONLINE",
         },
         select: {
           id: true,
@@ -139,8 +179,8 @@ export class DeviceService {
         },
       });
     } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('设备不存在或无权访问');
+      if (error.code === "P2025") {
+        throw new NotFoundException("设备不存在或无权访问");
       }
       throw error;
     }

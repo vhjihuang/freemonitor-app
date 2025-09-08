@@ -5,9 +5,9 @@ import { Device } from '@freemonitor/types';
 
 export const useDevices = () => {
   return useQuery<Device[]>({
-    queryKey: ['devices'],
+    queryKey: ['device'],
     queryFn: async () => {
-      const response = await apiClient.get('/devices');
+      const response = await apiClient.get('/device');
       return response.data;
     },
   });
@@ -15,9 +15,9 @@ export const useDevices = () => {
 
 export const useDevice = (id: string) => {
   return useQuery<Device>({
-    queryKey: ['devices', id],
+    queryKey: ['device', id],
     queryFn: async () => {
-      const response = await apiClient.get(`/devices/${id}`);
+      const response = await apiClient.get(`/device/${id}`);
       return response.data;
     },
     enabled: !!id,

@@ -1,8 +1,9 @@
 // apps/backend/src/device/device.controller.ts
-import { Controller, Post, Body, UseGuards, Req, Res, Logger, Get, Param, Patch, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, Delete, UseGuards, Req, Res, Logger, Get, Param, Patch, HttpCode, HttpStatus } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { Response } from 'express';
+import { Response } from "express";
 import { CreateDeviceDto } from "./dto/create-device.dto";
+import { UpdateDeviceDto } from './dto/update-device.dto'
 import { DeviceService } from "./device.service";
 import { User } from "@prisma/client";
 import { ApiCommonResponses } from "../common/decorators/api-common-responses.decorator";
@@ -48,12 +49,28 @@ export class DeviceController {
     return this.deviceService.findOne(id, req.user?.id || "dev-user-id");
   }
 
+  @Patch(":id")
+  @ApiOperation({ summary: "更新设备" })
+  @ApiCommonResponses()
+  async update(@Param("id") id: string, @Body() dto: UpdateDeviceDto, @Req() req: RequestWithUser) {
+    return this.deviceService.update(id, dto, req.user?.id || "dev-user-id");
+  }
+
+  @Delete(':id')
+@ApiOperation({ summary: '删除设备（软删除）' })
+@ApiCommonResponses()
+async remove(
+  @Param('id') id: string,
+  @Req() req: RequestWithUser
+) {
+  await this.deviceService.softDelete(id, req.user?.id || 'dev-user-id');
+}
+
   @Patch(":id/heartbeat")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "上报设备心跳" })
   @ApiCommonResponses()
-  async heartbeat(@Param("id") id: string, @Req() req: RequestWithUser,
-  @Res({ passthrough: true }) res: Response): Promise<void> {
+  async heartbeat(@Param("id") id: string, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response): Promise<void> {
     await this.deviceService.heartbeat(id, req.user?.id || "dev-user-id");
     res.status(HttpStatus.NO_CONTENT);
   }

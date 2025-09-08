@@ -8,11 +8,11 @@ export const useCreateDevice = () => {
 
   return useMutation<Device, Error, CreateDeviceDto>({
     mutationFn: async (deviceData) => {
-      const response = await apiClient.post('/devices', deviceData);
+      const response = await apiClient.post('/device', deviceData);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['device'] });
     },
   });
 };
@@ -22,11 +22,11 @@ export const useUpdateDevice = () => {
 
   return useMutation<Device, Error, { id: string; data: UpdateDeviceDto }>({
     mutationFn: async ({ id, data }) => {
-      const response = await apiClient.patch(`/devices/${id}`, data);
+      const response = await apiClient.patch(`/device/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['device'] });
     },
   });
 };
@@ -36,10 +36,10 @@ export const useDeleteDevice = () => {
 
   return useMutation<void, Error, string>({
     mutationFn: async (id) => {
-      await apiClient.delete(`/devices/${id}`);
+      await apiClient.delete(`/device/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['device'] });
     },
   });
 };
