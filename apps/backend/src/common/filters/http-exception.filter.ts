@@ -12,6 +12,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    // 🛡️ 关键防护：如果响应已发送，直接跳过，避免崩溃
+    if (response.headersSent) {
+      this.logger.warn('响应已发送，跳过异常过滤器响应设置', {
+        url: request.url,
+        method: request.method,
+        exception: exception instanceof Error ? exception.message : String(exception),
+      });
+      return;
+    }
+
     // 先保持原有逻辑，只对AppException使用新格式
     if (exception instanceof AppException) {
       const errorResponse: ErrorResponse = {

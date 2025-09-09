@@ -12,6 +12,10 @@ import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
 import { jwtConfig, devUserConfig } from "./config/jwt.config";
 
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
+import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+
 @Module({
   imports: [
     PrismaModule,
@@ -26,6 +30,17 @@ import { jwtConfig, devUserConfig } from "./config/jwt.config";
     }),
   ],
   controllers: [AppController, HealthController, AuthController],
-  providers: [AppService],
+  providers: [
+    AppService, // 添加全局异常过滤器
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    // 添加全局响应拦截器（目前只处理204和health端点）
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
+  ],
 })
 export class AppModule {}
