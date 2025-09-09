@@ -99,5 +99,5 @@ yarn-error.log*
 build-cache/    # 自定义构建缓存
 
 
-packages/*/dist/
-packages/*/node_modules/
+packages/**/dist/
+packages/**/node_modules/
