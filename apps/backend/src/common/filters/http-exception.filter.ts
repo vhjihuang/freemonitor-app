@@ -1,42 +1,49 @@
 import { ExceptionFilter, Catch, ArgumentsHost, Logger } from '@nestjs/common';
-import { Response } from 'express';
-import { ApiResponseDto } from '../dto/response.dto';
+import { Request, Response } from 'express';
+import { ErrorResponse } from '@freemonitor/types';
+import { AppException } from '../exceptions/app.exception';
 
-/**
- * 全局异常过滤器
- * 捕获所有未处理的异常，返回统一响应格式
- */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest();
+    const request = ctx.getRequest<Request>();
 
-    // 提取状态码和消息
-    const status = exception.status || 500;
-    const message = exception.message || 'Internal Server Error';
-
-    // 如果是 204 状态码，直接返回空响应
-    if (status === 204) {
-      return response.status(204).send();
+    // 先保持原有逻辑，只对AppException使用新格式
+    if (exception instanceof AppException) {
+      const errorResponse: ErrorResponse = {
+        success: false,
+        statusCode: exception.statusCode,
+        message: exception.message,
+        errorCode: exception.errorCode,
+        timestamp: exception.timestamp,
+        path: request.url,
+        details: exception.details,
+      };
+      response.status(exception.statusCode).json(errorResponse);
+      return;
     }
-    
-    // 构建统一响应体
-    const errorResponse: ApiResponseDto = {
+
+    // 对其他异常保持原有处理逻辑
+    const status = (exception as any).status || 500;
+    const message = (exception as any).message || 'Internal Server Error';
+
+    // 构建原有格式的响应体
+    const errorResponse = {
       statusCode: status,
       message,
       timestamp: new Date().toISOString(),
       path: request.url,
     };
 
-    // 如果是 500 错误，记录详细日志
+    // 记录日志
     if (status >= 500) {
       this.logger.error(
         `${status} ${request.method} ${request.url} - ${message}`,
-        exception.stack,
+        (exception as any).stack,
       );
     } else {
       this.logger.warn(
@@ -44,7 +51,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
-    // 返回统一格式
+    // 返回原有格式
     response.status(status).json(errorResponse);
   }
 }
