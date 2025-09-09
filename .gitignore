@@ -97,3 +97,7 @@ yarn-error.log*
 # -----------------------
 .vercel/       # Vercel 部署缓存
 build-cache/    # 自定义构建缓存
+
+
+packages/*/dist/
+packages/*/node_modules/
