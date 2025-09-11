@@ -23,13 +23,11 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "pnpm prisma generate",
     "prisma:migrate": "pnpm prisma migrate deploy",
+    "prisma:seed": "if [ \"$NODE_ENV\" != \"production\" ]; then ts-node prisma/seed.ts; else echo 'Seed script is disabled in production'; exit 1; fi",
     "prisma:studio": "pnpm prisma studio",
     "postinstall": "pnpm prisma:generate",
     "g": "nest generate",
     "generate": "nest generate"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
     "@freemonitor/types": "workspace:*",
