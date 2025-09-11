@@ -1,6 +1,8 @@
 // apps/backend/src/device/dto/create-device.dto.ts
 import { IsString, IsIP, IsOptional, IsArray, IsEnum, IsUUID, Length, ValidateIf } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { DeviceType } from '@prisma/client';
 
 export class CreateDeviceDto {
   @ApiProperty({ example: 'Nginx Server', description: '设备名称' })
@@ -23,10 +25,10 @@ export class CreateDeviceDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ example: 'server', required: false })
-  @IsString()
+  @ApiProperty({ example: 'SERVER', required: false, enum: DeviceType })
+  @IsEnum(DeviceType)
   @IsOptional()
-  type?: string;
+  type?: DeviceType;
 
   @ApiProperty({ example: 'Beijing DC', required: false })
   @IsString()
@@ -40,8 +42,9 @@ export class CreateDeviceDto {
   tags?: string[];
 
   @ApiProperty({ example: 'cmg_123abc', required: false, description: '设备组 ID（可选）' })
+  @Transform(({ value }) => (value === '' ? null : value))
   @IsUUID('all', { message: '设备组 ID 格式不正确' })
   @ValidateIf((dto) => dto.deviceGroupId !== null)
   @IsOptional()
-  deviceGroupId?: string | null ;
+  deviceGroupId?: string | null;
 }

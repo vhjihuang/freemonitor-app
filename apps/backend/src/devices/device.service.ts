@@ -1,9 +1,10 @@
 // apps/backend/src/device/device.service.ts
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from "./dto/update-device.dto";
-import { User } from "@prisma/client";
+import { User, Prisma } from "@prisma/client";
+import { NotFoundException, BusinessException } from "../common/exceptions/app.exception";
 
 @Injectable()
 export class DeviceService {
@@ -29,20 +30,9 @@ export class DeviceService {
   };
 
   constructor(private readonly prisma: PrismaService) {}
-
   async create(createDeviceDto: CreateDeviceDto, user: User) {
-    if (!user || !user.id) {
-      throw new BadRequestException("用户信息无效");
-    }
-
-    if (createDeviceDto.deviceGroupId) {
-      const group = await this.prisma.deviceGroup.findUnique({
-        where: { id: createDeviceDto.deviceGroupId, isActive: true },
-      });
-      if (!group) {
-        throw new NotFoundException("设备组不存在或已禁用");
-      }
-    }
+    this.validateUser(user)
+    await this.validateDeviceGroup(createDeviceDto.deviceGroupId)
 
     try {
       const device = await this.prisma.device.create({
@@ -69,25 +59,7 @@ export class DeviceService {
 
       return device;
     } catch (error) {
-      this.logger.error("创建设备失败", {
-        userId: user.id,
-        ipAddress: createDeviceDto.ipAddress,
-        name: createDeviceDto.name,
-        error: error.message,
-      });
-
-      if (error.code === "P2002") {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target) ? target : [target].filter(Boolean);
-
-        if (fields.includes("ipAddress")) {
-          throw new BadRequestException("设备 IP 地址已存在");
-        }
-        if (fields.includes("hostname")) {
-          throw new BadRequestException("设备主机名已存在");
-        }
-        throw new BadRequestException("数据唯一性冲突");
-      }
+      this.handlePrismaError(error, createDeviceDto, user)
 
       throw error;
     }
@@ -98,7 +70,7 @@ export class DeviceService {
       where: { id, userId },
     });
     if (!device) {
-      throw new NotFoundException("设备不存在或无权访问");
+      throw new NotFoundException("Device", id);
     }
 
     return this.prisma.device.update({
@@ -126,7 +98,7 @@ export class DeviceService {
     });
 
     if (!device) {
-      throw new NotFoundException("设备不存在或无权访问");
+      throw new NotFoundException("Device", id);
     }
 
     return this.prisma.device.update({
@@ -158,7 +130,7 @@ export class DeviceService {
     });
 
     if (!device) {
-      throw new NotFoundException("设备不存在或无权访问");
+      throw new NotFoundException("Device", id);
     }
 
     return device;
@@ -180,9 +152,54 @@ export class DeviceService {
       });
     } catch (error) {
       if (error.code === "P2025") {
-        throw new NotFoundException("设备不存在或无权访问");
+        throw new NotFoundException("Device", id);
       }
       throw error;
+    }
+  }
+
+  private validateUser(user: User): asserts user is Required<User> {
+    if (!user?.id) {
+      throw new BusinessException("用户信息无效");
+    }
+  }
+
+  private async validateDeviceGroup(deviceGroupId?: string) {
+    if (!deviceGroupId) return;
+
+    const group = await this.prisma.deviceGroup.findUnique({
+      where: { id: deviceGroupId, isActive: true },
+    });
+
+    if (!group) {
+      throw new NotFoundException(`设备组不存在或已禁用: ${deviceGroupId}`);
+    }
+  }
+
+  private handlePrismaError(error: unknown, dto: CreateDeviceDto, user: User) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+      return;
+    }
+
+    this.logger.error("创建设备失败（Prisma 错误）", {
+      userId: user.id,
+      ipAddress: dto.ipAddress,
+      name: dto.name,
+      errorCode: error.code,
+      meta: error.meta,
+    });
+
+    if (error.code === "P2002") {
+      const target = error.meta?.target;
+      const fields = Array.isArray(target) ? target : [target].filter(Boolean);
+
+      if (fields.includes("ipAddress")) {
+        throw new BusinessException("设备 IP 地址已存在");
+      }
+      if (fields.includes("hostname")) {
+        throw new BusinessException("设备主机名已存在");
+      }
+      throw new BusinessException("数据唯一性冲突");
     }
   }
 }

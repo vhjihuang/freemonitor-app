@@ -26,7 +26,22 @@ export function DeviceCard({ device, onEdit, onDelete }: DeviceCardProps) {
       <CardContent>
         <CardDescription className="mb-3">{device.hostname}</CardDescription>
         {device.ipAddress && (
-          <p className="text-sm text-muted-foreground mb-3">IP: {device.ipAddress}</p>
+          <p className="text-sm text-muted-foreground mb-1">IP: {device.ipAddress}</p>
+        )}
+        {device.type && (
+          <p className="text-sm text-muted-foreground mb-1">Type: {device.type}</p>
+        )}
+        {device.location && (
+          <p className="text-sm text-muted-foreground mb-1">Location: {device.location}</p>
+        )}
+        {device.tags && device.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {device.tags.map((tag, index) => (
+              <Badge key={index} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
         )}
         <div className="flex justify-between items-center">
           <span className="text-xs text-muted-foreground">

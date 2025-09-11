@@ -78,10 +78,10 @@ export default function DevicesPage() {
       )}
 
       <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogDescription className="sr-only">
-          Edit device settings
-        </DialogDescription>
+            {editingDevice ? 'Edit device settings' : 'Add new device'}
+          </DialogDescription>
           <DialogHeader>
             <DialogTitle>
               {editingDevice ? 'Edit Device' : 'Add New Device'}
