@@ -31,7 +31,7 @@ async function main() {
     }
 
     // 创建设备组
-    const existingGroup = await prisma.deviceGroup.findUnique({
+    const existingGroup = await prisma.deviceGroup.findFirst({
       where: { name: 'Production Servers' },
     });
     let group;
