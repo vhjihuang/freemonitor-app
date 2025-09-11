@@ -6,6 +6,7 @@ const testDevice: Device = {
   id: 'test-id',
   name: 'Test Device',
   hostname: 'test-device',
+  ipAddress: '192.168.1.1',
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date()
@@ -14,7 +15,7 @@ const testDevice: Device = {
 const testCreateDto: CreateDeviceDto = {
   name: 'New Device',
   hostname: 'new-device',
-  isActive: true
+  ipAddress: '192.168.1.2'
 };
 
 console.log('Type imports working correctly!');
