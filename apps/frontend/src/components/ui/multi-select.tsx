@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { X } from "lucide-react"
 
-interface MultiSelectProps extends React.HTMLAttributes<HTMLDivElement> {
+interface MultiSelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onChange'> {
   selected: string[]
   onChange: (selected: string[]) => void
   placeholder?: string
