@@ -3,8 +3,10 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from "./dto/update-device.dto";
-import { User, Prisma } from "@prisma/client";
+import { User, Prisma, AlertSeverity, AlertType } from "@prisma/client";
 import { NotFoundException, BusinessException } from "../common/exceptions/app.exception";
+import { CreateMetricDto } from "./dto/create-metric.dto";
+import { CreateAlertDto } from "./dto/create-alert.dto";
 
 @Injectable()
 export class DeviceService {
@@ -30,6 +32,164 @@ export class DeviceService {
   };
 
   constructor(private readonly prisma: PrismaService) {}
+  
+  async createAlert(createAlertDto: CreateAlertDto, userId: string) {
+    this.logger.log(`开始处理设备 ${createAlertDto.deviceId} 的告警`, {
+      deviceId: createAlertDto.deviceId,
+      userId,
+    });
+
+    try {
+      // 验证设备是否存在且属于当前用户
+      const device = await this.prisma.device.findFirst({
+        where: { 
+          id: createAlertDto.deviceId,
+          userId: userId,
+          isActive: true
+        },
+      });
+
+      if (!device) {
+        this.logger.warn(`设备不存在或无权访问`, {
+          deviceId: createAlertDto.deviceId,
+          userId,
+        });
+        throw new NotFoundException("设备不存在或无权访问");
+      }
+
+      // 映射告警严重程度枚举
+      let severity: AlertSeverity;
+      switch (createAlertDto.severity) {
+        case 'critical':
+          severity = AlertSeverity.CRITICAL;
+          break;
+        case 'warning':
+          severity = AlertSeverity.WARNING;
+          break;
+        case 'info':
+          severity = AlertSeverity.INFO;
+          break;
+        default:
+          severity = AlertSeverity.ERROR;
+      }
+
+      // 确定告警类型（基于消息内容进行简单判断）
+      let type: AlertType = AlertType.CUSTOM;
+      if (createAlertDto.message.includes('CPU')) {
+        type = AlertType.CPU;
+      } else if (createAlertDto.message.includes('内存') || createAlertDto.message.includes('Memory')) {
+        type = AlertType.MEMORY;
+      } else if (createAlertDto.message.includes('磁盘') || createAlertDto.message.includes('Disk')) {
+        type = AlertType.DISK;
+      } else if (createAlertDto.message.includes('网络') || createAlertDto.message.includes('Network')) {
+        type = AlertType.NETWORK;
+      } else if (createAlertDto.message.includes('离线') || createAlertDto.message.includes('offline')) {
+        type = AlertType.OFFLINE;
+      }
+
+      // 创建告警
+      const alert = await this.prisma.alert.create({
+        data: {
+          deviceId: createAlertDto.deviceId,
+          type: type,
+          message: createAlertDto.message,
+          severity: severity,
+          createdAt: createAlertDto.timestamp ? new Date(createAlertDto.timestamp) : new Date(),
+        },
+      });
+
+      this.logger.log(`设备 ${createAlertDto.deviceId} 告警处理成功`, {
+        alertId: alert.id,
+        deviceId: createAlertDto.deviceId,
+      });
+
+      return alert;
+    } catch (error) {
+      this.logger.error(`处理设备 ${createAlertDto.deviceId} 告警时发生错误`, {
+        error: error.message,
+        stack: error.stack,
+        deviceId: createAlertDto.deviceId,
+        userId,
+      });
+      
+      // 如果是已知的业务异常，直接抛出
+      if (error instanceof NotFoundException || error instanceof BusinessException) {
+        throw error;
+      }
+      
+      // 其他异常统一包装为业务异常
+      throw new BusinessException("告警处理失败");
+    }
+  }
+  
+  async createMetric(createMetricDto: CreateMetricDto, userId: string) {
+    this.logger.log(`开始处理设备 ${createMetricDto.deviceId} 的指标数据`, {
+      deviceId: createMetricDto.deviceId,
+      userId,
+    });
+
+    try {
+      // 验证设备是否存在且属于当前用户
+      const device = await this.prisma.device.findFirst({
+        where: { 
+          id: createMetricDto.deviceId,
+          userId: userId,
+          isActive: true
+        },
+      });
+
+      if (!device) {
+        this.logger.warn(`设备不存在或无权访问`, {
+          deviceId: createMetricDto.deviceId,
+          userId,
+        });
+        throw new NotFoundException("设备不存在或无权访问");
+      }
+
+      // 创建指标数据
+      const metric = await this.prisma.metric.create({
+        data: {
+          deviceId: createMetricDto.deviceId,
+          cpu: createMetricDto.cpu,
+          memory: createMetricDto.memory,
+          disk: createMetricDto.disk,
+          timestamp: createMetricDto.timestamp ? new Date(createMetricDto.timestamp) : new Date(),
+        },
+      });
+
+      // 更新设备状态为在线
+      await this.prisma.device.update({
+        where: { id: createMetricDto.deviceId },
+        data: {
+          lastSeen: new Date(),
+          status: "ONLINE",
+        },
+      });
+
+      this.logger.log(`设备 ${createMetricDto.deviceId} 指标数据处理成功`, {
+        metricId: metric.id,
+        deviceId: createMetricDto.deviceId,
+      });
+
+      return metric;
+    } catch (error) {
+      this.logger.error(`处理设备 ${createMetricDto.deviceId} 指标数据时发生错误`, {
+        error: error.message,
+        stack: error.stack,
+        deviceId: createMetricDto.deviceId,
+        userId,
+      });
+      
+      // 如果是已知的业务异常，直接抛出
+      if (error instanceof NotFoundException || error instanceof BusinessException) {
+        throw error;
+      }
+      
+      // 其他异常统一包装为业务异常
+      throw new BusinessException("指标数据处理失败");
+    }
+  }
+  
   async create(createDeviceDto: CreateDeviceDto, user: User) {
     this.validateUser(user)
     await this.validateDeviceGroup(createDeviceDto.deviceGroupId)
