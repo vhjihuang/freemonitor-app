@@ -10,7 +10,8 @@ export class BcryptHashingService implements HashingService {
   private readonly logger = new Logger(BcryptHashingService.name);
 
   constructor(private configService: ConfigService) {
-    this.saltRounds = this.configService.get<number>('HASH_SALT_ROUNDS', 10);
+    // 确保获取到有效的 saltRounds 值
+    this.saltRounds = this.configService.get<number>('HASH_SALT_ROUNDS') || 10;
 
     if (this.saltRounds < 4) {
       this.logger.warn('HASH_SALT_ROUNDS is too low (<4), may be insecure');
@@ -24,7 +25,12 @@ export class BcryptHashingService implements HashingService {
       throw new TypeError('Password must not be empty');
     }
     try {
-      return await bcrypt.hash(password, this.saltRounds);
+      // 确保 saltRounds 是有效数值
+      const rounds = typeof this.saltRounds === 'number' && !isNaN(this.saltRounds) 
+        ? this.saltRounds 
+        : 10;
+        
+      return await bcrypt.hash(password, rounds);
     } catch (err) {
       this.logger.error('Hashing failed', err.stack);
       throw new Error('Password hashing failed');

@@ -1,10 +1,11 @@
-import { Injectable, Inject, Logger, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Inject, Logger, UnauthorizedException, ConflictException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { BcryptHashingService } from "../hashing/hashing.service";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from '@nestjs/config'
 import { UserResponseDto } from './dto/user.response.dto'
 import { LoginDto } from './dto/login.dto'
+import { RegisterDto } from './dto/register.dto'
 import { TokenResponse } from '@freemonitor/types'
 import { HASHING_SERVICE } from '../hashing/hashing.service.token'
 import { JwtConfig } from '../config/jwt.config'
@@ -71,6 +72,65 @@ export class AuthService {
       expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
       user
     }
+  }
+
+  /**
+   * 用户注册
+   * @param registerDto 注册信息
+   * @returns 访问令牌和用户信息
+   */
+  async register(registerDto: RegisterDto) {
+    // 检查用户是否已存在
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: registerDto.email }
+    });
+
+    if (existingUser) {
+      throw new ConflictException('邮箱已被注册');
+    }
+
+    // 密码加密
+    const hashedPassword = await this.hashingService.hash(registerDto.password);
+
+    // 创建新用户
+    const user = await this.prisma.user.create({
+      data: {
+        email: registerDto.email,
+        password: hashedPassword,
+        name: registerDto.name,
+        // 默认为普通用户角色，如果需要管理员可以另外设置
+        role: 'USER',
+        isActive: true
+      },
+      select: { 
+        id: true, 
+        email: true, 
+        name: true 
+      }
+    });
+
+    // 生成JWT令牌
+    const payload = { sub: user.id, email: user.email };
+    const jwtConfig = this.configService.get<JwtConfig>('jwt');
+    
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: jwtConfig.expiresIn
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: jwtConfig.refreshIn
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
+      user: new UserResponseDto({
+        id: String(user.id),
+        email: user.email,
+        name: user.name ?? undefined
+      })
+    };
   }
 
   /**
