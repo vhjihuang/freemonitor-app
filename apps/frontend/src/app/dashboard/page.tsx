@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { logout } from '@/lib/auth';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -30,6 +31,14 @@ export default function DashboardPage() {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold">FreeMonitor 仪表板</h1>
+              <nav className="ml-6 flex space-x-4">
+                <button
+                  onClick={() => router.push('/devices')}
+                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  设备管理
+                </button>
+              </nav>
             </div>
             <div className="flex items-center">
               <span className="mr-4">欢迎, {user?.name || user?.email}</span>
@@ -51,10 +60,14 @@ export default function DashboardPage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg h-96">
             <h2 className="text-2xl font-bold p-8">设备监控仪表板</h2>
-            {/* 这里添加您的设备监控内容 */}
+            <div className="p-8">
+              <Button onClick={() => router.push('/devices')}>
+                查看所有设备
+              </Button>
+            </div>
           </div>
         </div>
       </main>
     </div>
   );
-} 
+}
