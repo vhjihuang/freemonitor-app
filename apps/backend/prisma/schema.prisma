@@ -171,6 +171,9 @@ model User {
   devices       Device[] // 用户拥有的设备
   createdAlerts Alert[] // 可选：用户创建的告警（未来扩展）
 
+  passwordResetToken String? @unique
+  passwordResetExpiresAt DateTime?
+
   @@index([email])
   @@index([isActive])
   @@index([role])

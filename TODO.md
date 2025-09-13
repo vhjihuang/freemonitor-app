@@ -1,21 +1,19 @@
 ## 🎯 **FreeMonitor 开发路线图**
 
 ### 📋 **阶段一：认证系统完善** (当前重点)
-```
-
-
+```markdown
 ## 🔐 后端认证 (apps/backend/src/auth/)
 - [x] 修复 `dev-auth.guard.ts` 配置问题
-- [x] 完善 `auth.service.ts` 登录逻辑
-- [x] 实现 JWT 策略验证
-- [x] 添加刷新令牌端点
-- [x] 创建用户注册服务
+- [ ] 完善 `auth.service.ts` 登录逻辑
+- [ ] 实现 JWT 策略验证
+- [ ] 添加刷新令牌端点
+- [ ] 创建用户注册服务
 - [ ] 添加密码重置功能
 - [ ] 实现权限装饰器
 
 ## 🖥️ 前端认证 (apps/frontend/src/app/auth/, apps/frontend/src/components/auth/)
-- [x] 完善登录页面功能
-- [x] 实现注册页面
+- [ ] 完善登录页面功能
+- [ ] 实现注册页面
 - [ ] 添加忘记密码页面
 - [ ] 创建认证上下文提供者
 - [ ] 实现路由守卫组件
@@ -24,9 +22,7 @@
 ```
 
 ### 📋 **阶段二：核心监控功能**
-```
-
-
+```markdown
 ## 📊 仪表盘 (apps/frontend/src/app/dashboard/, apps/backend/src/dashboard/)
 - [ ] 创建仪表盘布局组件
 - [ ] 实现状态概览卡片
@@ -44,9 +40,7 @@
 ```
 
 ### 📋 **阶段三：数据展示与处理**
-```
-
-
+```markdown
 ## 📈 指标处理 (apps/backend/src/devices/, packages/types/src/metric.types.ts)
 - [x] 实现指标数据收集服务
 - [ ] 创建指标查询接口
@@ -63,9 +57,7 @@
 ```
 
 ### 📋 **阶段四：用户体验优化**
-```
-
-
+```markdown
 ## 🎨 UI组件库 (apps/frontend/src/components/ui/, packages/ui/)
 - [ ] 创建基础UI组件 (Button, Card, Input等)
 - [ ] 实现数据表格组件
@@ -82,9 +74,7 @@
 ```
 
 ### 📋 **阶段五：API与数据流**
-```
-
-
+```markdown
 ## 🔌 API客户端 (apps/frontend/src/lib/api.ts)
 - [ ] 完善API请求封装
 - [ ] 添加请求重试机制
@@ -101,9 +91,7 @@
 ```
 
 ### 📋 **阶段六：后端服务完善**
-```
-
-
+```markdown
 ## 🗃️ 数据库服务 (apps/backend/src/prisma/)
 - [ ] 优化Prisma服务配置
 - [ ] 添加数据库事务处理
@@ -120,9 +108,7 @@
 ```
 
 ### 📋 **阶段七：测试与质量**
-```
-
-
+```markdown
 ## 🧪 单元测试 (apps/backend/src/**/*.spec.ts)
 - [ ] 编写认证服务测试
 - [ ] 添加设备服务测试
@@ -137,9 +123,7 @@
 ```
 
 ### 📋 **阶段八：部署与运维**
-```
-
-
+```markdown
 ## 🐳 容器化 (docker/, docker-compose.yml)
 - [ ] 优化Docker配置文件
 - [ ] 添加多阶段构建
@@ -154,9 +138,7 @@
 ```
 
 ### 📋 **阶段九：文档与维护**
-```
-
-
+```markdown
 ## 📖 项目文档 (README.md, docs/)
 - [ ] 完善项目README
 - [ ] 添加API文档
