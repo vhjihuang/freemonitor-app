@@ -5,8 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { RegisterForm } from '@/components/auth/RegisterForm';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { apiClient } from '@/lib/api';
-import { TokenResponse } from '@freemonitor/types';
+import { register } from '@/lib/auth';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,18 +15,8 @@ export default function RegisterPage() {
     try {
       setError(null);
       
-      const data = await apiClient.post<TokenResponse>('/auth/register', { email, password, name });
-
-      if (!data) {
-        throw new Error('注册失败');
-      }
-
-      // 保存 token 到 localStorage
-      localStorage.setItem('accessToken', data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      localStorage.setItem('user', JSON.stringify(data.user));
+      // 使用 auth.ts 中的 register 函数
+      await register(email, password, name);
 
       // 重定向到仪表板
       router.push('/dashboard');

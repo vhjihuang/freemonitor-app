@@ -5,9 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { apiClient } from '@/lib/api';
-import { TokenResponse } from '@freemonitor/types';
-import { saveAuthData } from '@/lib/auth';
+import { login } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,11 +15,8 @@ export default function LoginPage() {
     try {
       setError(null);
       
-      // 使用 apiClient
-      const data = await apiClient.post<TokenResponse>('/auth/login', { email, password });
-
-      // 保存 token 到 localStorage
-      saveAuthData(data);
+      // 使用 auth.ts 中的 login 函数
+      await login(email, password);
 
       // 重定向到仪表板
       router.push('/dashboard');

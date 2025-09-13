@@ -2,6 +2,8 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { apiClient } from '@/lib/api';
+import { TokenResponse } from '@freemonitor/types';
 
 interface RegisterData {
   email: string;
@@ -13,11 +15,11 @@ interface RegisterResponse {
   success: boolean;
   data?: {
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
     user: {
       id: string;
       email: string;
-      name: string;
+      name?: string;
     };
   };
   error?: string;
@@ -49,20 +51,12 @@ export async function registerAction(formData: FormData): Promise<RegisterRespon
     }
 
     // 调用后端 API
-    const response = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:3001'}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name }),
-    });
+    const data = await apiClient.post<TokenResponse>('/auth/register', { email, password, name });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!data) {
       return {
         success: false,
-        error: data.message || '注册失败'
+        error: '注册失败'
       };
     }
 
@@ -75,27 +69,34 @@ export async function registerAction(formData: FormData): Promise<RegisterRespon
       path: '/',
     });
 
-    cookieStore.set('refreshToken', data.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    });
+    // refreshToken 可能不存在，需要检查
+    if (data.refreshToken) {
+      cookieStore.set('refreshToken', data.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+    }
 
     return {
       success: true,
       data: {
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        user: data.user
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name
+        }
       }
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('注册错误:', error);
     return {
       success: false,
-      error: '网络错误，请稍后重试'
+      error: error.response?.data?.message || '网络错误，请稍后重试'
     };
   }
 }
@@ -119,20 +120,13 @@ export async function loginAction(formData: FormData): Promise<{
       };
     }
 
-    const response = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:3001'}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    // 调用后端 API
+    const data = await apiClient.post<TokenResponse>('/auth/login', { email, password });
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!data) {
       return {
         success: false,
-        error: data.message || '登录失败'
+        error: '登录失败'
       };
     }
 
@@ -145,21 +139,23 @@ export async function loginAction(formData: FormData): Promise<{
       path: '/',
     });
 
-    cookieStore.set('refreshToken', data.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/',
-    });
+    if (data.refreshToken) {
+      cookieStore.set('refreshToken', data.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+    }
 
     // 重定向到仪表板
     redirect('/dashboard');
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('登录错误:', error);
     return {
       success: false,
-      error: '网络错误，请稍后重试'
+      error: error.response?.data?.message || '网络错误，请稍后重试'
     };
   }
 }
