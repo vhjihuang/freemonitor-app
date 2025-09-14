@@ -3,8 +3,8 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class MailService {
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    // 在实际实现中，这里会使用真实的邮件服务如Nodemailer、SendGrid等
-    // 当前仅记录日志，后续可以替换为真实的邮件发送逻辑
+    // 当前实现仅为开发测试用，将邮件内容输出到控制台
+    // TODO: 集成真实的邮件服务（如Nodemailer、SendGrid等）以发送真实邮件
     
     const resetUrl = `http://localhost:3000/auth/reset-password?token=${token}`;
     
@@ -14,8 +14,7 @@ export class MailService {
     console.log(`重置链接: ${resetUrl}`);
     console.log('=====================================');
     
-    // TODO: 实现真实的邮件发送逻辑
-    // 示例:
+    // 真实邮件服务实现示例:
     // await this.mailerService.sendMail({
     //   to: email,
     //   subject: '密码重置',
