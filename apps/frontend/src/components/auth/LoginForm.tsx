@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Link from 'next/link';
 
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => void;
@@ -61,9 +62,9 @@ export function LoginForm({ onSubmit, error }: LoginFormProps) {
 
       <div className="flex items-center justify-between">
         <div className="text-sm">
-          <a href="#" className="text-blue-600 hover:text-blue-800">
+          <Link href="/auth/forgot-password" className="text-blue-600 hover:text-blue-800">
             忘记密码？
-          </a>
+          </Link>
         </div>
       </div>
 

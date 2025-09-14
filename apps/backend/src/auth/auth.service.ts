@@ -9,6 +9,7 @@ import { RegisterDto } from './dto/register.dto'
 import { TokenResponse } from '@freemonitor/types'
 import { HASHING_SERVICE } from '../hashing/hashing.service.token'
 import { JwtConfig } from '../config/jwt.config'
+import { MailService } from '../mail/mail.service'
 
 @Injectable()
 export class AuthService {
@@ -17,7 +18,8 @@ export class AuthService {
     private prisma: PrismaService,
     @Inject(HASHING_SERVICE) private hashingService: BcryptHashingService,
     private jwtService: JwtService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private mailService: MailService
   ) {}
 
   /**
@@ -162,5 +164,94 @@ export class AuthService {
       this.logger.warn('Refresh token validation failed', error.stack);
       throw new UnauthorizedException('刷新令牌无效');
     }
+  }
+
+  /**
+   * 生成密码重置令牌
+   * @param email 用户邮箱
+   */
+  async generatePasswordResetToken(email: string): Promise<void> {
+    this.logger.log(`Processing forgot password request for email: ${email}`);
+    
+    // 查找用户
+    const user = await this.prisma.user.findUnique({
+      where: { email, isActive: true },
+    });
+
+    if (!user) {
+      this.logger.log(`No active user found for email: ${email}`);
+      // 为了安全，即使用户不存在也不透露信息
+      return;
+    }
+
+    // 生成随机令牌
+    const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+    
+    // 设置令牌过期时间（1小时）
+    const expiresAt = new Date(Date.now() + 3600000);
+
+    this.logger.log(`Generated reset token for user ${email}: ${token}`);
+    this.logger.log(`Token expires at: ${expiresAt}`);
+
+    // 保存令牌和过期时间到数据库
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: token,
+        passwordResetExpiresAt: expiresAt,
+      },
+    });
+
+    // 发送包含重置链接的邮件给用户
+    await this.mailService.sendPasswordResetEmail(user.email, token);
+    this.logger.log(`Password reset email sent to user ${email}`);
+  }
+
+  /**
+   * 根据邮箱获取重置令牌（仅用于测试）
+   * @param email 用户邮箱
+   * @returns 重置令牌
+   */
+  async getResetTokenByEmail(email: string): Promise<string | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { email }
+    });
+    
+    return user?.passwordResetToken || null;
+  }
+
+  /**
+   * 使用重置令牌更新密码
+   * @param token 重置令牌
+   * @param password 新密码
+   */
+  async updatePasswordWithResetToken(token: string, password: string): Promise<void> {
+    // 查找令牌有效且未过期的用户
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
+        passwordResetExpiresAt: {
+          gte: new Date(),
+        },
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('无效或已过期的重置令牌');
+    }
+
+    // 加密新密码
+    const hashedPassword = await this.hashingService.hash(password);
+
+    // 更新用户密码并清除重置令牌
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+      },
+    });
   }
 }

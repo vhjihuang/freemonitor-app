@@ -1,4 +1,4 @@
-import { Moon, Sun, Laptop, Loader2, User, Lock, Eye, EyeOff } from 'lucide-react'
+import { Moon, Sun, Laptop, Loader2, User, Lock, Eye, EyeOff, ChevronLeft, CheckCircle, AlertCircle } from 'lucide-react'
 
 export const Icons = {
   moon: Moon,
@@ -9,4 +9,7 @@ export const Icons = {
   lock: Lock,
   eye: Eye,
   eyeOff: EyeOff,
+  chevronLeft: ChevronLeft,
+  checkCircle: CheckCircle,
+  alertCircle: AlertCircle,
 }

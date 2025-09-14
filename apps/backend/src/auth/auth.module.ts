@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { MailModule } from '../mail/mail.module';
 
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -20,6 +21,7 @@ import { HashingModule } from '../hashing/hashing.module';
       }),
       inject: [ConfigService],
     }),
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [
