@@ -7,7 +7,7 @@ import { DevicesModule } from "./devices/device.module";
 import { HealthModule } from "./health/health.module";
 import { HealthController } from "./health/health.controller";
 import { SecurityModule } from "./security/security.module";
-import { AuthController } from "./auth/auth.controller";
+// 移除 AuthController 的导入，因为它已经在 AuthModule 中注册
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
 import { jwtConfig, devUserConfig } from "./config/jwt.config";
@@ -29,7 +29,7 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
       envFilePath: [".env"], // 明确指定路径
     }),
   ],
-  controllers: [AppController, HealthController, AuthController],
+  controllers: [AppController, HealthController], // 移除 AuthController
   providers: [
     AppService, // 添加全局异常过滤器
     {

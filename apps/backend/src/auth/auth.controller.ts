@@ -1,103 +1,106 @@
-import { Body, Controller, HttpCode, Post, Logger, HttpStatus, BadRequestException, Get, Query } from '@nestjs/common';
-import { AuthService } from './auth.service'
-import { LoginDto } from './dto/login.dto'
-import { RegisterDto } from './dto/register.dto'
+// src/auth/auth.controller.ts
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Get,
+  UseGuards,
+  Request,
+  Patch,
+  Param,
+} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { Public } from './decorators/public.decorator';
+import { Roles } from './decorators/roles.decorator';
+import { DevAuthGuard } from './guards/dev-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Role } from '@freemonitor/types';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { ApiCommonResponses } from '../common/decorators/api-common-responses.decorator';
+import { TokenResponse } from '@freemonitor/types';
+import { UserResponseDto } from '@freemonitor/types';
 
 @Controller('auth')
 export class AuthController {
-  private readonly logger = new Logger(AuthController.name)
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
+  @Public()
+  @HttpCode(HttpStatus.OK)
   @Post('login')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiCommonResponses()
-  async login(@Body() loginDto: LoginDto) {
-    this.logger.log(`Login attempt for ${loginDto.email}`);
-    try {
-      const result = await this.authService.login(loginDto)
-      this.logger.log(`Login success: ${loginDto.email}`);
-      return result
-    } catch(error) {
-      this.logger.warn(`Login failed for ${loginDto.email}: ${error.message}`);
-      throw error;
-    }
+  async login(@Body() loginDto: LoginDto): Promise<{ 
+    accessToken: string; 
+    refreshToken: string;
+    user: UserResponseDto;
+  }> {
+    return this.authService.login(loginDto);
   }
 
+  @Public()
   @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiCommonResponses()
-  async register(@Body() registerDto: RegisterDto) {
-    this.logger.log(`Registration attempt for ${registerDto.email}`);
-    try {
-      const result = await this.authService.register(registerDto);
-      this.logger.log(`Registration success: ${registerDto.email}`);
-      return result;
-    } catch (error) {
-      this.logger.warn(`Registration failed for ${registerDto.email}: ${error.message}`);
-      throw error;
-    }
+  async register(@Body() registerDto: RegisterDto): Promise<{ 
+    accessToken: string; 
+    refreshToken: string;
+    user: UserResponseDto;
+  }> {
+    return this.authService.register(registerDto);
   }
 
-  @Post('forgot-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiCommonResponses()
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    this.logger.log(`Password reset requested for ${forgotPasswordDto.email}`);
-    try {
-      await this.authService.generatePasswordResetToken(forgotPasswordDto.email);
-      return { 
-        message: '如果邮箱存在，密码重置链接已发送' 
-      };
-    } catch (error) {
-      this.logger.warn(`Password reset failed for ${forgotPasswordDto.email}: ${error.message}`);
-      // 为了安全，即使出错也返回成功信息
-      return { 
-        message: '如果邮箱存在，密码重置链接已发送' 
-      };
-    }
-  }
-
-  // 测试环境专用：触发密码重置流程并返回真实的数据库令牌
-  @Get('test-reset-token')
-  @HttpCode(HttpStatus.OK)
-  async generateTestResetToken(@Query('email') email: string) {
-    if (process.env.NODE_ENV !== 'development') {
-      throw new BadRequestException('此端点仅在开发环境可用');
-    }
-    
-    // 触发密码重置流程
-    await this.authService.generatePasswordResetToken(email);
-    
-    // 获取用户和真实的重置令牌
-    const token = await this.authService.getResetTokenByEmail(email);
-    
-    if (!token) {
-      throw new BadRequestException('无法生成重置令牌');
-    }
-
-    return { 
-      message: '测试重置令牌已生成',
-      token: token,
-      resetUrl: `http://localhost:3000/auth/reset-password?token=${token}`
+  @Public()
+  @Post('refresh')
+  async refresh(@Body('refreshToken') refreshToken: string): Promise<TokenResponse> {
+    const result = await this.authService.refresh(refreshToken);
+    return {
+      ...result,
+      refreshToken: undefined
     };
   }
 
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiCommonResponses()
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    this.logger.log('Password reset attempt');
-    try {
-      await this.authService.updatePasswordWithResetToken(resetPasswordDto.token, resetPasswordDto.password);
-      return { 
-        message: '密码重置成功' 
-      };
-    } catch (error) {
-      this.logger.warn(`Password reset failed: ${error.message}`);
-      throw error;
-    }
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.generatePasswordResetToken(forgotPasswordDto.email);
+    return { message: 'Password reset email sent' };
+  }
+
+  @Public()
+  @Patch('reset-password/:token')
+  async resetPassword(
+    @Param('token') token: string,
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ) {
+    await this.authService.updatePasswordWithResetToken(token, resetPasswordDto.password);
+    return { message: 'Password successfully reset' };
+  }
+
+  @UseGuards(DevAuthGuard)
+  @Get('profile')
+  getProfile(@Request() req) {
+    return req.user;
+  }
+
+  // 示例：需要管理员权限的端点
+  @UseGuards(DevAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get('admin')
+  getAdminData(@Request() req) {
+    return {
+      message: 'This is admin-only data',
+      user: req.user,
+    };
+  }
+
+  // 示例：普通用户或管理员都可以访问的端点
+  @UseGuards(DevAuthGuard, RolesGuard)
+  @Roles(Role.USER, Role.ADMIN)
+  @Get('user')
+  getUserData(@Request() req) {
+    return {
+      message: 'This is user data',
+      user: req.user,
+    };
   }
 }

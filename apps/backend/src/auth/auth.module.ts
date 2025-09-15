@@ -1,34 +1,36 @@
+// src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
-import { MailModule } from '../mail/mail.module';
-
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { DevAuthGuard } from './guards/dev-auth.guard';
-import { PrismaModule } from '../../prisma/prisma.module';
 import { HashingModule } from '../hashing/hashing.module';
+import { DevAuthGuard } from './guards/dev-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { PrismaModule } from '../../prisma/prisma.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
     PrismaModule,
-    HashingModule,
+    MailModule,
     JwtModule.registerAsync({
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('jwt.secret'),
-        signOptions: { expiresIn: configService.get('jwt.expiresIn') },
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
+        signOptions: { expiresIn: configService.getOrThrow<string>('JWT_EXPIRES_IN') },
       }),
       inject: [ConfigService],
     }),
-    MailModule,
+    HashingModule,
   ],
   controllers: [AuthController],
   providers: [
-    AuthService, 
+    AuthService,
     JwtStrategy,
     DevAuthGuard,
+    RolesGuard,
   ],
-  exports: [AuthService, DevAuthGuard],
+  exports: [AuthService, DevAuthGuard, RolesGuard],
 })
 export class AuthModule {}

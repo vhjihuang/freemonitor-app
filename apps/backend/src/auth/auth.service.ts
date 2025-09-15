@@ -33,7 +33,7 @@ export class AuthService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { email, deletedAt: null, isActive: true },
-        select: { id: true, email: true, name: true, password: true }
+        select: { id: true, email: true, name: true, password: true, role: true }
       })
 
       if (!user?.password) return null;
@@ -138,7 +138,7 @@ export class AuthService {
   /**
    * 刷新 access token（可选实现）
    */
-  async refresh(token: string): Promise<{ accessToken: string; user: UserResponseDto }> {
+  async refresh(token: string): Promise<{ accessToken: string; user: UserResponseDto, expiresIn: number }> {
     try {
       const jwtConfig = this.configService.get<JwtConfig>('jwt')
       const payload = this.jwtService.verify(token, {
@@ -159,7 +159,11 @@ export class AuthService {
         { expiresIn: jwtConfig.expiresIn },
       );
 
-      return { accessToken, user: new UserResponseDto({ id: user.id, email: user.email, name: user.name }), };
+      return { 
+        accessToken, 
+        user: new UserResponseDto({ id: user.id, email: user.email, name: user.name }), 
+        expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900)
+      };
     } catch (error) {
       this.logger.warn('Refresh token validation failed', error.stack);
       throw new UnauthorizedException('刷新令牌无效');

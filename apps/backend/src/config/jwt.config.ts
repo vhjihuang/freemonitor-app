@@ -1,5 +1,6 @@
 // apps/backend/src/config/jwt.config.ts
 import { registerAs } from "@nestjs/config";
+import { Role } from '@freemonitor/types';
 
 export interface JwtConfig {
   secret: string;
@@ -11,7 +12,7 @@ export interface devUserConfig {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: Role;
   isActive: boolean;
 }
 
@@ -24,10 +25,25 @@ export const jwtConfig = registerAs(
   })
 );
 
-export const devUserConfig = registerAs("devUser", (): devUserConfig => ({
-  id: process.env.DEV_USER_ID ?? "cmf8gshjd00003z1v0wh8b8to",
-  email: process.env.DEV_USER_EMAIL ?? "e2e@freemonitor.dev",
-  name: process.env.DEV_USER_NAME ?? "E2E User",
-  role: process.env.DEV_USER_ROLE ?? "USER",
-  isActive: true,
-}));
+export const devUserConfig = registerAs("devUser", (): devUserConfig => {
+  const roleString = process.env.DEV_USER_ROLE ?? "USER";
+  let role: Role;
+  
+  switch (roleString.toUpperCase()) {
+    case 'ADMIN':
+      role = Role.ADMIN;
+      break;
+    case 'USER':
+    default:
+      role = Role.USER;
+      break;
+  }
+  
+  return {
+    id: process.env.DEV_USER_ID ?? "cmf8gshjd00003z1v0wh8b8to",
+    email: process.env.DEV_USER_EMAIL ?? "e2e@freemonitor.dev",
+    name: process.env.DEV_USER_NAME ?? "E2E User",
+    role: role,
+    isActive: true,
+  };
+});

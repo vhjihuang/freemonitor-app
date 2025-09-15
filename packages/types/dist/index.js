@@ -20,3 +20,4 @@ __exportStar(require("./metric.types"), exports);
 __exportStar(require("./alert.types"), exports);
 __exportStar(require("./response.types"), exports);
 __exportStar(require("./error-codes.constants"), exports);
+__exportStar(require("./roles"), exports);
