@@ -1,15 +1,17 @@
-import { Injectable, Inject, Logger, UnauthorizedException, ConflictException, BadRequestException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, InternalServerErrorException, Logger, Inject } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { BcryptHashingService } from "../hashing/hashing.service";
 import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from '@nestjs/config'
-import { UserResponseDto } from './dto/user.response.dto'
-import { LoginDto } from './dto/login.dto'
-import { RegisterDto } from './dto/register.dto'
-import { TokenResponse } from '@freemonitor/types'
-import { HASHING_SERVICE } from '../hashing/hashing.service.token'
-import { JwtConfig } from '../config/jwt.config'
-import { MailService } from '../mail/mail.service'
+import { ConfigService } from '@nestjs/config';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { TokenResponse } from '@freemonitor/types';
+import { HASHING_SERVICE } from '../hashing/hashing.service.token';
+import { JwtConfig } from '../config/jwt.config';
+import { MailService } from '../mail/mail.service';
+import { User } from '@prisma/client';
+import { UserResponseDto } from '@freemonitor/types';
+import { Role } from '@freemonitor/types';
 
 @Injectable()
 export class AuthService {
@@ -41,11 +43,12 @@ export class AuthService {
       const isPasswordValid  = await this.hashingService.compare(password, user.password);
       if(!isPasswordValid) return null;
 
-      return new UserResponseDto({
+      return {
         id: String(user.id),
         email: user.email,
-        name: user.name ?? undefined
-      })
+        name: user.name ?? undefined,
+        role: user.role as Role
+      };
 
     } catch(error) {
        this.logger.error(`登录失败: ${email}`, error.stack);
@@ -72,7 +75,10 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
-      user
+      user: {
+        ...user,
+        role: user.role as Role
+      }
     }
   }
 
@@ -107,14 +113,14 @@ export class AuthService {
       select: { 
         id: true, 
         email: true, 
-        name: true 
+        name: true,
+        role: true
       }
     });
 
     // 生成JWT令牌
     const payload = { sub: user.id, email: user.email };
     const jwtConfig = this.configService.get<JwtConfig>('jwt');
-    
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: jwtConfig.expiresIn
     });
@@ -127,11 +133,10 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
-      user: new UserResponseDto({
-        id: String(user.id),
-        email: user.email,
-        name: user.name ?? undefined
-      })
+      user: {
+        ...user,
+        role: user.role as Role
+      }
     };
   }
 
@@ -147,7 +152,7 @@ export class AuthService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub, deletedAt: null, isActive: true },
-        select: { id: true, email: true, name: true },
+        select: { id: true, email: true, name: true, role: true },
       });
 
       if (!user) {
@@ -161,7 +166,12 @@ export class AuthService {
 
       return { 
         accessToken, 
-        user: new UserResponseDto({ id: user.id, email: user.email, name: user.name }), 
+        user: {
+          id: String(user.id),
+          email: user.email,
+          name: user.name ?? undefined,
+          role: user.role as Role
+        }, 
         expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900)
       };
     } catch (error) {

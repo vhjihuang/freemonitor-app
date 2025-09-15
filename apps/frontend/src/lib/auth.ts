@@ -1,13 +1,9 @@
 // src/lib/auth.ts
 import { apiClient } from '@/lib/api';
-import { TokenResponse } from '@freemonitor/types';
+import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 
 // 认证相关类型
-export interface User {
-  id: string;
-  email: string;
-  name?: string;
-}
+export interface User extends UserResponseDto {}
 
 export interface AuthTokens {
   accessToken: string;

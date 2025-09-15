@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { getCurrentUser, isAuthenticated } from '@/lib/auth';
+import { UserResponseDto } from '@freemonitor/types';
 
 interface AuthState {
-  user: any | null;
+  user: UserResponseDto | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
