@@ -10,6 +10,8 @@ import { DeviceForm } from '@/components/devices/DeviceForm';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Server } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { NavigationHeader } from '@/components/layout/NavigationHeader';
 
 export default function DevicesPage() {
   const { data: devices, isLoading, error, refetch } = useDevices();
@@ -50,14 +52,25 @@ export default function DevicesPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Devices Management</h1>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Device
-        </Button>
-      </div>
+    <div className="flex h-screen bg-gray-50">
+      {/* 侧边栏导航 */}
+      <Sidebar currentPath="/devices" />
+      
+      {/* 主内容区 */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* 顶部导航 */}
+        <NavigationHeader currentPage="设备管理" />
+        
+        {/* 主要内容 */}
+        <main className="flex-1 overflow-y-auto p-6">
+          <div className="container mx-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-3xl font-bold">设备管理</h1>
+              <Button onClick={() => setIsFormOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加设备
+              </Button>
+            </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {devices?.map((device) => (
@@ -93,7 +106,9 @@ export default function DevicesPage() {
             onCancel={handleCloseForm}
           />
         </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+      </Dialog></div>
+          </main>
+        </div>
+      </div>
+    );
+  }

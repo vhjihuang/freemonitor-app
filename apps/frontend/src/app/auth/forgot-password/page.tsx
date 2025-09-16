@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icons } from '@/components/icons'
 import Link from 'next/link'
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
+import { SuccessResponse } from '@freemonitor/types'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -25,8 +26,8 @@ export default function ForgotPasswordPage() {
     setMessage(null)
 
     try {
-      const response = await apiClient.post('/auth/forgot-password', { email })
-      setMessage(response.data.message)
+      const data = await apiClient.post<SuccessResponse<{ message: string }>>('/auth/forgot-password', { email })
+      setMessage(data.message)
     } catch (err: any) {
       setError(err.message || '请求失败，请稍后重试')
     } finally {

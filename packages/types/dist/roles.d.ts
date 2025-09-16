@@ -1,4 +1,5 @@
 export declare enum Role {
+    VIEWER = "VIEWER",
     USER = "USER",
     ADMIN = "ADMIN"
 }

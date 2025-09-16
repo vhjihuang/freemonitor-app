@@ -145,6 +145,11 @@ export class AuthService {
    */
   async refresh(token: string): Promise<{ accessToken: string; user: UserResponseDto, expiresIn: number }> {
     try {
+      // 检查token是否为空
+      if (!token) {
+        throw new UnauthorizedException('刷新令牌不能为空');
+      }
+      
       const jwtConfig = this.configService.get<JwtConfig>('jwt')
       const payload = this.jwtService.verify(token, {
         secret: jwtConfig.secret

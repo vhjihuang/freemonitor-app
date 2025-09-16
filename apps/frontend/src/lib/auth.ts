@@ -78,7 +78,7 @@ export async function refreshTokens(): Promise<AuthTokens | null> {
   if (!refreshToken) return null;
 
   try {
-    const data = await apiClient.post<TokenResponse>('/auth/refresh', { token: refreshToken });
+    const data = await apiClient.post<TokenResponse>('/auth/refresh', { refreshToken: refreshToken });
     
     if (!data) {
       logout();
@@ -103,4 +103,13 @@ export function logout(): void {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
+  
+  // 创建自定义事件，通知应用认证状态已更改
+  const authChangeEvent = new CustomEvent('authStateChanged', { detail: { isAuthenticated: false } });
+  window.dispatchEvent(authChangeEvent);
+  
+  // 立即重定向到登录页面
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
 }

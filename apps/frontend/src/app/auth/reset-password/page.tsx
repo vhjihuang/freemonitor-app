@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icons } from '@/components/icons'
 import Link from 'next/link'
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
+import { SuccessResponse } from '@freemonitor/types'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -50,11 +51,11 @@ export default function ResetPasswordPage() {
     setMessage(null)
 
     try {
-      const response = await apiClient.post('/auth/reset-password', { 
+      const data = await apiClient.post<SuccessResponse<{ message: string }>>('/auth/reset-password', { 
         token, 
         password 
       })
-      setMessage(response.data.message)
+      setMessage(data.message)
       
       // 重置成功后3秒跳转到登录页
       setTimeout(() => {
@@ -62,7 +63,7 @@ export default function ResetPasswordPage() {
       }, 3000)
     } catch (err: any) {
       console.error('Reset password error:', err)
-      setError(err.response?.data?.message || err.message || '密码重置失败，请稍后重试')
+      setError(err.message || '密码重置失败，请稍后重试')
     } finally {
       setIsLoading(false)
     }

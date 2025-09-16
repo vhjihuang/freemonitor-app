@@ -7,6 +7,7 @@ import { DevicesModule } from "./devices/device.module";
 import { HealthModule } from "./health/health.module";
 import { HealthController } from "./health/health.controller";
 import { SecurityModule } from "./security/security.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 // 移除 AuthController 的导入，因为它已经在 AuthModule 中注册
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
@@ -23,6 +24,7 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
     HealthModule,
     SecurityModule,
     AuthModule,
+    DashboardModule,
     ConfigModule.forRoot({
       load: [jwtConfig, devUserConfig],
       isGlobal: true,
