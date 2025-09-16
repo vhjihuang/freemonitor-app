@@ -31,28 +31,26 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() loginDto: LoginDto): Promise<{ 
-    accessToken: string; 
-    refreshToken: string;
-    user: UserResponseDto;
-  }> {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.login(loginDto, ip, userAgent);
   }
 
   @Public()
   @Post('register')
-  async register(@Body() registerDto: RegisterDto): Promise<{ 
-    accessToken: string; 
-    refreshToken: string;
-    user: UserResponseDto;
-  }> {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto, @Request() req): Promise<TokenResponse> {
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.register(registerDto, ip, userAgent);
   }
 
   @Public()
   @Post('refresh')
-  async refresh(@Body('refreshToken') refreshToken: string): Promise<TokenResponse> {
-    const result = await this.authService.refresh(refreshToken);
+  async refresh(@Body('refreshToken') refreshToken: string, @Request() req): Promise<TokenResponse> {
+    const ip = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'] || '';
+    const result = await this.authService.refresh(refreshToken, ip, userAgent);
     return {
       ...result,
       refreshToken: undefined
@@ -102,5 +100,12 @@ export class AuthController {
       message: 'This is user data',
       user: req.user,
     };
+  }
+
+  @Public()
+  @Post('logout')
+  async logout(@Body('refreshToken') refreshToken: string) {
+    await this.authService.logout(refreshToken);
+    return { message: 'Successfully logged out' };
   }
 }

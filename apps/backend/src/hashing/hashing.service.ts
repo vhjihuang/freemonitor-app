@@ -1,15 +1,20 @@
 // src/hashing/hashing.service.ts
 import * as bcrypt from 'bcrypt';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HashingService } from './hashing.service.interface';
+import { AppLoggerService } from '../common/services/logger.service';
 
 @Injectable()
 export class BcryptHashingService implements HashingService {
   private readonly saltRounds: number;
-  private readonly logger = new Logger(BcryptHashingService.name);
+  private readonly logger: AppLoggerService;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    appLoggerService: AppLoggerService
+  ) {
+    this.logger = appLoggerService.createLogger(BcryptHashingService.name);
     // 确保获取到有效的 saltRounds 值
     this.saltRounds = this.configService.get<number>('HASH_SALT_ROUNDS') || 10;
 
@@ -21,7 +26,9 @@ export class BcryptHashingService implements HashingService {
   }
 
   async hash(password: string): Promise<string> {
+    this.logger.debug('开始密码哈希处理');
     if (!password) {
+      this.logger.warn('密码不能为空');
       throw new TypeError('Password must not be empty');
     }
     try {
@@ -30,19 +37,27 @@ export class BcryptHashingService implements HashingService {
         ? this.saltRounds 
         : 10;
         
-      return await bcrypt.hash(password, rounds);
+      const hashedPassword = await bcrypt.hash(password, rounds);
+      this.logger.debug('密码哈希处理完成');
+      return hashedPassword;
     } catch (err) {
-      this.logger.error('Hashing failed', err.stack);
+      this.logger.error('密码哈希处理失败', err.stack);
       throw new Error('Password hashing failed');
     }
   }
 
   async compare(password: string, hash: string): Promise<boolean> {
-    if (!password || !hash) return false;
+    this.logger.debug('开始密码比较');
+    if (!password || !hash) {
+      this.logger.warn('密码或哈希值为空');
+      return false;
+    }
     try {
-      return await bcrypt.compare(password, hash);
+      const result = await bcrypt.compare(password, hash);
+      this.logger.debug('密码比较完成', undefined, { result });
+      return result;
     } catch (err) {
-      this.logger.warn('Compare failed', err.stack);
+      this.logger.warn('密码比较失败', err.stack);
       return false;
     }
   }

@@ -39,11 +39,17 @@ describe("AuthService", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        {
-          provide: PrismaService,
+        {          provide: PrismaService,
           useValue: {
             user: {
               findUnique: jest.fn(),
+              update: jest.fn(),
+            },
+            refreshToken: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+              update: jest.fn(),
+              deleteMany: jest.fn(),
             },
           },
         },
@@ -156,7 +162,7 @@ describe("AuthService", () => {
     });
 
     it("should return TokenResponse with tokens and user", async () => {
-      const result = await service.login(mockLoginDto);
+      const result = await service.login(mockLoginDto, '127.0.0.1', 'test-user-agent');
 
       expect(result).toMatchObject({
         accessToken: "signed-jwt-token",
@@ -180,8 +186,8 @@ describe("AuthService", () => {
     it("should throw UnauthorizedException if validateUser returns null", async () => {
       jest.spyOn(service, "validateUser").mockResolvedValue(null);
 
-      await expect(service.login(mockLoginDto)).rejects.toThrow(UnauthorizedException);
-      await expect(service.login(mockLoginDto)).rejects.toThrow("邮箱或密码错误");
+      await expect(service.login(mockLoginDto, '127.0.0.1', 'test-user-agent')).rejects.toThrow(UnauthorizedException);
+      await expect(service.login(mockLoginDto, '127.0.0.1', 'test-user-agent')).rejects.toThrow("邮箱或密码错误");
     });
   });
 });

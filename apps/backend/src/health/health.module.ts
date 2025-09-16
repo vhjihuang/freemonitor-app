@@ -3,13 +3,10 @@ import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppLoggerService } from '../common/services/logger.service';
 
 @Module({
   controllers: [HealthController],
-  providers: [
-    HealthService,
-    PrismaService, // 如果 HealthService 依赖它，也需要提供
-  ],
-  exports: [HealthService], // 如果其他模块要使用 HealthService
+  providers: [HealthService, PrismaService, AppLoggerService],
 })
 export class HealthModule {}

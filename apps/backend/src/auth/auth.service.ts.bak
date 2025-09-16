@@ -1,16 +1,19 @@
 import { Injectable, Inject, BadRequestException, UnauthorizedException, ConflictException, InternalServerErrorException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from "../../prisma/prisma.service";
+import { BcryptHashingService } from "../hashing/hashing.service";
+import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from '@nestjs/config';
-import { TokenResponse, UserResponseDto, Role } from '@freemonitor/types';
-import { PrismaService } from '../../prisma/prisma.service';
-import { BcryptHashingService } from '../hashing/hashing.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { TokenResponse } from '@freemonitor/types';
 import { HASHING_SERVICE } from '../hashing/hashing.service.token';
 import { JwtConfig } from '../config/jwt.config';
 import { MailService } from '../mail/mail.service';
+import { User } from '@prisma/client';
+import { UserResponseDto } from '@freemonitor/types';
+import { Role } from '@freemonitor/types';
 import { AppLoggerService } from '../common/services/logger.service';
-import { TokenBlacklistService } from './token-blacklist.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { TokenBlacklistService } from './services/token-blacklist.service';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +38,7 @@ export class AuthService {
    * @param password 明文密码
    * @returns 用户对象（不含密码）
    */
-  async validateUser(email: string, password: string ): Promise< UserResponseDto | null> {
+  async validateUser(email: string, password: string ) : Promise< UserResponseDto | null> {
     const startTime = Date.now();
     
     // 输入验证
@@ -45,251 +48,132 @@ export class AuthService {
     }
     
     this.logger.debug(`开始验证用户: ${email}`);
-
+    
     try {
-      // 查找用户
+      // 查找活跃用户
       const user = await this.prisma.user.findUnique({
-        where: { email },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          password: true,
-          role: true,
-          isActive: true,
-          deletedAt: true
-        }
+        where: { email, deletedAt: null, isActive: true },
+        select: { id: true, email: true, name: true, password: true, role: true }
       });
       
-      this.logger.debug('用户查询完成', { email, userFound: !!user });
-
-      // 检查用户是否存在
-      if (!user) {
-        const executionTime = Date.now() - startTime;
-        this.logger.warn('用户验证失败: 用户不存在', {
-          email,
-          executionTime
-        });
+      if (!user?.password) {
+        this.logger.warn(`用户验证失败: 用户不存在或已禁用 - ${email}`);
         return null;
       }
-
-      // 检查用户是否被删除或禁用
-      if (user.deletedAt !== null || !user.isActive) {
-        const executionTime = Date.now() - startTime;
-        this.logger.warn('用户验证失败: 用户已被删除或禁用', {
-          email,
-          userId: user.id,
-          isActive: user.isActive,
-          deletedAt: user.deletedAt,
-          executionTime
-        });
-        return null;
-      }
-
+      
       // 验证密码
       const isPasswordValid = await this.hashingService.compare(password, user.password);
       
-      const executionTime = Date.now() - startTime;
-      
       if (!isPasswordValid) {
-        this.logger.warn('用户验证失败: 密码不正确', {
-          email,
-          userId: user.id,
-          executionTime
-        });
+        this.logger.warn(`用户验证失败: 密码不匹配 - ${email}`);
         return null;
       }
-
-      // 验证成功，不返回密码
-      const userResponse: UserResponseDto = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role as Role
-      };
-
-      this.logger.log('用户验证成功', {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        executionTime
-      });
-
-      return userResponse;
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-      this.logger.error(
-        '用户验证过程中发生错误', 
-        error.stack,
-        undefined,
-        {
-          email,
-          errorType: error.constructor.name,
-          errorMessage: error.message,
-          executionTime
-        }
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * 生成访问令牌
-   * @param userId 用户ID
-   * @param email 用户邮箱
-   * @returns 访问令牌和过期时间
-   */
-  private generateAccessToken(userId: string, email: string): string {
-    const payload = { sub: userId, email };
-    const jwtConfig = this.configService.get<JwtConfig>('jwt');
-    
-    return this.jwtService.sign(payload, {
-      expiresIn: jwtConfig.expiresIn
-    });
-  }
-
-  /**
-   * 生成并存储刷新令牌
-   * @param userId 用户ID
-   * @param ipAddress IP地址
-   * @param userAgent 用户代理
-   * @returns 刷新令牌
-   */
-  private async generateRefreshToken(
-    userId: string,
-    ipAddress: string,
-    userAgent: string
-  ): Promise<string> {
-    const startTime = Date.now();
-    
-    this.logger.debug('开始生成刷新令牌', { userId, ipAddress, userAgent });
-    
-    try {
-      // 生成随机刷新令牌
-      const refreshToken = this.jwtService.sign({}, {
-        expiresIn: '7d', // 刷新令牌有效期7天
-        secret: this.configService.get('JWT_REFRESH_SECRET') || 'default-refresh-secret'
-      });
-
-      // 计算过期时间（7天）
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-      // 存储刷新令牌到数据库
-      await this.prisma.refreshToken.create({
-        data: {
-          token: refreshToken,
-          userId,
-          expiresAt,
-          ipAddress,
-          userAgent
-        }
-      });
       
-      const executionTime = Date.now() - startTime;
-      this.logger.debug('刷新令牌生成并存储成功', {
-        userId,
-        executionTime
-      });
-
-      return refreshToken;
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-      this.logger.error(
-        '生成刷新令牌过程中发生错误', 
-        error.stack,
-        undefined,
-        {
-          userId,
-          ipAddress,
-          userAgent,
-          errorType: error.constructor.name,
-          errorMessage: error.message,
-          executionTime
-        }
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * 用户登录
-   * @param loginDto 登录信息
-   * @param ipAddress IP地址
-   * @param userAgent 用户代理
-   * @returns 访问令牌和用户信息
-   */
-  async login(loginDto: LoginDto, ipAddress: string, userAgent: string): Promise<TokenResponse> {
-    const startTime = Date.now();
-    const requestInfo = { email: loginDto.email, ipAddress, userAgent };
-    
-    this.logger.debug('开始用户登录流程', requestInfo);
-    
-    // 输入验证
-    if (!loginDto.email || !loginDto.password) {
-      this.logger.warn('登录请求失败: 邮箱或密码为空', requestInfo);
-      throw new BadRequestException('邮箱和密码不能为空');
-    }
-
-    try {
-      // 验证用户凭据
-      const user = await this.validateUser(loginDto.email, loginDto.password);
-      
-      if (!user) {
-        this.logger.warn('登录失败: 无效的邮箱或密码', requestInfo);
-        throw new UnauthorizedException('无效的邮箱或密码');
-      }
-
-      // 更新用户最后登录时间
+      // 更新最后登录时间
       await this.prisma.user.update({
         where: { id: user.id },
         data: { lastLoginAt: new Date() }
       });
       
+      const executionTime = Date.now() - startTime;
+      this.logger.info(`用户验证成功: ${email} (ID: ${user.id})`, {
+        userId: user.id,
+        userRole: user.role,
+        executionTime: executionTime
+      });
+      
+      return {
+        id: String(user.id),
+        email: user.email,
+        name: user.name ?? undefined,
+        role: user.role as Role
+      };
+    } catch (error) {
+      this.logger.error(`用户验证过程中发生错误: ${error.message}`, error.stack, undefined, {
+        email: email,
+        errorType: error.constructor.name
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 为用户生成并存储刷新令牌
+   * @param userId 用户ID
+   * @param ipAddress IP地址
+   * @param userAgent 用户代理
+   * @returns 刷新令牌
+   */
+  private async generateRefreshToken(userId: string, ipAddress: string, userAgent: string): Promise<string> {
+    const jwtConfig = this.configService.get<JwtConfig>('jwt');
+    const refreshToken = this.jwtService.sign({ sub: userId }, {
+      expiresIn: jwtConfig.refreshIn
+    });
+
+    // 计算过期时间
+    const expiryDate = new Date();
+    const refreshIn = jwtConfig.refreshIn;
+    if (refreshIn.endsWith('d')) {
+      expiryDate.setDate(expiryDate.getDate() + parseInt(refreshIn));
+    } else if (refreshIn.endsWith('h')) {
+      expiryDate.setHours(expiryDate.getHours() + parseInt(refreshIn));
+    } else if (refreshIn.endsWith('m')) {
+      expiryDate.setMinutes(expiryDate.getMinutes() + parseInt(refreshIn));
+    }
+
+    // 存储刷新令牌到数据库
+    await this.prisma.refreshToken.create({
+      data: {
+        token: refreshToken,
+        userId: userId,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+        expiresAt: expiryDate
+      }
+    });
+
+    return refreshToken;
+  }
+
+  async login(loginDto: LoginDto, ipAddress: string, userAgent: string): Promise<TokenResponse> {
+    const startTime = Date.now();
+    
+    // 输入验证
+    if (!loginDto.email || !loginDto.password) {
+      this.logger.warn('登录失败: 邮箱或密码不能为空', { ipAddress, userAgent });
+      throw new UnauthorizedException('邮箱和密码不能为空');
+    }
+    
+    this.logger.debug(`用户登录请求: ${loginDto.email}`, { ipAddress, userAgent });
+    
+    try {
+      // 验证用户凭据
+      const user = await this.validateUser(loginDto.email, loginDto.password);
+      
+      if (!user) {
+        this.logger.warn(`登录失败: 邮箱或密码错误 - ${loginDto.email}`, { ipAddress, userAgent });
+        throw new UnauthorizedException('邮箱或密码错误');
+      }
+      
       // 生成访问令牌
-      const accessToken = this.generateAccessToken(user.id, user.email);
+      const payload = { sub: user.id, email: user.email };
+      const jwtConfig = this.configService.get<JwtConfig>('jwt');
+      
+      const accessToken = this.jwtService.sign(payload, {
+        expiresIn: jwtConfig.expiresIn
+      });
       
       // 生成并存储刷新令牌
       const refreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
-      
-      const executionTime = Date.now() - startTime;
-      this.logger.log('用户登录成功', {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        executionTime
-      });
 
-      return {
-        accessToken,
-        refreshToken,
-        expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
-        user
-      };
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-      
-      // 如果是我们主动抛出的异常，保留其原始错误类型和消息
-      if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
-        this.logger.warn(error.message, {
-          ...requestInfo,
-          executionTime
-        });
-        throw error;
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900),
+      user: {
+        ...user,
+        role: user.role as Role
       }
-      
-      // 其他错误视为系统错误
-      this.logger.error(
-        '用户登录过程中发生错误', 
-        error.stack,
-        undefined,
-        {
-          ...requestInfo,
-          errorType: error.constructor.name,
-          errorMessage: error.message,
-          executionTime
-        }
-      );
-      throw new InternalServerErrorException('登录失败，请稍后再试');
     }
   }
 
@@ -303,14 +187,14 @@ export class AuthService {
     const existingUser = await this.prisma.user.findUnique({
       where: { email: registerDto.email }
     });
-
+  
     if (existingUser) {
       throw new ConflictException('邮箱已被注册');
     }
-
+  
     // 密码加密
     const hashedPassword = await this.hashingService.hash(registerDto.password);
-
+  
     // 创建新用户
     const user = await this.prisma.user.create({
       data: {
@@ -329,17 +213,17 @@ export class AuthService {
         role: true
       }
     });
-
+  
     // 生成JWT令牌
     const payload = { sub: user.id, email: user.email };
     const jwtConfig = this.configService.get<JwtConfig>('jwt');
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: jwtConfig.expiresIn
     });
-
+  
     // 生成并存储刷新令牌
     const refreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
-
+  
     return {
       accessToken,
       refreshToken,
@@ -364,106 +248,91 @@ export class AuthService {
       // 检查token是否为空
       if (!token) {
         this.logger.warn('刷新令牌验证失败: 刷新令牌为空', requestInfo);
-        throw new UnauthorizedException('刷新令牌无效');
+        throw new UnauthorizedException('刷新令牌不能为空');
       }
       
       this.logger.debug(`获取到刷新令牌: ${token.substring(0, 10)}...`);
 
-      // 检查令牌是否在黑名单中
-      if (await this.tokenBlacklistService.isTokenBlacklisted(token)) {
-        this.logger.warn('刷新令牌验证失败: 令牌已被撤销', requestInfo);
-        throw new UnauthorizedException('刷新令牌已被撤销');
-      }
-      
-      // 验证刷新令牌
-      let decodedToken: any;
-      try {
-        decodedToken = this.jwtService.verify(token, {
-          secret: this.configService.get('JWT_REFRESH_SECRET') || 'default-refresh-secret'
-        });
-      } catch (error) {
-        this.logger.warn('刷新令牌验证失败: 令牌已过期或无效', { 
-          ...requestInfo,
-          errorType: error.constructor.name 
-        });
-        throw new UnauthorizedException('刷新令牌无效');
-      }
-      
-      this.logger.debug('刷新令牌验证成功', requestInfo);
-
-      // 查找令牌记录
-      const tokenRecord = await this.prisma.refreshToken.findUnique({
+      // 1. 从数据库中查找刷新令牌
+      const refreshTokenRecord = await this.prisma.refreshToken.findUnique({
         where: { token },
         include: { user: true }
       });
+      
+      this.logger.debug('刷新令牌数据库查询完成');
 
-      if (!tokenRecord || tokenRecord.revoked || tokenRecord.expiresAt < new Date()) {
-        this.logger.warn('刷新令牌验证失败: 令牌记录无效或已过期', { 
+      // 2. 验证刷新令牌
+      if (!refreshTokenRecord || refreshTokenRecord.revoked) {
+        this.logger.warn('刷新令牌验证失败: 无效的刷新令牌或已被撤销', {
           ...requestInfo,
-          tokenExists: !!tokenRecord,
-          tokenRevoked: tokenRecord?.revoked,
-          tokenExpired: tokenRecord?.expiresAt < new Date()
+          tokenExists: !!refreshTokenRecord,
+          tokenRevoked: refreshTokenRecord?.revoked
         });
-        throw new UnauthorizedException('刷新令牌无效');
+        throw new UnauthorizedException('无效的刷新令牌');
       }
 
-      // 检查用户状态
-      const user = tokenRecord.user;
-      if (!user.isActive || user.deletedAt !== null) {
-        this.logger.warn('刷新令牌验证失败: 用户状态异常', { 
+      // 3. 检查是否过期
+      if (refreshTokenRecord.expiresAt < new Date()) {
+        this.logger.warn('刷新令牌验证失败: 刷新令牌已过期', {
           ...requestInfo,
-          userId: user.id,
-          isActive: user.isActive,
-          deletedAt: user.deletedAt
+          userId: refreshTokenRecord.userId,
+          expiryDate: refreshTokenRecord.expiresAt
+        });
+        throw new UnauthorizedException('刷新令牌已过期');
+      }
+
+      // 4. 验证用户状态
+      const user = refreshTokenRecord.user;
+      if (!user || user.deletedAt || !user.isActive) {
+        this.logger.warn('刷新令牌验证失败: 用户状态异常', {
+          ...requestInfo,
+          userId: refreshTokenRecord.userId,
+          userExists: !!user,
+          userActive: user?.isActive,
+          userDeleted: !!user?.deletedAt
         });
         throw new UnauthorizedException('用户状态异常');
       }
 
-      // 撤销旧的刷新令牌
+      // 5. 撤销旧的刷新令牌
       await this.prisma.refreshToken.update({
-        where: { id: tokenRecord.id },
+        where: { id: refreshTokenRecord.id },
         data: { revoked: true }
       });
       
-      this.logger.debug('旧的刷新令牌已成功撤销', { 
-        ...requestInfo,
-        tokenId: tokenRecord.id 
-      });
-
-      // 生成新的访问令牌
-      const newAccessToken = this.generateAccessToken(user.id, user.email);
-      
-      // 生成新的刷新令牌
-      const newRefreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
-      
-      const executionTime = Date.now() - startTime;
-      this.logger.log('访问令牌刷新成功', {
+      this.logger.debug('旧的刷新令牌已成功撤销', {
         userId: user.id,
-        email: user.email,
-        role: user.role,
-        executionTime
+        tokenId: refreshTokenRecord.id
       });
 
-      return {
-        accessToken: newAccessToken,
+      // 6. 生成新的访问令牌
+      const jwtConfig = this.configService.get<JwtConfig>('jwt');
+      const accessToken = this.jwtService.sign(
+        { sub: user.id, email: user.email },
+        { expiresIn: jwtConfig.expiresIn },
+      );
+      
+      // 记录刷新成功信息
+      const executionTime = Date.now() - startTime;
+      this.logger.info(`访问令牌刷新成功: 用户 ${user.email} (ID: ${user.id})`, {
+        ...requestInfo,
+        userId: user.id,
+        userRole: user.role,
+        executionTime: executionTime
+      });
+
+      return { 
+        accessToken, 
         user: {
-          id: user.id,
+          id: String(user.id),
           email: user.email,
-          name: user.name,
+          name: user.name ?? undefined,
           role: user.role as Role
-        },
+        }, 
         expiresIn: this.configService.get<number>('JWT_EXPIRES_IN_SECONDS', 900)
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
-      // 如果是我们主动抛出的异常，保留其原始错误类型和消息
-      if (error instanceof UnauthorizedException) {
-        this.logger.warn(error.message, { ...requestInfo, executionTime });
-        throw error;
-      }
-      
-      // 其他错误视为系统错误
       this.logger.error(
         '刷新令牌验证失败', 
         error.stack,
@@ -504,6 +373,9 @@ export class AuthService {
       this.logger.debug('刷新令牌数据库查询完成');
 
       if (tokenRecord && !tokenRecord.revoked) {
+        // 将刷新令牌添加到黑名单
+        await this.tokenBlacklistService.blacklistToken(refreshToken);
+        
         // 标记刷新令牌为已撤销
         await this.prisma.refreshToken.update({
           where: { id: tokenRecord.id },
@@ -511,7 +383,7 @@ export class AuthService {
         });
         
         const executionTime = Date.now() - startTime;
-        this.logger.log(`用户登出成功: 用户ID ${tokenRecord.userId}`, {
+        this.logger.info(`用户登出成功: 用户ID ${tokenRecord.userId}`, {
           userId: tokenRecord.userId,
           tokenId: tokenRecord.id,
           executionTime: executionTime
@@ -596,7 +468,7 @@ export class AuthService {
       await this.mailService.sendPasswordResetEmail(user.email, token);
       
       const executionTime = Date.now() - startTime;
-      this.logger.log('密码重置令牌生成成功并已发送邮件', {
+      this.logger.info('密码重置令牌生成成功并已发送邮件', {
         userId: user.id,
         email: user.email,
         executionTime: executionTime
@@ -724,7 +596,7 @@ export class AuthService {
       });
       
       const executionTime = Date.now() - startTime;
-      this.logger.log('用户密码重置成功', {
+      this.logger.info('用户密码重置成功', {
         userId: user.id,
         email: user.email,
         executionTime: executionTime

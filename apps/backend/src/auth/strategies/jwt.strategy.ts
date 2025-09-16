@@ -1,21 +1,31 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { User } from '@prisma/client';
 import { JwtConfig } from '../../config/jwt.config';
+import { TokenBlacklistService } from '../token-blacklist.service';
+import { Request } from 'express';
+import { Strategy, ExtractJwt, VerifiedCallback } from 'passport-jwt';
+import { AppLoggerService } from '../../common/services/logger.service';
 
 export interface JwtPayload {
   sub: string;
   email: string;
 }
 
+/**
+ * JWT策略
+ * 用于验证JWT令牌并提取用户信息
+ */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  private readonly logger: AppLoggerService;
+  
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private tokenBlacklistService: TokenBlacklistService,
+    private appLoggerService: AppLoggerService
   ) {
     const jwtConfig = configService.get<JwtConfig>('jwt');
     
@@ -23,23 +33,98 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: jwtConfig.secret,
+      // 通过passReqToCallback选项来获取请求对象
+      passReqToCallback: true,
     });
+    
+    this.logger = appLoggerService.createLogger(JwtStrategy.name);
   }
 
-  async validate(payload: JwtPayload): Promise<User> {
-    const user = await this.prisma.user.findUnique({
-      where: { 
-        id: payload.sub,
-        deletedAt: null,
-        isActive: true 
+  /**
+   * 验证JWT令牌
+   * @param req 请求对象
+   * @param payload JWT载荷
+   * @param done 验证完成回调
+   */
+  async validate(req: Request, payload: JwtPayload, done: VerifiedCallback): Promise<void> {
+    const startTime = Date.now();
+    const requestInfo = {
+      method: req.method,
+      path: req.path,
+      userId: payload.sub,
+      email: payload.email
+    };
+    
+    try {
+      this.logger.debug(`开始JWT令牌验证: ${JSON.stringify(requestInfo)}`);
+      
+      // 1. 获取请求中的原始令牌
+      const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+      
+      // 如果没有提供令牌，则验证失败
+      if (!token) {
+        this.logger.warn('JWT令牌验证失败: 未提供令牌', undefined, requestInfo);
+        return done(new Error('No token provided'), false);
       }
-    });
+      
+      this.logger.debug(`获取到令牌: ${token.substring(0, 10)}...`);
 
-    if (!user) {
-      // 如果用户不存在，passport会自动抛出401错误
-      return null;
+      // 2. 检查令牌是否在黑名单中
+      if (await this.tokenBlacklistService.isTokenBlacklisted(token)) {
+        this.logger.warn('JWT令牌验证失败: 令牌已被撤销', undefined, {
+          ...requestInfo,
+          tokenLength: token.length
+        });
+        return done(new Error('Token has been revoked'), false);
+      }
+
+      // 3. 验证用户状态
+      const user = await this.prisma.user.findUnique({
+        where: { 
+          id: payload.sub,
+          deletedAt: null,
+          isActive: true 
+        }
+      });
+
+      // 如果用户不存在或状态异常，则验证失败
+      if (!user) {
+        this.logger.warn('JWT令牌验证失败: 用户不存在或状态异常', undefined, {
+          ...requestInfo,
+          userIdExists: false
+        });
+        return done(new Error('User not found or inactive'), false);
+      }
+      
+      // 记录验证成功信息
+      const executionTime = Date.now() - startTime;
+      this.logger.debug(
+        `JWT令牌验证成功: 用户 ${user.email} (ID: ${user.id})`, 
+        undefined, 
+        {
+          ...requestInfo,
+          userRole: user.role,
+          executionTime: executionTime
+        }
+      );
+
+      // 验证成功，调用done函数传入用户信息
+      return done(null, user);
+    } catch (error) {
+      // 捕获任何验证过程中的错误
+      const executionTime = Date.now() - startTime;
+      this.logger.error(
+        'JWT令牌验证过程中发生错误', 
+        error.stack,
+        undefined,
+        {
+          ...requestInfo,
+          errorType: error.constructor.name,
+          errorMessage: error.message,
+          executionTime: executionTime
+        }
+      );
+      return done(error, false);
     }
-
-    return user;
   }
 }

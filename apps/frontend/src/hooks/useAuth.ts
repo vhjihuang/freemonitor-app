@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, isAuthenticated } from '@/lib/auth';
 import { UserResponseDto } from '@freemonitor/types';
 
@@ -17,8 +17,8 @@ export function useAuth() {
     isLoading: true,
   });
 
-  // 更新认证状态的函数
-  const updateAuthState = () => {
+  // 更新认证状态的函数，使用useCallback优化
+  const updateAuthState = useCallback(() => {
     const user = getCurrentUser();
     const authenticated = isAuthenticated();
     
@@ -27,7 +27,7 @@ export function useAuth() {
       isAuthenticated: authenticated,
       isLoading: false,
     });
-  };
+  }, []);
 
   useEffect(() => {
     // 初始加载时更新认证状态
@@ -53,7 +53,7 @@ export function useAuth() {
       window.removeEventListener('authStateChanged', handleAuthStateChange);
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [updateAuthState]);
 
   return authState;
 }

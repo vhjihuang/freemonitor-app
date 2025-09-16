@@ -160,8 +160,8 @@ todos:
               - apps/backend/src/auth/dev-auth.guard.ts
               - apps/backend/src/config/jwt.config.ts
             子任务:
-                [ ] 实现 refresh token 数据库存储：将 refresh token 存储在数据库中并与用户关联
-                [ ] 添加 token 黑名单机制：实现已撤销/过期 token 的黑名单管理
+                [x] 实现 refresh token 数据库存储：将 refresh token 存储在数据库中并与用户关联
+                [x] 添加 token 黑名单机制：实现已撤销/过期 token 的黑名单管理
                 [ ] 增强开发环境配置：提供开发环境下的认证行为配置选项
                 [ ] 添加详细的日志记录：记录认证关键操作和错误信息
                 [ ] 完善错误处理和状态码：确保统一的错误响应格式

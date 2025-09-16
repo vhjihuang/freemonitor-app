@@ -10,6 +10,7 @@ import { DevAuthGuard } from './guards/dev-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
+import { TokenBlacklistService } from './token-blacklist.service';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { MailModule } from '../mail/mail.module';
     JwtStrategy,
     DevAuthGuard,
     RolesGuard,
+    TokenBlacklistService,
   ],
   exports: [AuthService, DevAuthGuard, RolesGuard],
 })

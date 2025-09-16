@@ -34,10 +34,7 @@ export class DevAuthGuard extends AuthGuard('jwt') implements CanActivate {
 
     // 2. 开发环境下：自动注入默认用户（若尚未认证）
     if (this.isDevelopment() && !request.user) {
-      this.logger.debug('Development environment detected');
-      const devUser = this.buildDevUser();
-      this.setDevUser(request, devUser);
-      this.logger.debug(`Injecting default user with role: ${devUser.role}`);
+      this.injectDevUser(request);
     }
 
     // 3. 执行 JWT 守卫校验
@@ -45,27 +42,75 @@ export class DevAuthGuard extends AuthGuard('jwt') implements CanActivate {
     try {
       canActivate = (await super.canActivate(context)) as boolean;
     } catch (error) {
-      this.logger.debug(`JWT validation error: ${error.message}`);
-      // 开发环境降级：即使 JWT 失败也允许访问
-      if (this.isDevelopment()) {
-        this.logger.debug('Development environment: allowing access despite JWT failure');
-        canActivate = true;
-      } else {
-        // 生产环境：严格拒绝
-        this.logger.debug('Production environment: rejecting request due to JWT failure');
-        throw new UnauthorizedException('Invalid or missing authentication token.');
-      }
+      canActivate = this.handleJwtError(error);
     }
 
     // 4. 如果 JWT 验证通过或者开发环境允许访问，则检查角色权限
     if (canActivate) {
-      const result = this.checkRoles(context, request);
-      this.logger.debug(`Role check result: ${result}`);
-      return result;
+      return this.checkRoles(context, request);
     }
 
-    this.logger.debug('Access denied: canActivate returned false');
+    this.logAccessDenied();
     return false;
+  }
+
+  /**
+   * 注入开发环境用户
+   */
+  private injectDevUser(request: any): void {
+    const devUser = this.buildDevUser();
+    this.setDevUser(request, devUser);
+    this.logDevUserInjection(devUser);
+  }
+
+  /**
+   * 处理 JWT 验证失败
+   */
+  private handleJwtError(error: any): boolean {
+    this.logJwtError(error);
+
+    if (this.isDevelopment()) {
+      this.logAllowingAccessDespiteJwtFailure();
+      return true;
+    } else {
+      this.logRejectingRequestDueToJwtFailure();
+      throw new UnauthorizedException('Invalid or missing authentication token.');
+    }
+  }
+
+  /**
+   * 记录开发环境用户注入
+   */
+  private logDevUserInjection(devUser: User): void {
+    this.logger.debug(`Injecting default user with role: ${devUser.role}`);
+  }
+
+  /**
+   * 记录 JWT 验证错误
+   */
+  private logJwtError(error: any): void {
+    this.logger.debug(`JWT validation error: ${error.message}`);
+  }
+
+  /**
+   * 记录开发环境访问允许（即使 JWT 失败）
+   */
+  private logAllowingAccessDespiteJwtFailure(): void {
+    this.logger.debug('Development environment: allowing access despite JWT failure');
+  }
+
+  /**
+   * 记录生产环境访问拒绝
+   */
+  private logRejectingRequestDueToJwtFailure(): void {
+    this.logger.debug('Production environment: rejecting request due to JWT failure');
+  }
+
+  /**
+   * 记录访问被拒绝
+   */
+  private logAccessDenied(): void {
+    this.logger.debug('Access denied: canActivate returned false');
   }
 
   /**
@@ -135,8 +180,10 @@ export class DevAuthGuard extends AuthGuard('jwt') implements CanActivate {
       this.logger.debug('Assigned default USER role to dev user');
     }
     
-    // 现在角色格式已经统一，可以直接比较
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    // 统一转换为小写进行比较，解决大小写不一致问题
+    const hasRole = requiredRoles.some((role) => 
+      (user.role as string).toLowerCase() === (role as string).toLowerCase()
+    );
     this.logger.debug(`User role: ${user.role}, Required roles: [${requiredRoles.join(', ')}], Has required role: ${hasRole}`);
     return hasRole;
   }
