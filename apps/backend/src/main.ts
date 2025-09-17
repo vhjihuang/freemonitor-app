@@ -3,9 +3,11 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { ValidationPipe, BadRequestException } from "@nestjs/common";
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppLoggerService } from './common/services/logger.service';
+
 async function bootstrap() {
   // 创建应用实例
   const app = await NestFactory.create(AppModule, {
@@ -58,7 +60,10 @@ async function bootstrap() {
   // ✅ 3. 注册全局异常过滤器
   // HttpExceptionFilter已经在CommonModule中通过APP_FILTER提供，无需在此处手动注册
 
-  // ✅ 4. 启用 CORS
+  // ✅ 4. 注册全局响应拦截器
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // ✅ 5. 启用 CORS
   const corsOrigins = process.env.CORS_ORIGIN?.split(",") || [
     "https://freemonitor-app-frontend.vercel.app",
     "http://localhost:3000",
@@ -73,11 +78,11 @@ async function bootstrap() {
     maxAge: 3600,
   });
 
-  // ✅ 5. 设置API前缀
+  // ✅ 6. 设置API前缀
   const apiPrefix = configService.get('API_PREFIX', 'api');
   app.setGlobalPrefix(apiPrefix);
 
-  // ✅ 6. 启动服务器
+  // ✅ 7. 启动服务器
   const port = process.env.PORT || 3001;
   const host = process.env.HOST || '0.0.0.0';
   
@@ -97,6 +102,7 @@ async function bootstrap() {
       helmetEnabled: true,
       validationPipeEnabled: true,
       globalExceptionFilterEnabled: true,
+      globalResponseInterceptorEnabled: true,
       corsEnabled: true,
     });
   }

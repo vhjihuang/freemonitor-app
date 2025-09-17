@@ -1,5 +1,5 @@
 // apps/backend/src/device/device.controller.ts
-import { Controller, Post, Body, Delete, UseGuards, Req, Res, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException } from "@nestjs/common";
+import { Controller, Post, Body, Delete, UseGuards, Req, Res, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { Response } from "express";
 import { CreateDeviceDto } from "./dto/create-device.dto";
@@ -28,20 +28,36 @@ export class DeviceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "创建设备" })
   @ApiCommonResponses()
-  async create(@Body() dto: CreateDeviceDto, @Req() req: RequestWithUser) {
-    this.logger.log(`用户 ${req.user?.email} (${req.user?.id}) 正在创建设备: ${dto.name}`);
+  async create(@Body() createDeviceDto: CreateDeviceDto, @Req() req: RequestWithUser) {
+    this.logger.log(`用户 ${req.user?.id} 正在创建设备`, {
+      userId: req.user?.id,
+      deviceName: createDeviceDto.name,
+    });
 
-    const device = await this.deviceService.create(dto, req.user);
-
-    this.logger.log(`设备创建成功: ${device.id} - ${device.name}`);
+    const device = await this.deviceService.create(createDeviceDto, req.user || { id: "dev-user-id" } as User);
+    
+    this.logger.log(`设备 ${device.id} 创建成功`, {
+      deviceId: device.id,
+      userId: req.user?.id,
+    });
+    
     return device;
   }
 
   @Get()
-  @ApiOperation({ summary: "获取当前用户的所有设备" })
-  @ApiCommonResponses()
-  async findAll(@Req() req: RequestWithUser) {
-    return this.deviceService.findAllByUser(req.user?.id || "dev-user-id");
+  async findAll(
+    @Req() req: RequestWithUser,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('deviceGroupId') deviceGroupId?: string,
+    @Query('type') type?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc'
+  ) {
+    const devices = await this.deviceService.findAllByUser(req.user?.id || "dev-user-id", search, status, page, limit, deviceGroupId, type, sortBy, sortOrder);
+    return devices;
   }
 
   @Get(":id")
@@ -54,34 +70,54 @@ export class DeviceController {
   @Patch(":id")
   @ApiOperation({ summary: "更新设备" })
   @ApiCommonResponses()
-  async update(@Param("id") id: string, @Body() dto: UpdateDeviceDto, @Req() req: RequestWithUser) {
-    return this.deviceService.update(id, dto, req.user?.id || "dev-user-id");
+  async update(
+    @Param("id") id: string,
+    @Body() updateDeviceDto: UpdateDeviceDto,
+    @Req() req: RequestWithUser
+  ) {
+    this.logger.log(`用户 ${req.user?.id} 正在更新设备 ${id}`, {
+      userId: req.user?.id,
+      deviceId: id,
+    });
+
+    const device = await this.deviceService.update(
+      id,
+      updateDeviceDto,
+      req.user?.id || "dev-user-id"
+    );
+    
+    this.logger.log(`设备 ${id} 更新成功`, {
+      deviceId: id,
+      userId: req.user?.id,
+    });
+    
+    return device;
   }
 
-  @Delete(':id')
-@ApiOperation({ summary: '删除设备（软删除）' })
-@ApiCommonResponses()
-async remove(
-  @Param('id') id: string,
-  @Req() req: RequestWithUser
-) {
-  await this.deviceService.softDelete(id, req.user?.id || 'dev-user-id');
-}
-
-  @Patch(":id/heartbeat")
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "上报设备心跳" })
+  @Delete(":id")
+  @ApiOperation({ summary: "删除设备" })
   @ApiCommonResponses()
-  async heartbeat(@Param("id") id: string, @Req() req: RequestWithUser, @Res({ passthrough: true }) res: Response): Promise<void> {
-    await this.deviceService.heartbeat(id, req.user?.id || "dev-user-id");
-    res.status(HttpStatus.NO_CONTENT);
+  async remove(@Param("id") id: string, @Req() req: RequestWithUser) {
+    this.logger.log(`用户 ${req.user?.id} 正在删除设备 ${id}`, {
+      userId: req.user?.id,
+      deviceId: id,
+    });
+
+    const result = await this.deviceService.softDelete(id, req.user?.id || "dev-user-id");
+    
+    this.logger.log(`设备 ${id} 删除成功`, {
+      deviceId: id,
+      userId: req.user?.id,
+    });
+    
+    return result;
   }
-  
+
   @Post(":id/metrics")
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: "上报设备指标数据" })
+  @ApiOperation({ summary: "上报设备指标" })
   @ApiCommonResponses()
-  async collectMetrics(
+  async createMetric(
     @Param("id") id: string,
     @Body() dto: CreateMetricDto,
     @Req() req: RequestWithUser
@@ -91,14 +127,14 @@ async remove(
       throw new BadRequestException('设备ID不匹配');
     }
     
-    this.logger.log(`设备 ${id} 正在上报指标数据`);
+    this.logger.log(`设备 ${id} 正在上报指标`);
     
     const metric = await this.deviceService.createMetric(dto, req.user?.id || "dev-user-id");
     
-    this.logger.log(`设备 ${id} 指标数据上报成功`);
+    this.logger.log(`设备 ${id} 指标上报成功`);
     return metric;
   }
-  
+
   @Post(":id/alerts")
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "上报设备告警" })

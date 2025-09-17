@@ -1,6 +1,7 @@
 // src/lib/api.ts
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { getAccessToken, refreshTokens, logout } from './auth';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
+import { getAccessToken, refreshTokens, logout } from "./auth";
+import { SuccessResponse, ErrorResponse } from "@freemonitor/types";
 
 /**
  * API客户端类
@@ -14,10 +15,10 @@ export class ApiClient {
    */
   constructor() {
     this.axiosInstance = axios.create({
-      baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001') + '/api',
+      baseURL: (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api",
       timeout: 10000,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -38,8 +39,35 @@ export class ApiClient {
     // 响应拦截器 - 处理错误和自动刷新令牌
     this.axiosInstance.interceptors.response.use(
       (response: AxiosResponse) => {
-        // 直接返回响应数据部分，简化使用
-        return response.data;
+        // 检查响应是否符合SuccessResponse格式
+        const data = response.data;
+        
+        // 对于认证相关的响应，直接返回数据部分
+        if (response.config.url?.includes('/auth/')) {
+          return data;
+        }
+        
+        // 检查响应是否符合SuccessResponse格式
+        if (data && typeof data === "object" && data.success !== undefined) {
+          // 确保有必要的字段
+          return {
+            success: data.success !== false, // 处理 success: false 的情况
+            data: data.data,
+            message: data.message || "Success",
+            statusCode: data.statusCode || response.status,
+            timestamp: data.timestamp || new Date().toISOString(),
+            ...data, // 保留其他可能存在的字段
+          };
+        }
+
+        // 如果不是SuccessResponse格式，包装成统一格式
+        return {
+          success: true,
+          data: data,
+          message: "Success",
+          statusCode: response.status,
+          timestamp: new Date().toISOString(),
+        };
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
@@ -47,15 +75,15 @@ export class ApiClient {
         // 处理401错误 - 尝试自动刷新令牌
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
+
           // 检查当前请求是否是刷新令牌请求本身
           // 如果是，不应该再次尝试刷新，直接退出登录
-          const isRefreshRequest = originalRequest.url?.includes('/auth/refresh');
+          const isRefreshRequest = originalRequest.url?.includes("/auth/refresh");
           if (isRefreshRequest) {
             logout();
-            return Promise.reject(new Error('认证已过期，请重新登录'));
+            return Promise.reject(new Error("认证已过期，请重新登录"));
           }
-          
+
           try {
             const refreshed = await refreshTokens();
             if (refreshed) {
@@ -68,23 +96,24 @@ export class ApiClient {
             } else {
               // 刷新失败，退出登录
               logout();
-              return Promise.reject(new Error('认证已过期，请重新登录'));
+              return Promise.reject(new Error("认证已过期，请重新登录"));
             }
           } catch (refreshError) {
             // 刷新过程出错，退出登录
             logout();
-            return Promise.reject(new Error('认证已过期，请重新登录'));
+            return Promise.reject(new Error("认证已过期，请重新登录"));
           }
         }
 
         // 处理其他错误 - 提取错误信息
         if (error.response?.data) {
-          const errorMessage = (error.response.data as any).message || '请求失败';
+          const errorData = error.response.data as ErrorResponse;
+          const errorMessage = errorData.message || "请求失败";
           return Promise.reject(new Error(errorMessage));
         }
 
         // 处理网络错误
-        return Promise.reject(new Error('网络错误，请检查连接'));
+        return Promise.reject(new Error("网络错误，请检查连接"));
       }
     );
   }

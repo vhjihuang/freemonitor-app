@@ -1,12 +1,12 @@
 // apps/frontend/src/app/admin/page.tsx
 'use client';
 
-import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PageTemplate } from '@/components/layout/PageTemplate';
 import { Role } from '@freemonitor/types';
 
 export default function AdminPage() {
   return (
-    <AuthGuard roles={[Role.ADMIN]}>
+    <PageTemplate currentPage="管理员面板" currentPath="/admin" roles={[Role.ADMIN]}>
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">Admin Panel</h1>
         <p>Admin-only content goes here.</p>
@@ -14,6 +14,6 @@ export default function AdminPage() {
           <p>This content is accessible to ADMIN role only.</p>
         </div>
       </div>
-    </AuthGuard>
+    </PageTemplate>
   );
 }

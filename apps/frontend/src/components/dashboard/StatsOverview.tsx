@@ -23,7 +23,7 @@ export function StatsOverview() {
     try {
       // 使用封装的apiClient，它会自动处理认证和错误
       // 使用项目统一的SuccessResponse类型
-      const data = await apiClient.get<SuccessResponse<DashboardStats>>('/api/dashboard/stats');
+      const data = await apiClient.get<SuccessResponse<DashboardStats>>('/dashboard/stats');
       
       if (data.success) {
         setStats(data.data);

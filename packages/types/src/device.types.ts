@@ -8,6 +8,7 @@ export interface Device {
   type?: 'SERVER' | 'ROUTER' | 'IOT';
   location?: string;
   tags?: string[];
+  status?: 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'UNKNOWN' | 'MAINTENANCE';
   deviceGroupId?: string | null;
   isActive: boolean;
   createdAt: Date;

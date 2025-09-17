@@ -1,4 +1,3 @@
-// src/lib/auth.ts
 import { apiClient } from '@/lib/api';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 
@@ -7,24 +6,44 @@ export interface User extends UserResponseDto {}
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken?: string; // 使refreshToken可选以匹配TokenResponse
+  refreshToken?: string;
   user: User;
 }
 
 // 登录函数
 export async function login(email: string, password: string): Promise<AuthTokens> {
   try {
-    const data = await apiClient.post<TokenResponse>('/auth/login', { email, password });
+    const response: any = await apiClient.post('/auth/login', { email, password });
     
-    if (!data) {
+    if (!response) {
       throw new Error('登录失败，请检查邮箱和密码');
     }
     
-    saveAuthData(data);
-    return data;
+    const tokenResponse = response.data || response;
+    
+    if (!tokenResponse) {
+      throw new Error('登录失败，请检查邮箱和密码');
+    }
+    
+    if (!tokenResponse.accessToken) {
+      throw new Error('登录响应缺少访问令牌');
+    }
+    
+    if (!tokenResponse.user) {
+      throw new Error('登录响应缺少用户信息');
+    }
+    
+    const tokens: AuthTokens = {
+      accessToken: tokenResponse.accessToken,
+      refreshToken: tokenResponse.refreshToken,
+      user: tokenResponse.user
+    };
+    
+    saveAuthData(tokens);
+    return tokens;
   } catch (error: any) {
-    if (error.response && error.response.data) {
-      throw new Error(error.response.data.message || '登录失败，请检查邮箱和密码');
+    if (error.message) {
+      throw new Error(error.message);
     }
     throw new Error('登录失败，请检查邮箱和密码');
   }
@@ -33,69 +52,154 @@ export async function login(email: string, password: string): Promise<AuthTokens
 // 注册函数
 export async function register(email: string, password: string, name: string): Promise<AuthTokens> {
   try {
-    const data = await apiClient.post<TokenResponse>('/auth/register', { email, password, name });
+    const response: any = await apiClient.post('/auth/register', { email, password, name });
     
-    if (!data) {
+    if (!response) {
       throw new Error('注册失败');
     }
     
-    saveAuthData(data);
-    return data;
+    const tokenResponse = response.data || response;
+    
+    if (!tokenResponse) {
+      throw new Error('注册失败');
+    }
+    
+    if (!tokenResponse.accessToken) {
+      throw new Error('注册响应缺少访问令牌');
+    }
+    
+    if (!tokenResponse.user) {
+      throw new Error('注册响应缺少用户信息');
+    }
+    
+    const tokens: AuthTokens = {
+      accessToken: tokenResponse.accessToken,
+      refreshToken: tokenResponse.refreshToken,
+      user: tokenResponse.user
+    };
+    
+    saveAuthData(tokens);
+    return tokens;
   } catch (error: any) {
-    if (error.response && error.response.data) {
-      throw new Error(error.response.data.message || '注册失败');
+    if (error.message) {
+      throw new Error(error.message);
     }
     throw new Error('注册失败');
   }
 }
 
 // 保存认证数据
-function saveAuthData(data: TokenResponse): void {
-  localStorage.setItem('accessToken', data.accessToken);
-  if (data.refreshToken) {
-    localStorage.setItem('refreshToken', data.refreshToken);
+function saveAuthData(data: AuthTokens): void {
+  try {
+    localStorage.setItem('accessToken', data.accessToken);
+    
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
+    
+    if (data.user && typeof data.user === 'object') {
+      const userStr = JSON.stringify(data.user);
+      localStorage.setItem('user', userStr);
+    } else {
+      localStorage.removeItem('user');
+    }
+    
+    const authChangeEvent = new CustomEvent('authStateChanged', { detail: { isAuthenticated: true } });
+    window.dispatchEvent(authChangeEvent);
+  } catch (error) {
+    console.error('Failed to save auth data to localStorage:', error);
   }
-  localStorage.setItem('user', JSON.stringify(data.user));
+}
+
+// 刷新令牌函数也需要调整
+export async function refreshTokens(): Promise<AuthTokens | null> {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return null;
+
+  try {
+    const response: any = await apiClient.post('/auth/refresh', { refreshToken });
+    
+    console.log('refreshTokens: received response:', response);
+    
+    if (!response) {
+      logout();
+      return null;
+    }
+    
+    // 根据API客户端的处理逻辑，认证相关的响应可能包装在data字段中
+    const tokenResponse = response.data || response;
+    
+    console.log('refreshTokens: extracted tokenResponse:', tokenResponse);
+    
+    if (!tokenResponse) {
+      logout();
+      return null;
+    }
+    
+    // 确保tokenResponse具有所需的属性
+    if (!tokenResponse.accessToken) {
+      console.error('refreshTokens: missing accessToken in response', tokenResponse);
+      logout();
+      return null;
+    }
+    
+    if (!tokenResponse.user) {
+      console.error('refreshTokens: missing user in response', tokenResponse);
+      logout();
+      return null;
+    }
+    
+    // 后端refresh接口返回的数据结构与login/register不同，需要特殊处理
+    const tokens: AuthTokens = {
+      accessToken: tokenResponse.accessToken,
+      refreshToken: tokenResponse.refreshToken,
+      user: tokenResponse.user
+    };
+    
+    saveAuthData(tokens);
+    return tokens;
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    logout();
+    return null;
+  }
 }
 
 // 获取当前用户
 export function getCurrentUser(): User | null {
   if (typeof window === 'undefined') return null;
   
-  const userStr = localStorage.getItem('user');
-  return userStr ? JSON.parse(userStr) : null;
+  try {
+    const userStr = localStorage.getItem('user');
+    
+    if (!userStr || userStr === 'undefined' || userStr === 'null') {
+      return null;
+    }
+    
+    const user = JSON.parse(userStr);
+    return user;
+  } catch (error) {
+    localStorage.removeItem('user');
+    return null;
+  }
 }
 
 // 获取访问令牌
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('accessToken');
-}
-
-// 刷新令牌
-export async function refreshTokens(): Promise<AuthTokens | null> {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return null;
-
-  try {
-    const data = await apiClient.post<TokenResponse>('/auth/refresh', { refreshToken: refreshToken });
-    
-    if (!data) {
-      logout();
-      return null;
-    }
-    
-    saveAuthData(data);
-    return data;
-  } catch (error) {
-    logout();
+  const token = localStorage.getItem('accessToken');
+  
+  if (!token || token === 'undefined' || token === 'null') {
     return null;
   }
+  
+  return token;
 }
 
 // 检查是否已认证
 export function isAuthenticated(): boolean {
-  return !!getAccessToken();
+  const token = getAccessToken();
+  return !!token;
 }
 
 // 登出
@@ -104,11 +208,9 @@ export function logout(): void {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   
-  // 创建自定义事件，通知应用认证状态已更改
   const authChangeEvent = new CustomEvent('authStateChanged', { detail: { isAuthenticated: false } });
   window.dispatchEvent(authChangeEvent);
   
-  // 立即重定向到登录页面
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
   }

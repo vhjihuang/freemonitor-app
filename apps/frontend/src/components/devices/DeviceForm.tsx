@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Device, CreateDeviceDto } from '@freemonitor/types';
+import { Device, CreateDeviceDto, UpdateDeviceDto } from '@freemonitor/types';
 import { useCreateDevice, useUpdateDevice } from '@/hooks/useDeviceMutation';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,28 +17,34 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import { MultiSelect } from '@/components/ui/multi-select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 // 自定义IP地址验证
 const ipValidation = (val: string) => {
   const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+  // 允许空值（因为hostname是可选的，但IP地址是必填的，会在表单验证中处理）
+  if (!val) return false;
   return ipv4Regex.test(val);
 };
 
 // 更新表单验证模式以匹配后端DTO
 const deviceFormSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name must be less than 100 characters'),
-  hostname: z.string().min(1, 'Hostname is required').max(255, 'Hostname must be less than 255 characters').optional(),
-  ipAddress: z.string().refine(ipValidation, { message: 'Invalid IP address' }),
+  name: z.string().min(1, '设备名称不能为空'),
+  hostname: z.string().optional(),
+  ipAddress: z.string().min(1, 'IP地址不能为空').refine(ipValidation, '请输入有效的IP地址'),
   description: z.string().optional(),
   type: z.enum(['SERVER', 'ROUTER', 'IOT']).optional(),
   location: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  deviceGroupId: z.string().uuid().optional().nullable(),
-  isActive: z.boolean().optional(),
+  deviceGroupId: z.string().optional().nullable(),
 });
 
 type DeviceFormValues = z.infer<typeof deviceFormSchema>;
@@ -58,14 +64,13 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
     resolver: zodResolver(deviceFormSchema),
     defaultValues: {
       name: device?.name || '',
-      hostname: device?.hostname || '',
+      hostname: device?.hostname || device?.name || '',
       ipAddress: device?.ipAddress || '',
       description: device?.description || '',
-      type: device?.type as 'SERVER' | 'ROUTER' | 'IOT' || undefined,
+      type: device?.type || undefined,
       location: device?.location || '',
       tags: device?.tags || [],
-      deviceGroupId: device?.deviceGroupId || null,
-      isActive: device?.isActive ?? true,
+      deviceGroupId: device?.deviceGroupId || undefined,
     },
   });
 
@@ -78,21 +83,23 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           id: device.id, 
           data: {
             ...values,
-            hostname: values.hostname || undefined,
+            hostname: values.hostname || values.name || undefined,
             deviceGroupId: values.deviceGroupId || null
           } 
         });
       } else {
         await createDevice.mutateAsync({
           ...values,
-          hostname: values.hostname || undefined,
+          hostname: values.hostname || values.name,
           deviceGroupId: values.deviceGroupId || null,
           ipAddress: values.ipAddress
         });
       }
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save device:', error);
+      // 添加用户友好的错误提示
+      alert(error.message || '保存设备失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
@@ -123,12 +130,12 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           name="hostname"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Hostname</FormLabel>
+              <FormLabel>主机名</FormLabel>
               <FormControl>
-                <Input placeholder="Enter hostname" {...field} value={field.value || ''} />
+                <Input placeholder="请输入主机名" {...field} />
               </FormControl>
               <FormDescription>
-                The network hostname of the device
+                设备的主机名（可选）
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -140,12 +147,12 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           name="ipAddress"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>IP Address</FormLabel>
+              <FormLabel>IP地址</FormLabel>
               <FormControl>
-                <Input placeholder="Enter IP address" {...field} />
+                <Input placeholder="请输入IP地址" {...field} />
               </FormControl>
               <FormDescription>
-                The IP address of the device
+                设备的IP地址
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -157,12 +164,16 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>描述</FormLabel>
               <FormControl>
-                <Textarea placeholder="Enter device description" {...field} value={field.value || ''} />
+                <Textarea
+                  placeholder="请输入设备描述"
+                  className="resize-none"
+                  {...field}
+                />
               </FormControl>
               <FormDescription>
-                Additional information about the device
+                设备的详细描述信息
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -175,21 +186,21 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Device Type</FormLabel>
-                <FormControl>
-                  <select 
-                    {...field} 
-                    value={field.value || ''} 
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="">Select type</option>
-                    <option value="SERVER">Server</option>
-                    <option value="ROUTER">Router</option>
-                    <option value="IOT">IoT</option>
-                  </select>
-                </FormControl>
+                <FormLabel>设备类型</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="请选择设备类型" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="SERVER">服务器</SelectItem>
+                    <SelectItem value="ROUTER">路由器</SelectItem>
+                    <SelectItem value="IOT">物联网设备</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormDescription>
-                  The type of device
+                  设备的类型
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -201,12 +212,12 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             name="location"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Location</FormLabel>
+                <FormLabel>位置</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter location" {...field} value={field.value || ''} />
+                  <Input placeholder="请输入设备位置" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Physical location of the device
+                  设备的物理位置
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -219,17 +230,16 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           name="tags"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tags</FormLabel>
+              <FormLabel>标签</FormLabel>
               <FormControl>
-                <MultiSelect
-                  selected={field.value || []}
-                  onChange={field.onChange}
-                  placeholder="Add tags"
-                  className="w-full"
+                <Input
+                  placeholder="请输入标签，多个标签用逗号分隔"
+                  value={field.value?.join(', ') || ''}
+                  onChange={(e) => field.onChange(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))}
                 />
               </FormControl>
               <FormDescription>
-                Tags to categorize the device
+                用于分类设备的标签，多个标签用逗号分隔
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -241,35 +251,22 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           name="deviceGroupId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Device Group</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter device group ID" {...field} value={field.value || ''} />
-              </FormControl>
+              <FormLabel>设备组</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择设备组" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {/* 这里应该从API获取设备组数据，暂时使用静态数据 */}
+                  <SelectItem value="1">默认设备组</SelectItem>
+                </SelectContent>
+              </Select>
               <FormDescription>
-                ID of the device group this device belongs to
+                设备所属的设备组
               </FormDescription>
               <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="isActive"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <FormLabel className="text-base">Active</FormLabel>
-                <FormDescription>
-                  Whether the device is currently active
-                </FormDescription>
-              </div>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
             </FormItem>
           )}
         />

@@ -6,14 +6,14 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PageTemplate } from '@/components/layout/PageTemplate';
 import { Role } from '@freemonitor/types';
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth();
 
   return (
-    <AuthGuard>
+    <PageTemplate currentPage="个人资料" currentPath="/profile">
       <div className="p-6">
         <h1 className="text-2xl font-bold mb-4">User Profile</h1>
         {user && (
@@ -52,6 +52,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </AuthGuard>
+    </PageTemplate>
   );
 }

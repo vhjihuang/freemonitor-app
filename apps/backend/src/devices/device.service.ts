@@ -3,7 +3,7 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from "./dto/update-device.dto";
-import { User, Prisma, AlertSeverity, AlertType } from "@prisma/client";
+import { User, Prisma, AlertSeverity, AlertType, DeviceStatus, DeviceType } from "@prisma/client";
 import { NotFoundException, BusinessException } from "../common/exceptions/app.exception";
 import { CreateMetricDto } from "./dto/create-metric.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
@@ -239,7 +239,7 @@ export class DeviceService {
       },
       data: {
         name: updateDeviceDto.name,
-        hostname: updateDeviceDto.hostname,
+        hostname: updateDeviceDto.hostname || updateDeviceDto.name || device.hostname,
         description: updateDeviceDto.description,
         type: updateDeviceDto.type,
         location: updateDeviceDto.location,
@@ -269,11 +269,72 @@ export class DeviceService {
     });
   }
 
-  async findAllByUser(userId: string) {
+  async findAllByUser(
+    userId: string,
+    search?: string,
+    status?: string,
+    page?: number,
+    limit?: number,
+    deviceGroupId?: string,
+    type?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc'
+  ) {
+    const where: Prisma.DeviceWhereInput = {
+      userId,
+      isActive: true,
+    };
+
+    // 添加搜索条件
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { hostname: { contains: search, mode: 'insensitive' } },
+        { ipAddress: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // 添加状态过滤
+    if (status) {
+      where.status = status as DeviceStatus;
+    }
+
+    // 添加设备组过滤
+    if (deviceGroupId) {
+      where.deviceGroupId = deviceGroupId;
+    }
+
+    // 添加类型过滤
+    if (type) {
+      where.type = type as DeviceType;
+    }
+
+    // 构建排序选项
+    const orderBy: Prisma.DeviceOrderByWithRelationInput[] = [];
+    
+    if (sortBy && sortOrder) {
+      // 验证排序字段是否有效
+      const validSortFields = ['name', 'hostname', 'ipAddress', 'status', 'type', 'createdAt', 'updatedAt'];
+      if (validSortFields.includes(sortBy)) {
+        orderBy.push({ [sortBy]: sortOrder });
+      }
+    }
+    
+    // 默认按创建时间降序排列
+    if (orderBy.length === 0) {
+      orderBy.push({ createdAt: 'desc' });
+    }
+
+    // 处理分页
+    const skip = page && limit ? (page - 1) * limit : 0;
+    const take = limit ? limit : undefined;
+
     return this.prisma.device.findMany({
-      where: { userId, isActive: true },
+      where,
+      orderBy,
+      skip,
+      take,
       select: DeviceService.SELECT,
-      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -361,5 +422,8 @@ export class DeviceService {
       }
       throw new BusinessException("数据唯一性冲突");
     }
+    
+    // 处理其他Prisma错误
+    throw new BusinessException("创建设备失败");
   }
 }

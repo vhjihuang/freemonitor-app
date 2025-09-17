@@ -1,25 +1,29 @@
-// apps/frontend/src/hooks/useDevices.ts
+// src/hooks/useDevices.ts
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../lib/api';
+import { getDevices } from '@/lib/api/deviceApi';
 import { Device } from '@freemonitor/types';
 
-export const useDevices = () => {
-  return useQuery<Device[]>({
-    queryKey: ['device'],
-    queryFn: async () => {
-      const response = await apiClient.get<Device[]>('/device');
-      return response;
-    },
+/**
+ * 获取设备列表的自定义hooks
+ * 提供设备数据获取功能，包括加载状态、错误处理和数据缓存
+ */
+export const useDevices = (params?: {
+  search?: string;
+  status?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const { data, error, isLoading, refetch } = useQuery<Device[], Error>({
+    queryKey: ['devices', params],
+    queryFn: () => getDevices(params),
+    staleTime: 5 * 60 * 1000, // 5分钟
   });
-};
 
-export const useDevice = (id: string) => {
-  return useQuery<Device>({
-    queryKey: ['device', id],
-    queryFn: async () => {
-      const response = await apiClient.get<Device>(`/device/${id}`);
-      return response;
-    },
-    enabled: !!id,
-  });
+  return {
+    data,
+    error,
+    isLoading,
+    refetch,
+  };
 };

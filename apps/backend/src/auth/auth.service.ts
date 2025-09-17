@@ -108,7 +108,7 @@ export class AuthService {
         role: user.role as Role
       };
 
-      this.logger.log('用户验证成功', {
+      this.logger.log('用户验证成功', undefined, {
         userId: user.id,
         email: user.email,
         role: user.role,
@@ -186,7 +186,7 @@ export class AuthService {
       });
       
       const executionTime = Date.now() - startTime;
-      this.logger.debug('刷新令牌生成并存储成功', {
+      this.logger.debug('刷新令牌生成并存储成功', undefined, {
         userId,
         executionTime
       });
@@ -252,7 +252,7 @@ export class AuthService {
       const refreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
       
       const executionTime = Date.now() - startTime;
-      this.logger.log('用户登录成功', {
+      this.logger.log('用户登录成功', undefined, {
         userId: user.id,
         email: user.email,
         role: user.role,
@@ -437,7 +437,7 @@ export class AuthService {
       const newRefreshToken = await this.generateRefreshToken(user.id, ipAddress, userAgent);
       
       const executionTime = Date.now() - startTime;
-      this.logger.log('访问令牌刷新成功', {
+      this.logger.log('访问令牌刷新成功', undefined, {
         userId: user.id,
         email: user.email,
         role: user.role,

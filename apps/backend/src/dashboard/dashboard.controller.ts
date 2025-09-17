@@ -2,7 +2,7 @@ import { Controller, Get, UseGuards, Query, Logger } from '@nestjs/common';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
 import { DashboardService } from './dashboard.service';
 
-@Controller('api/dashboard')
+@Controller('dashboard')
 @UseGuards(DevAuthGuard)
 export class DashboardController {
   private readonly logger = new Logger(DashboardController.name);
@@ -13,13 +13,10 @@ export class DashboardController {
   async getDashboardStats() {
     try {
       this.logger.log('Dashboard stats endpoint accessed');
-      const stats = await this.dashboardService.getDashboardStats();
       
-      return {
-        success: true,
-        data: stats,
-        message: 'Dashboard stats retrieved successfully',
-      };
+      const stats = await this.dashboardService.getDashboardStats();
+
+      return stats
     } catch (error) {
       this.logger.error(`Failed to retrieve dashboard stats: ${error.message}`, error.stack);
       return {

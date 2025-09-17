@@ -2,6 +2,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { QueryProvider } from '../components/providers/query-provider';
+import { ToastProvider } from '../components/providers/toast-provider';
+import { ToastContainer } from '../components/ui/toast-container';
 
 export const metadata: Metadata = {
   title: 'FreeMonitor - Device Monitoring Platform',
@@ -17,9 +19,12 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <QueryProvider>
-          <div className="min-h-screen bg-background">
-            {children}
-          </div>
+          <ToastProvider>
+            <div className="min-h-screen bg-background">
+              {children}
+            </div>
+            <ToastContainer />
+          </ToastProvider>
         </QueryProvider>
       </body>
     </html>
