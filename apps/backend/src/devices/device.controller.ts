@@ -1,7 +1,6 @@
 // apps/backend/src/device/device.controller.ts
-import { Controller, Post, Body, Delete, UseGuards, Req, Res, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query } from "@nestjs/common";
+import { Controller, Post, Body, Delete, UseGuards, Req, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { Response } from "express";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from './dto/update-device.dto'
 import { DeviceService } from "./device.service";
@@ -15,9 +14,9 @@ interface RequestWithUser extends Request {
   user?: User;
 }
 
-@ApiTags("device")
+@ApiTags("devices")
 @ApiBearerAuth()
-@Controller("device")
+@Controller("devices")
 @UseGuards(DevAuthGuard)
 export class DeviceController {
   private readonly logger = new Logger(DeviceController.name);
@@ -45,6 +44,8 @@ export class DeviceController {
   }
 
   @Get()
+  @ApiOperation({ summary: "获取设备列表" })
+  @ApiCommonResponses()
   async findAll(
     @Req() req: RequestWithUser,
     @Query('search') search?: string,

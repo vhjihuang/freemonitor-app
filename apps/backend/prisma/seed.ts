@@ -48,29 +48,91 @@ async function main() {
       logger.warn('Device group already exists, skipping creation.');
     }
 
-    // 创建设备
-    const existingDevice = await prisma.device.findUnique({
+    // 创建多个设备
+    const devices = [];
+    
+    // 设备1 - 在线服务器
+    const existingDevice1 = await prisma.device.findUnique({
       where: { ipAddress: '192.168.1.100' },
     });
-    let device;
-    if (!existingDevice) {
-      device = await prisma.device.create({
+    let device1;
+    if (!existingDevice1) {
+      device1 = await prisma.device.create({
         data: {
-          name: 'Sample Server',
+          name: 'Production Server 1',
           hostname: 'server01.local',
           ipAddress: '192.168.1.100',
-          type: DeviceType.SERVER, // 使用枚举值
-          tags: ['prod', 'server'],
+          type: DeviceType.SERVER,
+          status: 'ONLINE',
+          tags: ['prod', 'server', 'web'],
           isActive: true,
+          lastSeen: new Date(),
           userId: user.id,
           deviceGroupId: group.id,
         },
       });
-      logger.log(`Seeded device: ${device.id}`);
+      logger.log(`Seeded device: ${device1.id}`);
+      devices.push(device1);
     } else {
-      device = existingDevice;
-      logger.warn('Device already exists, skipping creation.');
+      device1 = existingDevice1;
+      devices.push(device1);
+      logger.warn('Device 1 already exists, skipping creation.');
     }
+
+    // 设备2 - 离线路由器
+    const existingDevice2 = await prisma.device.findUnique({
+      where: { ipAddress: '192.168.1.1' },
+    });
+    if (!existingDevice2) {
+      const device2 = await prisma.device.create({
+        data: {
+          name: 'Main Router',
+          hostname: 'router01.local',
+          ipAddress: '192.168.1.1',
+          type: DeviceType.ROUTER,
+          status: 'OFFLINE',
+          tags: ['network', 'router'],
+          isActive: true,
+          lastSeen: new Date(Date.now() - 30 * 60 * 1000), // 30分钟前
+          userId: user.id,
+          deviceGroupId: group.id,
+        },
+      });
+      logger.log(`Seeded device: ${device2.id}`);
+      devices.push(device2);
+    } else {
+      devices.push(existingDevice2);
+      logger.warn('Device 2 already exists, skipping creation.');
+    }
+
+    // 设备3 - 维护中的IoT设备
+    const existingDevice3 = await prisma.device.findUnique({
+      where: { ipAddress: '192.168.1.200' },
+    });
+    if (!existingDevice3) {
+      const device3 = await prisma.device.create({
+        data: {
+          name: 'Temperature Sensor',
+          hostname: 'iot01.local',
+          ipAddress: '192.168.1.200',
+          type: DeviceType.IOT,
+          status: 'MAINTENANCE',
+          tags: ['iot', 'sensor', 'temperature'],
+          isActive: true,
+          lastSeen: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2小时前
+          userId: user.id,
+          deviceGroupId: group.id,
+        },
+      });
+      logger.log(`Seeded device: ${device3.id}`);
+      devices.push(device3);
+    } else {
+      devices.push(existingDevice3);
+      logger.warn('Device 3 already exists, skipping creation.');
+    }
+
+    // 使用第一个设备作为主要设备（向后兼容）
+    const device = device1;
 
     // 创建指标
     const existingMetric = await prisma.metric.findFirst({

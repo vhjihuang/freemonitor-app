@@ -4,12 +4,14 @@ const nextConfig = {
   experimental: {
     appDir: true,
   },
-  output: 'standalone', // 生成独立部署包
+  output: process.env.RENDER_STATIC ? 'export' : 'standalone', // Render静态部署时使用export
   poweredByHeader: false, // 安全加固
   images: {
     domains: ['localhost'], // 根据实际需求扩展
-    unoptimized: process.env.NODE_ENV === 'development', // 开发环境不压缩
+    unoptimized: true, // 静态导出需要
   },
+  trailingSlash: true, // 静态导出推荐
+  distDir: process.env.RENDER_STATIC ? 'out' : '.next',
 };
 
 module.exports = nextConfig;

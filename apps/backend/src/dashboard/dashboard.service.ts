@@ -42,6 +42,22 @@ export class DashboardService {
         }),
       ]);
 
+      // 单独查询设备状态分布（用于调试）
+      try {
+        const devicesByStatus = await this.prisma.device.groupBy({
+          by: ['status'],
+          where: {
+            isActive: true,
+          },
+          _count: {
+            id: true,
+          },
+        });
+        this.logger.log(`Device status distribution: ${JSON.stringify(devicesByStatus)}`);
+      } catch (error) {
+        this.logger.warn('Failed to get device status distribution:', error.message);
+      }
+
       const stats: DashboardStatsDto = {
         onlineDevices,
         offlineDevices,

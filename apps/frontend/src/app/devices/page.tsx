@@ -32,7 +32,11 @@ export default function DevicesPage() {
     limit
   })
   
+  // 获取所有设备用于统计
+  const { data: allDevicesResponse } = useDevices({})
+  
   const devices = devicesResponse || [];
+  const allDevices = allDevicesResponse || [];
   const totalPages = 1; // 由于后端未实现分页，这里设置为固定值
   
   const deleteDeviceMutation = useDeleteDevice()
@@ -104,6 +108,8 @@ export default function DevicesPage() {
             searchValue={search}
             statusValue={status}
             typeValue={type}
+            totalCount={allDevices.length}
+            filteredCount={devices.length}
           />
 
           {isLoading ? (
