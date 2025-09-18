@@ -103,8 +103,51 @@ RENDER_STATIC=true
 
 ## 故障排除
 
-如果遇到问题：
+### 常见问题
+
+#### 1. 数据库字段不匹配错误
+如果看到 `The column users.passwordResetToken does not exist` 错误：
+
+**解决方案A：手动执行SQL**
+1. 登录Render Dashboard
+2. 进入PostgreSQL数据库管理界面
+3. 执行 `fix-render-db.sql` 中的SQL语句
+
+**解决方案B：重新部署触发迁移**
+1. 推送一个小的代码更改
+2. 触发重新部署
+3. 迁移脚本会自动执行
+
+#### 2. 其他问题
+如果遇到其他问题：
 1. 检查Render的部署日志
 2. 验证环境变量设置
 3. 确认数据库连接字符串
 4. 检查CORS配置是否包含前端域名
+
+### 自动修复机制
+
+应用现在会在启动时自动检查和修复数据库字段：
+
+1. **自动修复**: 生产环境启动时自动添加缺失字段
+2. **健康检查**: 访问 `/api/health/db-fields` 检查字段状态
+3. **管理页面**: 访问 `/admin` 页面进行系统诊断
+
+### 手动修复SQL（备用方案）
+```sql
+-- 添加缺失的密码重置字段
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetToken" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetExpiresAt" TIMESTAMP(3);
+
+-- 添加唯一约束
+ALTER TABLE "users" ADD CONSTRAINT "users_passwordResetToken_key" UNIQUE ("passwordResetToken");
+```
+
+### 验证修复
+```bash
+# 检查应用健康状态
+curl https://your-app.onrender.com/api/health
+
+# 检查数据库字段
+curl https://your-app.onrender.com/api/health/db-fields
+```
