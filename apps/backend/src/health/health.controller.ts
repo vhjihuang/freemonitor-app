@@ -13,6 +13,13 @@ export class HealthController {
     return await this.healthService.checkHealth();
   }
 
+  @Get('db-fields')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-cache')
+  async checkDatabaseFields() {
+    return await this.healthService.checkDatabaseFields();
+  }
+
   @Get('live')
   @HttpCode(200)
   @Header('Cache-Control', 'no-cache')

@@ -14,6 +14,26 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
+  // 在生产环境启动时运行数据库迁移
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      console.log('🔧 运行数据库迁移...');
+      
+      // 使用Prisma的安全迁移命令
+      const { execSync } = require('child_process');
+      execSync('npx prisma migrate deploy', { 
+        stdio: 'inherit',
+        cwd: process.cwd()
+      });
+      
+      console.log('✅ 数据库迁移完成');
+    } catch (error) {
+      console.error('❌ 数据库迁移失败:', error.message);
+      console.log('⚠️ 应用将继续启动，但某些功能可能不可用');
+      // 不阻止应用启动，让应用在降级模式下运行
+    }
+  }
+
   // 获取配置服务和日志服务
   const configService = app.get(ConfigService);
   const logger = app.get(AppLoggerService).createLogger('Bootstrap');

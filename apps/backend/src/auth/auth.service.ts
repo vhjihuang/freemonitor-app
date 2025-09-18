@@ -239,11 +239,26 @@ export class AuthService {
         throw new UnauthorizedException('无效的邮箱或密码');
       }
 
-      // 更新用户最后登录时间
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() }
-      });
+      // 更新用户最后登录时间 - 使用安全的字段选择
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { 
+            lastLoginAt: new Date(),
+            updatedAt: new Date()
+          },
+          select: {
+            id: true,
+            lastLoginAt: true
+          }
+        });
+      } catch (error) {
+        // 如果更新失败，记录警告但不影响登录流程
+        this.logger.warn('更新用户最后登录时间失败', { 
+          userId: user.id, 
+          error: error.message 
+        });
+      }
       
       // 生成访问令牌
       const accessToken = this.generateAccessToken(user.id, user.email);
@@ -581,14 +596,27 @@ export class AuthService {
         expiresAt: expiresAt
       });
 
-      // 保存令牌和过期时间到数据库
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          passwordResetToken: token,
-          passwordResetExpiresAt: expiresAt,
-        },
-      });
+      // 保存令牌和过期时间到数据库 - 检查字段是否存在
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            passwordResetToken: token,
+            passwordResetExpiresAt: expiresAt,
+            updatedAt: new Date()
+          },
+          select: {
+            id: true,
+            passwordResetToken: true
+          }
+        });
+      } catch (error) {
+        this.logger.error('保存密码重置令牌失败', { 
+          userId: user.id, 
+          error: error.message 
+        });
+        throw new Error('密码重置功能暂时不可用');
+      }
 
       this.logger.debug('密码重置令牌已保存到数据库', { userId: user.id });
 
@@ -690,16 +718,25 @@ export class AuthService {
     }
 
     try {
-      // 查找令牌有效且未过期的用户
-      const user = await this.prisma.user.findFirst({
-        where: {
-          passwordResetToken: token,
-          passwordResetExpiresAt: {
-            gte: new Date(),
+      // 查找令牌有效且未过期的用户 - 检查字段是否存在
+      let user;
+      try {
+        user = await this.prisma.user.findFirst({
+          where: {
+            passwordResetToken: token,
+            passwordResetExpiresAt: {
+              gte: new Date(),
+            },
+            isActive: true,
           },
-          isActive: true,
-        },
-      });
+        });
+      } catch (error) {
+        this.logger.error('查询密码重置令牌失败', { 
+          token: token.substring(0, 8) + '...', 
+          error: error.message 
+        });
+        throw new Error('密码重置功能暂时不可用');
+      }
 
       this.logger.debug('用户查询完成', { ...requestInfo, userFound: !!user });
 
@@ -713,15 +750,28 @@ export class AuthService {
       
       this.logger.debug('密码加密完成', { userId: user.id });
 
-      // 更新用户密码并清除重置令牌
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          passwordResetToken: null,
-          passwordResetExpiresAt: null,
-        },
-      });
+      // 更新用户密码并清除重置令牌 - 检查字段是否存在
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            password: hashedPassword,
+            passwordResetToken: null,
+            passwordResetExpiresAt: null,
+            updatedAt: new Date()
+          },
+          select: {
+            id: true,
+            email: true
+          }
+        });
+      } catch (error) {
+        this.logger.error('重置密码失败', { 
+          userId: user.id, 
+          error: error.message 
+        });
+        throw new Error('密码重置失败');
+      }
       
       const executionTime = Date.now() - startTime;
       this.logger.log('用户密码重置成功', {

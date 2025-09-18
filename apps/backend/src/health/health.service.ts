@@ -82,4 +82,55 @@ export class HealthService {
       };
     }
   }
+
+  /**
+   * 检查数据库功能是否正常
+   */
+  async checkDatabaseFields() {
+    this.logger.debug('开始检查数据库功能');
+    try {
+      // 通过尝试查询用户表来检查数据库功能
+      // 这比直接查询系统表更安全
+      const userCount = await this.prisma.user.count();
+      
+      // 尝试创建一个测试查询来验证字段是否存在
+      // 如果字段不存在，这个查询会失败
+      await this.prisma.user.findFirst({
+        where: {
+          passwordResetToken: null
+        },
+        select: {
+          id: true,
+          passwordResetToken: true,
+          passwordResetExpiresAt: true
+        }
+      });
+
+      const result = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        userCount,
+        passwordResetFieldsAvailable: true,
+        message: '数据库功能正常，所有必要字段可用'
+      };
+
+      this.logger.debug('数据库功能检查完成', undefined, result);
+      return result;
+    } catch (error) {
+      this.logger.error('数据库功能检查失败', error.stack);
+      
+      // 检查是否是字段不存在的错误
+      const isFieldError = error.message.includes('passwordResetToken') || 
+                          error.message.includes('passwordResetExpiresAt');
+      
+      return {
+        status: isFieldError ? 'missing_fields' : 'error',
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        suggestion: isFieldError ? 
+          '需要运行数据库迁移: npx prisma migrate deploy' : 
+          '数据库连接或查询错误'
+      };
+    }
+  }
 }
