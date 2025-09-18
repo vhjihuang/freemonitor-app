@@ -127,6 +127,7 @@ export default function DevicesPage() {
                     device={device} 
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    searchTerm={search}
                   />
                 ))}
               </div>
@@ -154,9 +155,33 @@ export default function DevicesPage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-              <h2 className="text-2xl font-semibold">暂无设备</h2>
-              <p className="text-muted-foreground">您还没有添加任何设备</p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>添加您的第一个设备</Button>
+              {search || status !== 'all' || type !== 'all' ? (
+                <>
+                  <h2 className="text-2xl font-semibold">无匹配设备</h2>
+                  <p className="text-muted-foreground">
+                    没有找到符合条件的设备，请尝试调整搜索条件
+                  </p>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setSearch('');
+                        setStatus('all');
+                        setType('all');
+                      }}
+                    >
+                      清除搜索条件
+                    </Button>
+                    <Button onClick={() => setIsAddDialogOpen(true)}>添加设备</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-semibold">暂无设备</h2>
+                  <p className="text-muted-foreground">您还没有添加任何设备</p>
+                  <Button onClick={() => setIsAddDialogOpen(true)}>添加您的第一个设备</Button>
+                </>
+              )}
             </div>
           )}
 

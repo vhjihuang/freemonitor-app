@@ -40,6 +40,20 @@ export function DeviceSearchFilter({
     return () => clearTimeout(timer);
   }, [localSearch, onSearchChange]);
 
+  // 快捷键支持
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + K 聚焦搜索框
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('search')?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // 同步外部搜索值变化
   useEffect(() => {
     setLocalSearch(searchValue);
@@ -63,12 +77,12 @@ export function DeviceSearchFilter({
     <div className="mb-6 p-4 bg-card rounded-lg border">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="search">搜索设备</Label>
+          <Label htmlFor="search">搜索设备 <kbd className="text-xs bg-muted px-1 rounded">Ctrl+K</kbd></Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               id="search"
-              placeholder="设备名称、主机名或IP地址"
+              placeholder="设备名称、主机名或IP地址 (支持IP段搜索)"
               className="pl-10 pr-8"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
@@ -79,6 +93,7 @@ export function DeviceSearchFilter({
                 size="sm"
                 className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
                 onClick={clearSearch}
+                title="清除搜索"
               >
                 <X className="h-3 w-3" />
               </Button>
@@ -162,7 +177,15 @@ export function DeviceSearchFilter({
           {totalCount !== undefined && filteredCount !== undefined && (
             <div className="text-sm text-muted-foreground">
               {hasActiveFilters ? (
-                <>显示 <span className="font-medium">{filteredCount}</span> 个设备，共 <span className="font-medium">{totalCount}</span> 个</>
+                <>
+                  显示 <span className="font-medium text-primary">{filteredCount}</span> 个设备，
+                  共 <span className="font-medium">{totalCount}</span> 个
+                  {searchValue && (
+                    <span className="ml-2 text-xs">
+                      (搜索关键字: <span className="font-medium">"{searchValue}"</span>)
+                    </span>
+                  )}
+                </>
               ) : (
                 <>共 <span className="font-medium">{totalCount}</span> 个设备</>
               )}

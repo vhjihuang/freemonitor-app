@@ -7,11 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Device } from '@freemonitor/types';
+import { HighlightText } from './HighlightText';
 
 interface DeviceCardProps {
   device: Device;
   onEdit: (device: Device) => void;
   onDelete: (id: string) => void;
+  searchTerm?: string;
 }
 
 const getStatusText = (status: string): string => {
@@ -61,13 +63,15 @@ const getTypeText = (type: string): string => {
   }
 };
 
-export function DeviceCard({ device, onEdit, onDelete }: DeviceCardProps) {
+export function DeviceCard({ device, onEdit, onDelete, searchTerm = '' }: DeviceCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="font-semibold text-lg">{device.name}</h3>
+            <h3 className="font-semibold text-lg">
+              <HighlightText text={device.name} searchTerm={searchTerm} />
+            </h3>
             {device.type && (
               <Badge variant="secondary" className="mt-1">
                 {getTypeText(device.type)}
@@ -82,11 +86,11 @@ export function DeviceCard({ device, onEdit, onDelete }: DeviceCardProps) {
       <CardContent>
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            IP: {device.ipAddress}
+            IP: <HighlightText text={device.ipAddress} searchTerm={searchTerm} />
           </p>
           {device.hostname && (
             <p className="text-sm text-muted-foreground">
-              主机名: {device.hostname}
+              主机名: <HighlightText text={device.hostname} searchTerm={searchTerm} />
             </p>
           )}
           {device.location && (

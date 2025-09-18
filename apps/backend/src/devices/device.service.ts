@@ -280,6 +280,7 @@ export class DeviceService {
     sortBy?: string,
     sortOrder?: 'asc' | 'desc'
   ) {
+    const startTime = Date.now();
     const where: Prisma.DeviceWhereInput = {
       userId,
       isActive: true,
@@ -287,11 +288,25 @@ export class DeviceService {
 
     // 添加搜索条件
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { hostname: { contains: search, mode: 'insensitive' } },
-        { ipAddress: { contains: search, mode: 'insensitive' } },
-      ];
+      // 检查是否是IP地址搜索
+      const isIpSearch = /^\d{1,3}(\.\d{1,3}){0,3}$/.test(search);
+      
+      if (isIpSearch) {
+        // IP地址搜索：支持精确匹配和IP段搜索
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { hostname: { contains: search, mode: 'insensitive' } },
+          { ipAddress: { startsWith: search } }, // IP段搜索
+          { ipAddress: { equals: search } }, // 精确IP搜索
+        ];
+      } else {
+        // 普通文本搜索：设备名称和主机名模糊匹配
+        where.OR = [
+          { name: { contains: search, mode: 'insensitive' } },
+          { hostname: { contains: search, mode: 'insensitive' } },
+          { ipAddress: { contains: search, mode: 'insensitive' } },
+        ];
+      }
     }
 
     // 添加状态过滤
@@ -329,13 +344,28 @@ export class DeviceService {
     const skip = page && limit ? (page - 1) * limit : 0;
     const take = limit ? limit : undefined;
 
-    return this.prisma.device.findMany({
+    // 执行查询
+    const devices = await this.prisma.device.findMany({
       where,
       orderBy,
       skip,
       take,
       select: DeviceService.SELECT,
     });
+
+    // 记录查询性能
+    const queryTime = Date.now() - startTime;
+    if (queryTime > 300) {
+      this.logger.warn(`设备查询耗时较长: ${queryTime}ms`, {
+        userId,
+        search,
+        status,
+        deviceCount: devices.length,
+        queryTime
+      });
+    }
+
+    return devices;
   }
 
   async findOne(id: string, userId: string) {
