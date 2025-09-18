@@ -6,7 +6,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "prebuild": "rimraf dist",
+    "prebuild": "rimraf dist && pnpm --filter @freemonitor/types build",
     "build": "nest build",
     "postbuild": "echo 'Build completed. Run migrations manually in production.'",
     "start": "node dist/src/main",
