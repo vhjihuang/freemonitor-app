@@ -119,37 +119,28 @@ export async function refreshTokens(): Promise<AuthTokens | null> {
   try {
     const response: any = await apiClient.post('/auth/refresh', { refreshToken });
     
-    console.log('refreshTokens: received response:', response);
-    
     if (!response) {
       logout();
       return null;
     }
     
-    // 根据API客户端的处理逻辑，认证相关的响应可能包装在data字段中
     const tokenResponse = response.data || response;
-    
-    console.log('refreshTokens: extracted tokenResponse:', tokenResponse);
     
     if (!tokenResponse) {
       logout();
       return null;
     }
     
-    // 确保tokenResponse具有所需的属性
     if (!tokenResponse.accessToken) {
-      console.error('refreshTokens: missing accessToken in response', tokenResponse);
       logout();
       return null;
     }
     
     if (!tokenResponse.user) {
-      console.error('refreshTokens: missing user in response', tokenResponse);
       logout();
       return null;
     }
     
-    // 后端refresh接口返回的数据结构与login/register不同，需要特殊处理
     const tokens: AuthTokens = {
       accessToken: tokenResponse.accessToken,
       refreshToken: tokenResponse.refreshToken,
@@ -159,7 +150,6 @@ export async function refreshTokens(): Promise<AuthTokens | null> {
     saveAuthData(tokens);
     return tokens;
   } catch (error) {
-    console.error('Refresh token error:', error);
     logout();
     return null;
   }

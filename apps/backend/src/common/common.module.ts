@@ -1,6 +1,7 @@
 import { Module, Global } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { AppLoggerService } from './services/logger.service';
-import { HttpExceptionFilter } from './filters/http-exception.filter';
+import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-exception.filter';
 
 /**
  * 公共模块
@@ -10,7 +11,14 @@ import { HttpExceptionFilter } from './filters/http-exception.filter';
 @Module({
   providers: [
     AppLoggerService,
-    { provide: 'APP_FILTER', useClass: HttpExceptionFilter }
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
   ],
   exports: [AppLoggerService]
 })

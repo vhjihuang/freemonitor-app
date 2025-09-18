@@ -61,7 +61,8 @@ export class AuthController {
   @Post('forgot-password')
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.generatePasswordResetToken(forgotPasswordDto.email);
-    return { message: 'Password reset email sent' };
+    // 返回简单数据，拦截器会自动包装为统一格式
+    return { success: true };
   }
 
   @Public()
@@ -71,7 +72,8 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
     await this.authService.updatePasswordWithResetToken(token, resetPasswordDto.password);
-    return { message: 'Password successfully reset' };
+    // 返回简单数据，拦截器会自动包装为统一格式
+    return { success: true };
   }
 
   @UseGuards(DevAuthGuard)
@@ -106,6 +108,7 @@ export class AuthController {
   @Post('logout')
   async logout(@Body('refreshToken') refreshToken: string) {
     await this.authService.logout(refreshToken);
-    return { message: 'Successfully logged out' };
+    // 返回简单数据，拦截器会自动包装为统一格式
+    return { success: true };
   }
 }

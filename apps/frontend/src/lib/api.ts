@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import { getAccessToken, refreshTokens, logout } from "./auth";
-import { SuccessResponse, ErrorResponse } from "@freemonitor/types";
+import { extractResponseData, isErrorResponse } from "@freemonitor/types";
 
 /**
  * API客户端类
@@ -39,34 +39,21 @@ export class ApiClient {
     // 响应拦截器 - 处理错误和自动刷新令牌
     this.axiosInstance.interceptors.response.use(
       (response: AxiosResponse) => {
-        // 检查响应是否符合SuccessResponse格式
+        // 使用统一的响应解析工具提取数据
         const data = response.data;
         
-        // 对于认证相关的响应，直接返回数据部分
-        if (response.config.url?.includes('/auth/')) {
-          return data;
+        // 如果是ErrorResponse格式，抛出错误
+        if (isErrorResponse(data)) {
+          return Promise.reject(new Error(data.message));
         }
         
-        // 检查响应是否符合SuccessResponse格式
-        if (data && typeof data === "object" && data.success !== undefined) {
-          // 确保有必要的字段
-          return {
-            success: data.success !== false, // 处理 success: false 的情况
-            data: data.data,
-            message: data.message || "Success",
-            statusCode: data.statusCode || response.status,
-            timestamp: data.timestamp || new Date().toISOString(),
-            ...data, // 保留其他可能存在的字段
-          };
-        }
-
-        // 如果不是SuccessResponse格式，包装成统一格式
+        // 解析响应数据
+        const parsedData = extractResponseData(data);
+        
+        // 返回包含解析后数据的响应对象
         return {
-          success: true,
-          data: data,
-          message: "Success",
-          statusCode: response.status,
-          timestamp: new Date().toISOString(),
+          ...response,
+          data: parsedData
         };
       },
       async (error: AxiosError) => {
@@ -107,7 +94,13 @@ export class ApiClient {
 
         // 处理其他错误 - 提取错误信息
         if (error.response?.data) {
-          const errorData = error.response.data as ErrorResponse;
+          const errorData: any = error.response.data;
+          // 检查是否为统一错误格式
+          if (isErrorResponse(errorData)) {
+            return Promise.reject(new Error(errorData.message));
+          }
+          
+          // 处理其他格式的错误数据
           const errorMessage = errorData.message || "请求失败";
           return Promise.reject(new Error(errorMessage));
         }

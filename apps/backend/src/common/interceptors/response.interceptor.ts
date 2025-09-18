@@ -2,7 +2,7 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nes
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Request, Response } from 'express';
-import { SuccessResponse } from '@freemonitor/types';
+import { createSuccessResponse } from '@freemonitor/types';
 
 @Injectable()
 export class ResponseInterceptor implements NestInterceptor {
@@ -24,22 +24,17 @@ export class ResponseInterceptor implements NestInterceptor {
           return data;
         }
 
-        // 如果返回的数据已经符合SuccessResponse格式，直接返回
-        if (data && typeof data === 'object' && data.success !== undefined) {
+        // 如果返回的数据已经符合标准响应格式，直接返回
+        if (data && typeof data === 'object' && 'success' in data) {
           return data;
         }
 
-        // 统一包装响应格式
-        const successResponse: SuccessResponse<any> = {
-          success: true,
+        // 统一包装为标准响应格式
+        return createSuccessResponse(data, {
           statusCode: statusCode,
-          message: 'Success',
-          data: data,
-          timestamp: new Date().toISOString(),
           path: request.path,
-        };
-
-        return successResponse;
+          requestId: request.headers['x-request-id'] as string,
+        });
       })
     );
   }

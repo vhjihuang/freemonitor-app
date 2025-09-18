@@ -1,67 +1,98 @@
-import { ExceptionFilter, Catch, ArgumentsHost, Logger } from '@nestjs/common';
+/**
+ * HTTP 异常过滤器
+ * 统一处理所有 HTTP 异常，返回标准错误响应格式
+ */
+
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ErrorResponse } from '@freemonitor/types';
-import { AppException } from '../exceptions/app.exception';
+import { createErrorResponse } from '@freemonitor/types';
+
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+    const status = exception.getStatus();
+
+    const exceptionResponse = exception.getResponse();
+    let message = exception.message;
+    let errorCode = 'HTTP_EXCEPTION';
+    let details = undefined;
+
+    // 处理验证错误等结构化异常响应
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      const responseObj = exceptionResponse as any;
+      
+      if (responseObj.message) {
+        message = Array.isArray(responseObj.message) 
+          ? responseObj.message.join(', ')
+          : responseObj.message;
+      }
+      
+      if (responseObj.error) {
+        errorCode = responseObj.error.toUpperCase().replace(/\s+/g, '_');
+      }
+      
+      if (responseObj.details) {
+        details = responseObj.details;
+      }
+    }
+
+    const errorResponse = createErrorResponse(
+      {
+        message,
+        errorCode,
+        details,
+        stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
+      },
+      {
+        statusCode: status,
+        path: request.path,
+        requestId: request.headers['x-request-id'] as string,
+      }
+    );
+
+    response.status(status).json(errorResponse);
+  }
+}
 
 @Catch()
-export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
-
-  catch(exception: unknown, host: ArgumentsHost): void {
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    // 🛡️ 关键防护：如果响应已发送，直接跳过，避免崩溃
-    if (response.headersSent) {
-      this.logger.warn('响应已发送，跳过异常过滤器响应设置', {
-        url: request.url,
-        method: request.method,
-        exception: exception instanceof Error ? exception.message : String(exception),
-      });
-      return;
-    }
+    const status = exception instanceof HttpException 
+      ? exception.getStatus() 
+      : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // 先保持原有逻辑，只对AppException使用新格式
-    if (exception instanceof AppException) {
-      const errorResponse: ErrorResponse = {
-        success: false,
-        statusCode: exception.statusCode,
-        message: exception.message,
-        errorCode: exception.errorCode,
-        timestamp: exception.timestamp,
-        path: request.url,
-        details: exception.details,
-      };
-      response.status(exception.statusCode).json(errorResponse);
-      return;
-    }
+    const message = exception instanceof Error 
+      ? exception.message 
+      : 'Internal server error';
 
-    // 对其他异常保持原有处理逻辑
-    const status = (exception as any).status || 500;
-    const message = (exception as any).message || 'Internal Server Error';
+    const errorResponse = createErrorResponse(
+      {
+        message,
+        errorCode: 'INTERNAL_SERVER_ERROR',
+        stack: process.env.NODE_ENV === 'development' && exception instanceof Error 
+          ? exception.stack 
+          : undefined,
+      },
+      {
+        statusCode: status,
+        path: request.path,
+        requestId: request.headers['x-request-id'] as string,
+      }
+    );
 
-    // 构建原有格式的响应体
-    const errorResponse = {
-      statusCode: status,
-      message,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    };
-
-    // 记录日志
-    if (status >= 500) {
-      this.logger.error(
-        `${status} ${request.method} ${request.url} - ${message}`,
-        (exception as any).stack,
-      );
-    } else {
-      this.logger.warn(
-        `${status} ${request.method} ${request.url} - ${message}`,
-      );
-    }
-
-    // 返回原有格式
     response.status(status).json(errorResponse);
   }
 }

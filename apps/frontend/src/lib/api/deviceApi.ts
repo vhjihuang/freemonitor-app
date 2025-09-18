@@ -1,14 +1,21 @@
 // src/lib/api/deviceApi.ts
 import { apiClient } from '../api';
-import { Device, CreateDeviceDto, UpdateDeviceDto, SuccessResponse } from '@freemonitor/types';
+import { Device, CreateDeviceDto, UpdateDeviceDto } from '@freemonitor/types';
+
+// 提取响应数据的统一工具函数
+const handleResponse = <T>(response: { data: T } | T): T => {
+  return (response as { data: T }).data !== undefined 
+    ? (response as { data: T }).data 
+    : (response as T);
+};
 
 /**
  * 获取所有设备
  * @returns Promise<Device[]> - 设备列表
  */
 export const getAllDevices = async (): Promise<Device[]> => {
-  const response: any = await apiClient.get('/devices');
-  return response.data || response;
+  const response = await apiClient.get<Device[]>('/devices');
+  return handleResponse(response);
 };
 
 /**
@@ -23,8 +30,8 @@ export const getDevices = async (params?: {
   page?: number;
   limit?: number;
 }): Promise<Device[]> => {
-  const response: any = await apiClient.get('/devices', { params });
-  return response.data || response;
+  const response = await apiClient.get<Device[]>('/devices', { params });
+  return handleResponse(response);
 };
 
 /**
@@ -33,8 +40,8 @@ export const getDevices = async (params?: {
  * @returns Promise<Device> - 设备详情
  */
 export const getDeviceById = async (id: string): Promise<Device> => {
-  const response: any = await apiClient.get(`/devices/${id}`);
-  return response.data || response;
+  const response = await apiClient.get<Device>(`/devices/${id}`);
+  return handleResponse(response);
 };
 
 /**
@@ -43,8 +50,8 @@ export const getDeviceById = async (id: string): Promise<Device> => {
  * @returns Promise<Device> - 创建的设备
  */
 export const createDevice = async (deviceData: CreateDeviceDto): Promise<Device> => {
-  const response: any = await apiClient.post('/devices', deviceData);
-  return response.data || response;
+  const response = await apiClient.post<Device>('/devices', deviceData);
+  return handleResponse(response);
 };
 
 /**
@@ -54,8 +61,8 @@ export const createDevice = async (deviceData: CreateDeviceDto): Promise<Device>
  * @returns Promise<Device> - 更新后的设备
  */
 export const updateDevice = async (id: string, deviceData: UpdateDeviceDto): Promise<Device> => {
-  const response: any = await apiClient.put(`/devices/${id}`, deviceData);
-  return response.data || response;
+  const response = await apiClient.put<Device>(`/devices/${id}`, deviceData);
+  return handleResponse(response);
 };
 
 /**
@@ -64,6 +71,6 @@ export const updateDevice = async (id: string, deviceData: UpdateDeviceDto): Pro
  * @returns Promise<void>
  */
 export const deleteDevice = async (id: string): Promise<void> => {
-  const response: any = await apiClient.delete(`/devices/${id}`);
-  return response.data || response;
+  const response = await apiClient.delete<void>(`/devices/${id}`);
+  return handleResponse(response);
 };
