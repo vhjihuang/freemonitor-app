@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { createErrorResponse } from '@freemonitor/types';
+import { AppException } from '../exceptions/app.exception';
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -70,18 +71,30 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status = exception instanceof HttpException 
-      ? exception.getStatus() 
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = 'Internal server error';
+    let errorCode = 'INTERNAL_SERVER_ERROR';
 
-    const message = exception instanceof Error 
-      ? exception.message 
-      : 'Internal server error';
+    // 处理自定义应用异常
+    if (exception instanceof AppException) {
+      status = exception.statusCode;
+      message = exception.message;
+      errorCode = exception.errorCode;
+    } 
+    // 处理 NestJS HTTP 异常
+    else if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      message = exception.message;
+    }
+    // 处理其他错误
+    else if (exception instanceof Error) {
+      message = exception.message;
+    }
 
     const errorResponse = createErrorResponse(
       {
         message,
-        errorCode: 'INTERNAL_SERVER_ERROR',
+        errorCode,
         stack: process.env.NODE_ENV === 'development' && exception instanceof Error 
           ? exception.stack 
           : undefined,

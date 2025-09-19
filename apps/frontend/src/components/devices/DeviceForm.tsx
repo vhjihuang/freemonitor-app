@@ -57,6 +57,7 @@ interface DeviceFormProps {
 
 export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const createDevice = useCreateDevice();
   const updateDevice = useUpdateDevice();
 
@@ -76,6 +77,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
 
   const onSubmit = async (values: DeviceFormValues) => {
     setIsLoading(true);
+    setError(null);
     try {
       if (device) {
         // 确保传入正确的参数格式
@@ -98,8 +100,12 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
       onSuccess();
     } catch (error: any) {
       console.error('Failed to save device:', error);
-      // 添加用户友好的错误提示
-      alert(error.message || '保存设备失败，请稍后重试');
+      // 使用标准的错误处理方式
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('保存设备失败，请稍后重试');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -108,89 +114,69 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Device Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter device name" {...field} />
-              </FormControl>
-              <FormDescription>
-                A descriptive name for the device (e.g., "Production Server")
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {error && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">{error}</p>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 设备名称 - 必填 */}
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>设备名称 *</FormLabel>
+                <FormControl>
+                  <Input placeholder="输入设备名称" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="hostname"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>主机名</FormLabel>
-              <FormControl>
-                <Input placeholder="请输入主机名" {...field} />
-              </FormControl>
-              <FormDescription>
-                设备的主机名（可选）
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          {/* IP地址 - 必填 */}
+          <FormField
+            control={form.control}
+            name="ipAddress"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>IP地址 *</FormLabel>
+                <FormControl>
+                  <Input placeholder="192.168.1.100" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="ipAddress"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>IP地址</FormLabel>
-              <FormControl>
-                <Input placeholder="请输入IP地址" {...field} />
-              </FormControl>
-              <FormDescription>
-                设备的IP地址
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          {/* 主机名 */}
+          <FormField
+            control={form.control}
+            name="hostname"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>主机名</FormLabel>
+                <FormControl>
+                  <Input placeholder="server01.local" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>描述</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="请输入设备描述"
-                  className="resize-none"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                设备的详细描述信息
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
+          {/* 设备类型 */}
           <FormField
             control={form.control}
             name="type"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="space-y-2">
                 <FormLabel>设备类型</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="请选择设备类型" />
+                      <SelectValue placeholder="选择设备类型" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -199,85 +185,74 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
                     <SelectItem value="IOT">物联网设备</SelectItem>
                   </SelectContent>
                 </Select>
-                <FormDescription>
-                  设备的类型
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* 位置 */}
           <FormField
             control={form.control}
             name="location"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="space-y-2">
                 <FormLabel>位置</FormLabel>
                 <FormControl>
-                  <Input placeholder="请输入设备位置" {...field} />
+                  <Input placeholder="机房A-机柜01" {...field} />
                 </FormControl>
-                <FormDescription>
-                  设备的物理位置
-                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* 标签 */}
+          <FormField
+            control={form.control}
+            name="tags"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>标签</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="prod, web, database (用逗号分隔)"
+                    value={field.value?.join(', ') || ''}
+                    onChange={(e) => field.onChange(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
 
+        {/* 描述 */}
         <FormField
           control={form.control}
-          name="tags"
+          name="description"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>标签</FormLabel>
+            <FormItem className="space-y-2">
+              <FormLabel>描述</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="请输入标签，多个标签用逗号分隔"
-                  value={field.value?.join(', ') || ''}
-                  onChange={(e) => field.onChange(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))}
+                <Textarea
+                  placeholder="设备描述信息"
+                  className="resize-none"
+                  {...field}
+                  rows={3}
                 />
               </FormControl>
-              <FormDescription>
-                用于分类设备的标签，多个标签用逗号分隔
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="deviceGroupId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>设备组</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="请选择设备组" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {/* 这里应该从API获取设备组数据，暂时使用静态数据 */}
-                  <SelectItem value="1">默认设备组</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                设备所属的设备组
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Cancel
+        {/* 按钮 */}
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+            取消
           </Button>
           <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {device ? 'Update' : 'Create'} Device
+            {device ? '更新设备' : '创建设备'}
           </Button>
         </div>
       </form>

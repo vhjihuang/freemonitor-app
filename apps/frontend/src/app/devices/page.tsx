@@ -2,27 +2,30 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+
 import { DeviceCard } from '@/components/devices/DeviceCard';
-import { AddDeviceDialog } from '@/components/devices/AddDeviceDialog';
-import { EditDeviceDialog } from '@/components/devices/EditDeviceDialog';
+
 import { DeviceSearchFilter } from '@/components/devices/DeviceSearchFilter';
 import { Device } from '@freemonitor/types';
 import { Role } from '@freemonitor/types';
 import { PageTemplate } from '@/components/layout/PageTemplate';
 import { useDevices } from '@/hooks/useDevices';
+import { AddDeviceDialog } from '@/components/devices/AddDeviceDialog';
+import { EditDeviceDialog } from '@/components/devices/EditDeviceDialog';
 import { useDeleteDevice } from '@/hooks/useDeviceMutation';
-import { ToastDemo } from '@/components/ui/toast-demo';
+import { useToastContext } from '@/components/providers/toast-provider';
+
+
 
 export default function DevicesPage() {
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingDevice, setEditingDevice] = useState<Device | null>(null)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [type, setType] = useState<string>('all')
   const [page, setPage] = useState(1)
   const [limit] = useState(20) // 固定每页显示20条记录
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const { addToast } = useToastContext();
   
   const { data: devicesResponse, isLoading, error, refetch } = useDevices({ 
     search: search || undefined,
@@ -31,6 +34,8 @@ export default function DevicesPage() {
     page,
     limit
   })
+
+  const deleteDevice = useDeleteDevice();
   
   // 获取所有设备用于统计
   const { data: allDevicesResponse } = useDevices({})
@@ -39,40 +44,25 @@ export default function DevicesPage() {
   const allDevices = allDevicesResponse || [];
   const totalPages = 1; // 由于后端未实现分页，这里设置为固定值
   
-  const deleteDeviceMutation = useDeleteDevice()
-
-  const handleAddDeviceSuccess = () => {
-    setIsAddDialogOpen(false)
-    refetch()
-    // 可以添加成功提示
-    alert('设备创建成功')
-  }
-  
-  const handleEdit = (device: Device) => {
-    setEditingDevice(device)
-    setIsEditDialogOpen(true)
-  }
-  
-  const handleEditDeviceSuccess = () => {
-    setIsEditDialogOpen(false)
-    setEditingDevice(null)
-    refetch()
-    // 可以添加成功提示
-    alert('设备更新成功')
-  }
-  
-  const handleDelete = async (id: string) => {
-    if (confirm('确定要删除这个设备吗？')) {
+  const handleDeleteDevice = async (device: Device) => {
+    if (window.confirm(`确定要删除设备 "${device.name}" 吗？`)) {
       try {
-        await deleteDeviceMutation.mutateAsync(id)
-        refetch()
-      } catch (error) {
-        console.error('删除设备失败:', error)
-        // 这里可以添加用户友好的错误提示
-        alert('删除设备失败，请稍后重试')
+        await deleteDevice.mutateAsync(device.id);
+        addToast({
+          title: '删除成功',
+          description: `设备 "${device.name}" 已成功删除`,
+          variant: 'success'
+        });
+        refetch();
+      } catch (error: any) {
+        addToast({
+          title: '删除失败',
+          description: error.message || '删除设备时发生未知错误',
+          variant: 'error'
+        });
       }
     }
-  }
+  };
 
   if (error) {
     return (
@@ -87,18 +77,14 @@ export default function DevicesPage() {
   return (
     <PageTemplate currentPage="设备管理" currentPath="/devices" roles={[Role.USER, Role.ADMIN]}>
       <div className="space-y-6">
-        {/* 添加ToastDemo用于测试 */}
-        <ToastDemo />
+
         <div className="container py-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <h1 className="text-3xl font-bold">设备管理</h1>
               <p className="text-muted-foreground">管理您的监控设备</p>
             </div>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              添加设备
-            </Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>添加设备</Button>
           </div>
 
           <DeviceSearchFilter 
@@ -125,9 +111,9 @@ export default function DevicesPage() {
                   <DeviceCard 
                     key={device.id} 
                     device={device} 
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
                     searchTerm={search}
+                    onEdit={setEditingDevice}
+                    onDelete={handleDeleteDevice}
                   />
                 ))}
               </div>
@@ -179,22 +165,28 @@ export default function DevicesPage() {
                 <>
                   <h2 className="text-2xl font-semibold">暂无设备</h2>
                   <p className="text-muted-foreground">您还没有添加任何设备</p>
-                  <Button onClick={() => setIsAddDialogOpen(true)}>添加您的第一个设备</Button>
+                  <Button onClick={() => setIsAddDialogOpen(true)}>添加设备</Button>
                 </>
               )}
             </div>
           )}
 
           <AddDeviceDialog 
-            open={isAddDialogOpen} 
+            open={isAddDialogOpen}
             onOpenChange={setIsAddDialogOpen}
-            onSuccess={handleAddDeviceSuccess}
+            onSuccess={() => {
+              refetch();
+            }}
           />
+
           {editingDevice && (
             <EditDeviceDialog
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-              onSuccess={handleEditDeviceSuccess}
+              open={!!editingDevice}
+              onOpenChange={(open) => !open && setEditingDevice(null)}
+              onSuccess={() => {
+                setEditingDevice(null);
+                refetch();
+              }}
               device={editingDevice}
             />
           )}

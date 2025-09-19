@@ -5,15 +5,16 @@ import { zhCN } from 'date-fns/locale/zh-CN';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash } from 'lucide-react';
+
 import { Device } from '@freemonitor/types';
 import { HighlightText } from './HighlightText';
 
 interface DeviceCardProps {
   device: Device;
-  onEdit: (device: Device) => void;
-  onDelete: (id: string) => void;
   searchTerm?: string;
+  onEdit?: (device: Device) => void;
+  onDelete?: (device: Device) => void;
 }
 
 const getStatusText = (status: string): string => {
@@ -63,7 +64,7 @@ const getTypeText = (type: string): string => {
   }
 };
 
-export function DeviceCard({ device, onEdit, onDelete, searchTerm = '' }: DeviceCardProps) {
+export function DeviceCard({ device, searchTerm = '', onEdit, onDelete }: DeviceCardProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
@@ -78,9 +79,33 @@ export function DeviceCard({ device, onEdit, onDelete, searchTerm = '' }: Device
               </Badge>
             )}
           </div>
-          <Badge variant={getStatusVariant(device.status || 'UNKNOWN')}>
-            {getStatusText(device.status || 'UNKNOWN')}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={getStatusVariant(device.status || 'UNKNOWN')}>
+              {getStatusText(device.status || 'UNKNOWN')}
+            </Badge>
+            <div className="flex gap-1">
+              {onEdit && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onEdit(device)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onDelete(device)}
+                  className="h-8 w-8 p-0 text-red-600 hover:text-red-600 hover:bg-red-50"
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -109,20 +134,10 @@ export function DeviceCard({ device, onEdit, onDelete, searchTerm = '' }: Device
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
+      <CardFooter>
         <p className="text-xs text-muted-foreground">
           创建于 {format(new Date(device.createdAt), 'yyyy年MM月dd日', { locale: zhCN })}
         </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => onEdit(device)}>
-            <Pencil className="w-4 h-4" />
-            <span className="sr-only">编辑</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onDelete(device.id)}>
-            <Trash2 className="w-4 h-4" />
-            <span className="sr-only">删除</span>
-          </Button>
-        </div>
       </CardFooter>
     </Card>
   );

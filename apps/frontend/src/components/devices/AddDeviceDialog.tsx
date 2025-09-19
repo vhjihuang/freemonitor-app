@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DeviceForm } from '@/components/devices/DeviceForm';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AddDeviceForm } from './AddDeviceForm';
+import { createDevice } from '@/lib/api/deviceApi';
+import { CreateDeviceDto } from '@freemonitor/types';
 
 interface AddDeviceDialogProps {
   open: boolean;
@@ -11,29 +13,56 @@ interface AddDeviceDialogProps {
 }
 
 export function AddDeviceDialog({ open, onOpenChange, onSuccess }: AddDeviceDialogProps) {
-  const [isOpen, setIsOpen] = useState(open);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleOpenChange = (newOpen: boolean) => {
-    setIsOpen(newOpen);
-    onOpenChange(newOpen);
-  };
+  const handleSubmit = async (data: CreateDeviceDto) => {
+    setLoading(true);
+    setError(null);
 
-  const handleSuccess = () => {
-    onSuccess();
-    handleOpenChange(false);
+    try {
+      await createDevice(data);
+      onSuccess();
+      onOpenChange(false);
+    } catch (err) {
+      console.error('创建设备失败:', err);
+      // 使用标准的错误处理方式
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('创建设备失败');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
-    handleOpenChange(false);
+    setError(null);
+    onOpenChange(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Device</DialogTitle>
+          <DialogTitle>添加新设备</DialogTitle>
+          <DialogDescription>
+            请填写以下表单来添加一个新的监控设备
+          </DialogDescription>
         </DialogHeader>
-        <DeviceForm onSuccess={handleSuccess} onCancel={handleCancel} />
+
+        {error && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">{error}</p>
+          </div>
+        )}
+
+        <AddDeviceForm
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          loading={loading}
+        />
       </DialogContent>
     </Dialog>
   );

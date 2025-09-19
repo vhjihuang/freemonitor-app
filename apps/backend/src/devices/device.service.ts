@@ -195,6 +195,27 @@ export class DeviceService {
     await this.validateDeviceGroup(createDeviceDto.deviceGroupId)
 
     try {
+      // 检查设备是否已存在
+      const existingDevice = await this.prisma.device.findFirst({
+        where: {
+          OR: [
+            { ipAddress: createDeviceDto.ipAddress },
+            { hostname: createDeviceDto.hostname }
+          ],
+          userId: user.id,
+          isActive: true
+        }
+      });
+
+      if (existingDevice) {
+        if (existingDevice.ipAddress === createDeviceDto.ipAddress) {
+          throw new BusinessException("设备 IP 地址已存在");
+        }
+        if (existingDevice.hostname === createDeviceDto.hostname) {
+          throw new BusinessException("设备主机名已存在");
+        }
+      }
+
       const device = await this.prisma.device.create({
         data: {
           name: createDeviceDto.name,
@@ -231,6 +252,30 @@ export class DeviceService {
     });
     if (!device) {
       throw new NotFoundException("Device", id);
+    }
+
+    // 检查更新的设备是否与其他设备冲突
+    if (updateDeviceDto.ipAddress || updateDeviceDto.hostname) {
+      const existingDevice = await this.prisma.device.findFirst({
+        where: {
+          id: { not: id }, // 排除当前设备
+          OR: [
+            updateDeviceDto.ipAddress ? { ipAddress: updateDeviceDto.ipAddress } : undefined,
+            updateDeviceDto.hostname ? { hostname: updateDeviceDto.hostname } : undefined
+          ].filter(Boolean) as Prisma.DeviceWhereInput['OR'],
+          userId: userId,
+          isActive: true
+        }
+      });
+
+      if (existingDevice) {
+        if (updateDeviceDto.ipAddress && existingDevice.ipAddress === updateDeviceDto.ipAddress) {
+          throw new BusinessException("设备 IP 地址已存在");
+        }
+        if (updateDeviceDto.hostname && existingDevice.hostname === updateDeviceDto.hostname) {
+          throw new BusinessException("设备主机名已存在");
+        }
+      }
     }
 
     return this.prisma.device.update({
