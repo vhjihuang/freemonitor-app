@@ -2,8 +2,9 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Role } from '@freemonitor/types';
+import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -11,8 +12,10 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, roles }: AuthGuardProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { isAllowed } = usePermissionCheck(roles, false); // 不自动重定向
 
   // 处理权限验证和路由重定向
   useEffect(() => {
@@ -21,22 +24,21 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
 
     // 未认证用户重定向到登录页
     if (!isAuthenticated) {
+      setIsRedirecting(true);
       router.push('/login');
       return;
     }
 
     // 如果需要角色检查且用户角色不匹配，则重定向到未授权页面
-    if (roles && roles.length > 0 && user?.role) {
-      const hasRequiredRole = roles.includes(user.role as Role);
-      if (!hasRequiredRole) {
-        router.push('/unauthorized');
-        return;
-      }
+    if (roles && roles.length > 0 && !isAllowed) {
+      setIsRedirecting(true);
+      router.push('/unauthorized');
+      return;
     }
-  }, [isAuthenticated, isLoading, user, roles, router]);
+  }, [isAuthenticated, isLoading, isAllowed, roles, router]);
 
   // 在权限验证期间渲染 null，避免显示加载状态
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return null;
   }
 
@@ -46,10 +48,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
   }
 
   // 检查用户角色是否满足要求
-  const hasRequiredRole = !roles || roles.length === 0 || (user?.role && roles.includes(user.role as Role));
-  
-  // 角色不匹配时渲染 null，等待重定向
-  if (!hasRequiredRole) {
+  if (roles && roles.length > 0 && !isAllowed) {
     return null;
   }
 

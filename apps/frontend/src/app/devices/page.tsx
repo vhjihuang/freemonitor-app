@@ -14,6 +14,7 @@ import { AddDeviceDialog } from '@/components/devices/AddDeviceDialog';
 import { EditDeviceDialog } from '@/components/devices/EditDeviceDialog';
 import { useDeleteDevice } from '@/hooks/useDeviceMutation';
 import { useToastContext } from '@/components/providers/toast-provider';
+import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 
 
@@ -44,6 +45,14 @@ export default function DevicesPage() {
   const allDevices = allDevicesResponse || [];
   const totalPages = 1; // 由于后端未实现分页，这里设置为固定值
   
+  // 权限检查
+  const { isAllowed, isRedirecting } = usePermissionCheck([Role.USER, Role.ADMIN]);
+
+  // 如果没有权限，不渲染内容
+  if (isRedirecting || !isAllowed) {
+    return null;
+  }
+
   const handleDeleteDevice = async (device: Device) => {
     if (window.confirm(`确定要删除设备 "${device.name}" 吗？`)) {
       try {
@@ -112,7 +121,7 @@ export default function DevicesPage() {
                     key={device.id} 
                     device={device} 
                     searchTerm={search}
-                    onEdit={setEditingDevice}
+                    onEdit={(device) => setEditingDevice(device)}
                     onDelete={handleDeleteDevice}
                   />
                 ))}
