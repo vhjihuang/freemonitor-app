@@ -1,7 +1,3 @@
-// ================================================================================
-// 1. Generator & Datasource
-// ================================================================================
-
 generator client {
   provider   = "prisma-client-js"
   engineType = "binary"
@@ -12,9 +8,153 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================================================================================
-// 2. Core Models
-// ================================================================================
+model Device {
+  id            String       @id @default(cuid())
+  name          String
+  hostname      String       @unique
+  ipAddress     String       @unique
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  description   String?
+  status        DeviceStatus @default(UNKNOWN)
+  location      String?
+  tags          String[]
+  lastSeen      DateTime?
+  userId        String?
+  deviceGroupId String?
+  type          DeviceType?
+  alerts        Alert[]
+  deviceGroup   DeviceGroup? @relation(fields: [deviceGroupId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
+  metrics       Metric[]
+
+  @@index([isActive])
+  @@index([status])
+  @@index([lastSeen])
+  @@index([userId])
+  @@index([deviceGroupId])
+  @@index([ipAddress])
+  @@index([hostname])
+  @@map("devices")
+}
+
+model Metric {
+  id          String   @id @default(cuid())
+  deviceId    String
+  cpu         Float
+  memory      Float
+  disk        Float
+  timestamp   DateTime @default(now()) @db.Timestamptz(6)
+  networkIn   Float?
+  networkOut  Float?
+  uptime      Int?
+  temperature Float?
+  custom      Json?
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([timestamp])
+  @@index([deviceId, timestamp, cpu])
+  @@index([deviceId, timestamp, disk])
+  @@index([deviceId, timestamp])
+  @@index([deviceId, timestamp, memory])
+  @@index([timestamp, deviceId])
+  @@map("metrics")
+}
+
+model Alert {
+  id             String        @id @default(cuid())
+  deviceId       String
+  message        String
+  createdAt      DateTime      @default(now())
+  type           AlertType
+  isResolved     Boolean       @default(false)
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  metadata       Json?
+  userId         String?
+  updatedAt      DateTime      @updatedAt
+  severity       AlertSeverity @default(ERROR)
+  device         Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  User           User?         @relation(fields: [userId], references: [id])
+
+  @@index([deviceId])
+  @@index([isResolved])
+  @@index([severity])
+  @@index([type])
+  @@index([createdAt])
+  @@index([resolvedAt])
+  @@index([deviceId, isResolved])
+  @@index([isResolved, severity, createdAt])
+  @@index([type, isResolved])
+  @@map("alerts")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revoked])
+  @@index([userId, revoked])
+  @@index([token, revoked])
+  @@map("refresh_tokens")
+}
+
+model User {
+  id                     String         @id @default(cuid())
+  email                  String         @unique
+  password               String
+  name                   String?
+  role                   UserRole       @default(USER)
+  isActive               Boolean        @default(true)
+  lastLoginAt            DateTime?
+  failedLoginAttempts    Int            @default(0)
+  lockedUntil            DateTime?
+  mfaEnabled             Boolean        @default(false)
+  mfaSecret              String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  deletedAt              DateTime?
+  passwordResetExpiresAt DateTime?
+  passwordResetToken     String?        @unique
+  createdAlerts          Alert[]
+  devices                Device[]
+  refreshTokens          RefreshToken[]
+
+  @@index([email])
+  @@index([isActive])
+  @@index([role])
+  @@index([lastLoginAt])
+  @@index([lockedUntil])
+  @@index([email, isActive])
+  @@map("users")
+}
+
+model DeviceGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  devices     Device[]
+
+  @@index([name])
+  @@index([isActive])
+  @@index([name, isActive])
+  @@map("device_groups")
+}
 
 enum DeviceStatus {
   ONLINE
@@ -50,174 +190,4 @@ enum UserRole {
   ADMIN
   USER
   VIEWER
-}
-
-model Device {
-  id          String       @id @default(cuid())
-  name        String
-  hostname    String       @unique
-  ipAddress   String       @unique // 改为必填并添加唯一约束
-  description String?
-  status      DeviceStatus @default(UNKNOWN)
-  type        DeviceType?  // 使用枚举
-  location    String?      // 如 "Beijing DC", "Office"
-  tags        String[]     // 如 ["prod", "database", "aws"]
-  isActive    Boolean      @default(true)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  lastSeen    DateTime?
-
-  userId String? // 可选：设备可以无主
-  user   User?   @relation(fields: [userId], references: [id])
-
-  deviceGroupId String? // 可选：设备组
-  deviceGroup   DeviceGroup? @relation(fields: [deviceGroupId], references: [id])
-
-  alerts  Alert[]
-  metrics Metric[]
-
-  @@index([isActive])
-  @@index([status])
-  @@index([lastSeen])
-  @@index([userId])
-  @@index([deviceGroupId])
-  @@index([ipAddress])
-  @@index([hostname])
-  @@map("devices")
-}
-
-// ================================================================================
-// 3. Monitoring Models
-// ================================================================================
-
-model Metric {
-  id          String @id @default(cuid())
-  deviceId    String
-  cpu         Float // CPU 使用率 (%)
-  memory      Float // 内存使用率 (%)
-  disk        Float // 磁盘使用率 (%)
-  networkIn   Float? // 网络流入 (Mbps)
-  networkOut  Float? // 网络流出 (Mbps)
-  uptime      Int? // 系统运行时间 (秒)
-  temperature Float? // 新增：设备温度 (°C)，适用于物理服务器/树莓派
-  custom      Json? // 新增：自定义指标，如 { "gpu": 75, "fan_rpm": 3000 }
-
-  timestamp DateTime @default(now()) @db.Timestamptz // 显式使用带时区时间
-  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([deviceId])
-  @@index([timestamp])
-  @@index([deviceId, timestamp]) // 查询设备历史数据
-  @@index([timestamp, deviceId]) // 按时间范围批量查多个设备（仪表盘首页）
-  @@index([deviceId, timestamp, cpu]) // 覆盖索引：查 CPU 趋势无需回表
-  @@index([deviceId, timestamp, memory])
-  @@index([deviceId, timestamp, disk])
-  @@map("metrics")
-}
-
-model Alert {
-  id             String        @id @default(cuid())
-  deviceId       String
-  type           AlertType
-  message        String
-  severity       AlertSeverity @default(ERROR) // 建议默认为 ERROR
-  isResolved     Boolean       @default(false)
-  resolvedAt     DateTime?
-  acknowledgedAt DateTime? // 新增：告警被确认的时间
-  metadata       Json? // 新增：附加数据，如 { "threshold": 90, "value": 96 }
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // 关系
-  device Device  @relation(fields: [deviceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  User   User?   @relation(fields: [userId], references: [id])
-  userId String?
-
-  @@index([deviceId]) // 查询某设备的告警
-  @@index([isResolved]) // 过滤未解决告警
-  @@index([severity]) // 按严重程度筛选
-  @@index([type]) // 按告警类型筛选（CPU、离线等）
-  @@index([createdAt]) // 按时间排序（最新告警）
-  @@index([resolvedAt]) // 统计处理时效
-  @@index([deviceId, isResolved]) // 复合索引：某设备未解决告警
-  @@index([isResolved, severity, createdAt]) // 高频查询：未解决 + 严重 + 最新
-  @@index([type, isResolved]) // 按类型和状态过滤
-  @@map("alerts")
-}
-
-// ================================================================================// 4. Auth Models// ================================================================================
-
-model RefreshToken {
-  id           String    @id @default(cuid())
-  token        String    @unique
-  userId       String
-  ipAddress    String?   // 客户端IP地址
-  userAgent    String?   // 用户代理信息
-  expiresAt    DateTime  // 过期时间
-  revoked      Boolean   @default(false) // 是否已撤销
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([revoked])
-  @@index([userId, revoked])
-  @@index([token, revoked])
-  @@map("refresh_tokens")
-}
-
-// ================================================================================// 5. Future Models (Optional)// ================================================================================
-
-model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  password            String // bcrypt hash
-  name                String?
-  role                UserRole  @default(USER)
-  isActive            Boolean   @default(true)
-  deletedAt           DateTime? // 添加软删除字段
-  lastLoginAt         DateTime?
-  failedLoginAttempts Int       @default(0) // 登录失败次数
-  lockedUntil         DateTime? // 账户锁定截止时间（防暴力破解）
-  mfaEnabled          Boolean   @default(false) // 是否启用 MFA
-  mfaSecret           String? // MFA 密钥（如 TOTP）
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // 关系
-  devices       Device[] // 用户拥有的设备
-  createdAlerts Alert[] // 可选：用户创建的告警（未来扩展）
-  refreshTokens RefreshToken[] // 用户的刷新令牌
-
-  passwordResetToken String? @unique
-  passwordResetExpiresAt DateTime?
-
-  @@index([email])
-  @@index([isActive])
-  @@index([role])
-  @@index([lastLoginAt])
-  @@index([lockedUntil])
-  @@index([email, isActive]) // 登录时常用复合查询
-  @@map("users")
-}
-
-model DeviceGroup {
-  id          String   @id @default(cuid())
-  name        String
-  description String? // 可选：组的说明，如“生产环境数据库组”
-  isActive    Boolean  @default(true) // 支持禁用组而不删除
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关系
-  devices Device[] // 该组包含的设备
-
-  @@index([name])
-  @@index([isActive])
-  @@index([name, isActive]) // 复合索引：常用于筛选“启用的组”
-  @@map("device_groups")
 }

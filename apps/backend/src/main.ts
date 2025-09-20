@@ -98,9 +98,11 @@ async function bootstrap() {
     maxAge: 3600,
   });
 
-  // ✅ 6. 设置API前缀
-  const apiPrefix = configService.get('API_PREFIX', 'api');
-  app.setGlobalPrefix(apiPrefix);
+
+  // ✅ 6. 设置全局API前缀
+  const globalPrefix = configService.get('API_PREFIX', 'api');
+  app.setGlobalPrefix(globalPrefix);
+  logger.log(`全局API前缀已设置: /${globalPrefix}`);
 
   // ✅ 7. 启动服务器
   const port = process.env.PORT || 3001;
@@ -111,7 +113,6 @@ async function bootstrap() {
   const appUrl = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
   logger.log(`🚀 后端服务器已启动`, undefined, {
     url: appUrl,
-    apiPrefix: apiPrefix,
     environment: process.env.NODE_ENV,
     corsOrigins: corsOrigins,
   });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { apiClient } from '@/lib/api';
 
 /**
  * 仪表盘统计数据接口定义
@@ -30,26 +31,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 转发到后端API - 使用与api.ts一致的环境变量
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    
-    const response = await fetch(`${backendUrl}/api/dashboard/stats`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Backend API error: ${response.status} ${response.statusText}`);
+    try {
+      // 使用项目自定义的API客户端获取数据
+      const data = await apiClient.get<DashboardStats>('dashboard/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      return NextResponse.json({
+        success: true,
+        data: data,
+      });
+    } catch (apiError) {
+      console.error('API client error:', apiError);
+      throw apiError;
     }
-
-    const data = await response.json();
-    
-    return NextResponse.json({
-      success: true,
-      data: data.data,
-    });
 
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

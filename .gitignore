@@ -101,3 +101,5 @@ build-cache/    # 自定义构建缓存
 packages/*/dist/
 packages/*/build/
 packages/*/.next/
+
+prisma/migrations_backup_*/

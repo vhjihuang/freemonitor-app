@@ -14,7 +14,7 @@ interface DeviceCardProps {
   device: Device;
   searchTerm?: string;
   onEdit?: (device: Device) => void;
-  onDelete?: (device: Device) => void;
+  onDelete?: (deviceId: string) => void;
 }
 
 const getStatusText = (status: string): string => {
@@ -98,7 +98,7 @@ export function DeviceCard({ device, searchTerm = '', onEdit, onDelete }: Device
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={() => onDelete(device)}
+                  onClick={() => onDelete(device.id)}
                   className="h-8 w-8 p-0 text-red-600 hover:text-red-600 hover:bg-red-50"
                 >
                   <Trash className="h-4 w-4" />

@@ -88,15 +88,24 @@ export function DeviceList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {devices.map((device) => (
-        <DeviceCard
-          key={device.id}
-          device={device}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      ))}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">设备列表</h2>
+        <Button onClick={onAddDevice}>
+          <Plus className="h-4 w-4 mr-2" />
+          添加设备
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {devices.map((device) => (
+          <DeviceCard
+            key={device.id}
+            device={device}
+            onEdit={onEdit}
+            onDelete={(deviceId: string) => onDelete(deviceId)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

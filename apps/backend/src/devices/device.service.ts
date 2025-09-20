@@ -5,6 +5,7 @@ import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from "./dto/update-device.dto";
 import { User, Prisma, AlertSeverity, AlertType, DeviceStatus, DeviceType } from "@prisma/client";
 import { NotFoundException, BusinessException } from "../common/exceptions/app.exception";
+import { DatabaseFilters } from "@freemonitor/types";
 import { CreateMetricDto } from "./dto/create-metric.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
 
@@ -32,7 +33,7 @@ export class DeviceService {
   };
 
   constructor(private readonly prisma: PrismaService) {}
-  
+
   async createAlert(createAlertDto: CreateAlertDto, userId: string) {
     this.logger.log(`开始处理设备 ${createAlertDto.deviceId} 的告警`, {
       deviceId: createAlertDto.deviceId,
@@ -42,10 +43,10 @@ export class DeviceService {
     try {
       // 验证设备是否存在且属于当前用户
       const device = await this.prisma.device.findFirst({
-        where: { 
+        where: {
           id: createAlertDto.deviceId,
           userId: userId,
-          isActive: true
+          isActive: true,
         },
       });
 
@@ -60,13 +61,13 @@ export class DeviceService {
       // 映射告警严重程度枚举
       let severity: AlertSeverity;
       switch (createAlertDto.severity) {
-        case 'critical':
+        case "critical":
           severity = AlertSeverity.CRITICAL;
           break;
-        case 'warning':
+        case "warning":
           severity = AlertSeverity.WARNING;
           break;
-        case 'info':
+        case "info":
           severity = AlertSeverity.INFO;
           break;
         default:
@@ -75,15 +76,15 @@ export class DeviceService {
 
       // 确定告警类型（基于消息内容进行简单判断）
       let type: AlertType = AlertType.CUSTOM;
-      if (createAlertDto.message.includes('CPU')) {
+      if (createAlertDto.message.includes("CPU")) {
         type = AlertType.CPU;
-      } else if (createAlertDto.message.includes('内存') || createAlertDto.message.includes('Memory')) {
+      } else if (createAlertDto.message.includes("内存") || createAlertDto.message.includes("Memory")) {
         type = AlertType.MEMORY;
-      } else if (createAlertDto.message.includes('磁盘') || createAlertDto.message.includes('Disk')) {
+      } else if (createAlertDto.message.includes("磁盘") || createAlertDto.message.includes("Disk")) {
         type = AlertType.DISK;
-      } else if (createAlertDto.message.includes('网络') || createAlertDto.message.includes('Network')) {
+      } else if (createAlertDto.message.includes("网络") || createAlertDto.message.includes("Network")) {
         type = AlertType.NETWORK;
-      } else if (createAlertDto.message.includes('离线') || createAlertDto.message.includes('offline')) {
+      } else if (createAlertDto.message.includes("离线") || createAlertDto.message.includes("offline")) {
         type = AlertType.OFFLINE;
       }
 
@@ -111,17 +112,17 @@ export class DeviceService {
         deviceId: createAlertDto.deviceId,
         userId,
       });
-      
+
       // 如果是已知的业务异常，直接抛出
       if (error instanceof NotFoundException || error instanceof BusinessException) {
         throw error;
       }
-      
+
       // 其他异常统一包装为业务异常
       throw new BusinessException("告警处理失败");
     }
   }
-  
+
   async createMetric(createMetricDto: CreateMetricDto, userId: string) {
     this.logger.log(`开始处理设备 ${createMetricDto.deviceId} 的指标数据`, {
       deviceId: createMetricDto.deviceId,
@@ -131,10 +132,10 @@ export class DeviceService {
     try {
       // 验证设备是否存在且属于当前用户
       const device = await this.prisma.device.findFirst({
-        where: { 
+        where: {
           id: createMetricDto.deviceId,
           userId: userId,
-          isActive: true
+          isActive: true,
         },
       });
 
@@ -179,41 +180,64 @@ export class DeviceService {
         deviceId: createMetricDto.deviceId,
         userId,
       });
-      
+
       // 如果是已知的业务异常，直接抛出
       if (error instanceof NotFoundException || error instanceof BusinessException) {
         throw error;
       }
-      
+
       // 其他异常统一包装为业务异常
       throw new BusinessException("指标数据处理失败");
     }
   }
-  
+
   async create(createDeviceDto: CreateDeviceDto, user: User) {
-    this.validateUser(user)
-    await this.validateDeviceGroup(createDeviceDto.deviceGroupId)
+    this.validateUser(user);
+    await this.validateDeviceGroup(createDeviceDto.deviceGroupId);
 
     try {
-      // 检查设备是否已存在
-      const existingDevice = await this.prisma.device.findFirst({
+      // 检查是否存在同名的活跃设备
+      const existingActiveDevice = await this.prisma.device.findFirst({
         where: {
-          OR: [
-            { ipAddress: createDeviceDto.ipAddress },
-            { hostname: createDeviceDto.hostname }
-          ],
+          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: createDeviceDto.hostname }],
           userId: user.id,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
-      if (existingDevice) {
-        if (existingDevice.ipAddress === createDeviceDto.ipAddress) {
+      if (existingActiveDevice) {
+        // 如果找到现有活跃设备，抛出异常
+        if (existingActiveDevice.ipAddress === createDeviceDto.ipAddress) {
           throw new BusinessException("设备 IP 地址已存在");
         }
-        if (existingDevice.hostname === createDeviceDto.hostname) {
+        if (existingActiveDevice.hostname === createDeviceDto.hostname) {
           throw new BusinessException("设备主机名已存在");
         }
+      }
+
+      // 检查是否存在同名的软删除设备
+      const existingInactiveDevice = await this.prisma.device.findFirst({
+        where: {
+          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: createDeviceDto.hostname }],
+          userId: user.id,
+          isActive: false,
+        },
+      });
+
+      // 如果存在同名的软删除设备，先物理删除它们以避免唯一性约束冲突
+      if (existingInactiveDevice) {
+        await this.prisma.device.delete({
+          where: {
+            id: existingInactiveDevice.id,
+          },
+        });
+
+        this.logger.log("已删除同名的软删除设备", {
+          deletedDeviceId: existingInactiveDevice.id,
+          userId: user.id,
+          hostname: createDeviceDto.hostname,
+          ipAddress: createDeviceDto.ipAddress,
+        });
       }
 
       const device = await this.prisma.device.create({
@@ -240,7 +264,7 @@ export class DeviceService {
 
       return device;
     } catch (error) {
-      this.handlePrismaError(error, createDeviceDto, user)
+      this.handlePrismaError(error, createDeviceDto, user);
 
       throw error;
     }
@@ -254,39 +278,39 @@ export class DeviceService {
       throw new NotFoundException("Device", id);
     }
 
-    // 检查更新的设备是否与其他设备冲突
-    if (updateDeviceDto.ipAddress || updateDeviceDto.hostname) {
-      const existingDevice = await this.prisma.device.findFirst({
+    // 检查更新的设备是否与其他活跃设备冲突
+    if ((updateDeviceDto.ipAddress && updateDeviceDto.ipAddress !== device.ipAddress) || 
+        (updateDeviceDto.hostname && updateDeviceDto.hostname !== device.hostname)) {
+      const existingActiveDevice = await this.prisma.device.findFirst({
         where: {
           id: { not: id }, // 排除当前设备
           OR: [
-            updateDeviceDto.ipAddress ? { ipAddress: updateDeviceDto.ipAddress } : undefined,
-            updateDeviceDto.hostname ? { hostname: updateDeviceDto.hostname } : undefined
+            (updateDeviceDto.ipAddress && updateDeviceDto.ipAddress !== device.ipAddress) ? { ipAddress: updateDeviceDto.ipAddress } : undefined,
+            (updateDeviceDto.hostname && updateDeviceDto.hostname !== device.hostname) ? { hostname: updateDeviceDto.hostname } : undefined
           ].filter(Boolean) as Prisma.DeviceWhereInput['OR'],
           userId: userId,
-          isActive: true
+          ...DatabaseFilters.activeDevice()
         }
       });
 
-      if (existingDevice) {
-        if (updateDeviceDto.ipAddress && existingDevice.ipAddress === updateDeviceDto.ipAddress) {
+      if (existingActiveDevice) {
+        if (updateDeviceDto.ipAddress && updateDeviceDto.ipAddress !== device.ipAddress && existingActiveDevice.ipAddress === updateDeviceDto.ipAddress) {
           throw new BusinessException("设备 IP 地址已存在");
         }
-        if (updateDeviceDto.hostname && existingDevice.hostname === updateDeviceDto.hostname) {
+        if (updateDeviceDto.hostname && updateDeviceDto.hostname !== device.hostname && existingActiveDevice.hostname === updateDeviceDto.hostname) {
           throw new BusinessException("设备主机名已存在");
         }
       }
     }
 
-    return this.prisma.device.update({
-      where: {
-        id: device.id,
-      },
+    const updatedDevice = await this.prisma.device.update({
+      where: { id: device.id },
       data: {
         name: updateDeviceDto.name,
         hostname: updateDeviceDto.hostname || updateDeviceDto.name || device.hostname,
         description: updateDeviceDto.description,
         type: updateDeviceDto.type,
+        ipAddress: updateDeviceDto.ipAddress,
         location: updateDeviceDto.location,
         tags: {
           set: updateDeviceDto.tags ?? [],
@@ -295,6 +319,13 @@ export class DeviceService {
       },
       select: DeviceService.SELECT,
     });
+
+    this.logger.log('设备更新成功', { 
+      deviceId: updatedDevice.id, 
+      updatedFields: Object.keys(updateDeviceDto) 
+    });
+
+    return updatedDevice;
   }
 
   async softDelete(id: string, userId: string) {
@@ -307,24 +338,14 @@ export class DeviceService {
     }
 
     return this.prisma.device.update({
-      where: { id },
+      where: { id, userId: userId, ...DatabaseFilters.activeDevice() },
       data: {
         isActive: false,
       },
     });
   }
 
-  async findAllByUser(
-    userId: string,
-    search?: string,
-    status?: string,
-    page?: number,
-    limit?: number,
-    deviceGroupId?: string,
-    type?: string,
-    sortBy?: string,
-    sortOrder?: 'asc' | 'desc'
-  ) {
+  async findAllByUser(userId: string, search?: string, status?: string, page?: number, limit?: number, deviceGroupId?: string, type?: string, sortBy?: string, sortOrder?: "asc" | "desc") {
     const startTime = Date.now();
     const where: Prisma.DeviceWhereInput = {
       userId,
@@ -335,27 +356,23 @@ export class DeviceService {
     if (search) {
       // 检查是否是IP地址搜索
       const isIpSearch = /^\d{1,3}(\.\d{1,3}){0,3}$/.test(search);
-      
+
       if (isIpSearch) {
         // IP地址搜索：支持精确匹配和IP段搜索
         where.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { hostname: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search, mode: "insensitive" } },
+          { hostname: { contains: search, mode: "insensitive" } },
           { ipAddress: { startsWith: search } }, // IP段搜索
           { ipAddress: { equals: search } }, // 精确IP搜索
         ];
       } else {
         // 普通文本搜索：设备名称和主机名模糊匹配
-        where.OR = [
-          { name: { contains: search, mode: 'insensitive' } },
-          { hostname: { contains: search, mode: 'insensitive' } },
-          { ipAddress: { contains: search, mode: 'insensitive' } },
-        ];
+        where.OR = [{ name: { contains: search, mode: "insensitive" } }, { hostname: { contains: search, mode: "insensitive" } }, { ipAddress: { contains: search, mode: "insensitive" } }];
       }
     }
 
     // 添加状态过滤
-    if (status) {
+    if (status && status !== "all") {
       where.status = status as DeviceStatus;
     }
 
@@ -365,24 +382,24 @@ export class DeviceService {
     }
 
     // 添加类型过滤
-    if (type) {
+    if (type && type !== "all") {
       where.type = type as DeviceType;
     }
 
     // 构建排序选项
     const orderBy: Prisma.DeviceOrderByWithRelationInput[] = [];
-    
+
     if (sortBy && sortOrder) {
       // 验证排序字段是否有效
-      const validSortFields = ['name', 'hostname', 'ipAddress', 'status', 'type', 'createdAt', 'updatedAt'];
+      const validSortFields = ["name", "hostname", "ipAddress", "status", "type", "createdAt", "updatedAt"];
       if (validSortFields.includes(sortBy)) {
         orderBy.push({ [sortBy]: sortOrder });
       }
     }
-    
+
     // 默认按创建时间降序排列
     if (orderBy.length === 0) {
-      orderBy.push({ createdAt: 'desc' });
+      orderBy.push({ createdAt: "desc" });
     }
 
     // 处理分页
@@ -405,8 +422,11 @@ export class DeviceService {
         userId,
         search,
         status,
-        deviceCount: devices.length,
-        queryTime
+        type,
+        page,
+        limit,
+        deviceGroupId,
+        queryTime,
       });
     }
 
@@ -435,7 +455,7 @@ export class DeviceService {
   async heartbeat(id: string, userId: string): Promise<void> {
     try {
       await this.prisma.device.update({
-        where: { id, userId },
+        where: { id, userId, ...DatabaseFilters.activeDevice()  },
         data: {
           lastSeen: new Date(),
           status: "ONLINE",
@@ -497,7 +517,7 @@ export class DeviceService {
       }
       throw new BusinessException("数据唯一性冲突");
     }
-    
+
     // 处理其他Prisma错误
     throw new BusinessException("创建设备失败");
   }

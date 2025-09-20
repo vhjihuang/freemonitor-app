@@ -19,7 +19,7 @@ export interface DashboardStats {
  */
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   try {
-    const response = await apiClient.get<any>("/dashboard/stats");
+    const response = await apiClient.get<any>("dashboard/stats");
     
     console.log('Dashboard API raw response:', response);
     console.log('Response type:', typeof response);
@@ -72,7 +72,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
  * @returns Promise<any> - 趋势数据
  */
 export const getDeviceStatusTrend = async (timeRange: "1h" | "6h" | "24h" | "7d" | "30d" = "24h"): Promise<any> => {
-  const response = await apiClient.get<any>(`/dashboard/trend?timeRange=${timeRange}`);
+  const response = await apiClient.get<any>(`dashboard/trend?timeRange=${timeRange}`);
   return response;
 };
 
@@ -81,6 +81,6 @@ export const getDeviceStatusTrend = async (timeRange: "1h" | "6h" | "24h" | "7d"
  * @returns Promise<any> - 系统健康数据
  */
 export const getSystemHealth = async (): Promise<any> => {
-  const response = await apiClient.get<any>("/dashboard/health");
+  const response = await apiClient.get<any>("dashboard/health");
   return response;
 };

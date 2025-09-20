@@ -8,6 +8,7 @@ export * from './metric.types';
 export * from './alert.types';
 export * from './error-codes.constants';
 export * from './roles';
+export * from './database/database.filters';
 
 // Auth DTOs
 export type { UserResponseDto } from './auth/user.response.dto';

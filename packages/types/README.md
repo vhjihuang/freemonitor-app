@@ -176,9 +176,16 @@ async getUser(@Param('id') id: string) {
 
 ```typescript
 import { ApiResponse, SuccessResponse, ErrorResponse } from "@freemonitor/types";
+import { apiClient } from "@/lib/api"; // 使用项目自定义的API客户端
 
-// 使用类型
+// 使用项目自定义的API客户端
 async function fetchUser(id: string): Promise<User> {
+  const data = await apiClient.get<User>(`users/${id}`);
+  return data; // 类型安全的数据访问
+}
+
+// 或者使用传统的fetch方式（不推荐）
+async function fetchUserLegacy(id: string): Promise<User> {
   const response = await fetch(`/api/users/${id}`);
   const data: ApiResponse<User> = await response.json();
 
@@ -194,7 +201,17 @@ async function fetchUser(id: string): Promise<User> {
 
 ```typescript
 import { isSuccessResponse, isErrorResponse } from "@freemonitor/types";
+import { apiClient } from "@/lib/api";
 
+// 使用项目自定义的API客户端（推荐）
+try {
+  const user = await apiClient.get<User>(`users/${id}`);
+  console.log(user.name); // 类型安全的数据访问
+} catch (error) {
+  console.error('获取用户失败:', error.message);
+}
+
+// 或者使用传统的响应处理方式（不推荐）
 const response: ApiResponse<User> = await fetchUserData();
 
 if (isSuccessResponse(response)) {
@@ -208,7 +225,17 @@ if (isSuccessResponse(response)) {
 
 ```typescript
 import { extractResponseData, extractErrorInfo } from "@freemonitor/types";
+import { apiClient } from "@/lib/api";
 
+// 使用项目自定义的API客户端（推荐）
+try {
+  const user = await apiClient.get<User>(`users/${id}`);
+  console.log("用户:", user.name);
+} catch (error) {
+  console.error("错误:", error.message);
+}
+
+// 或者使用传统的响应数据提取方式（不推荐）
 const response: ApiResponse<User> = await fetchUserData();
 
 // 安全提取数据
