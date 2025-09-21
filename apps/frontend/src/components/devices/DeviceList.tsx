@@ -10,6 +10,7 @@ interface DeviceListProps {
   devices: Device[];
   isLoading?: boolean;
   error?: Error | null;
+  searchTerm?: string;
   onEdit: (device: Device) => void;
   onDelete: (id: string) => void;
   onAddDevice: () => void;
@@ -20,6 +21,7 @@ export function DeviceList({
   devices,
   isLoading = false,
   error = null,
+  searchTerm = '',
   onEdit,
   onDelete,
   onAddDevice,
@@ -101,6 +103,7 @@ export function DeviceList({
           <DeviceCard
             key={device.id}
             device={device}
+            searchTerm={searchTerm}
             onEdit={onEdit}
             onDelete={(deviceId: string) => onDelete(deviceId)}
           />

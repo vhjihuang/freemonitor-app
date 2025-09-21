@@ -34,5 +34,6 @@ export interface UpdateDeviceDto {
   type?: 'SERVER' | 'ROUTER' | 'IOT';
   location?: string;
   tags?: string[];
+  status?: 'ONLINE' | 'OFFLINE' | 'DEGRADED' | 'UNKNOWN' | 'MAINTENANCE';
   deviceGroupId?: string | null;
 }

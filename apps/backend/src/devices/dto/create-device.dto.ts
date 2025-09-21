@@ -2,7 +2,7 @@
 import { IsString, IsIP, IsOptional, IsArray, IsEnum, IsUUID, Length, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { DeviceType } from '@prisma/client';
+import { DeviceType, DeviceStatus } from '@prisma/client';
 
 export class CreateDeviceDto {
   @ApiProperty({ example: 'Nginx Server', description: '设备名称' })
@@ -29,6 +29,11 @@ export class CreateDeviceDto {
   @IsEnum(DeviceType)
   @IsOptional()
   type?: DeviceType;
+
+  @ApiProperty({ example: 'ONLINE', required: false, enum: DeviceStatus })
+  @IsEnum(DeviceStatus)
+  @IsOptional()
+  status?: DeviceStatus;
 
   @ApiProperty({ example: 'Beijing DC', required: false })
   @IsString()

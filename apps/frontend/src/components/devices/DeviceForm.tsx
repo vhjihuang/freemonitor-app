@@ -42,6 +42,7 @@ const deviceFormSchema = z.object({
   ipAddress: z.string().min(1, 'IP地址不能为空').refine(ipValidation, '请输入有效的IP地址'),
   description: z.string().optional(),
   type: z.enum(['SERVER', 'ROUTER', 'IOT']).optional(),
+  status: z.enum(['ONLINE', 'OFFLINE', 'DEGRADED', 'UNKNOWN', 'MAINTENANCE']).optional(),
   location: z.string().optional(),
   tags: z.array(z.string()).optional(),
   deviceGroupId: z.string().optional().nullable(),
@@ -69,6 +70,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
       ipAddress: device?.ipAddress || '',
       description: device?.description || '',
       type: device?.type || undefined,
+      status: device?.status || 'UNKNOWN',
       location: device?.location || '',
       tags: device?.tags || [],
       deviceGroupId: device?.deviceGroupId || undefined,
@@ -183,6 +185,32 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
                     <SelectItem value="SERVER">服务器</SelectItem>
                     <SelectItem value="ROUTER">路由器</SelectItem>
                     <SelectItem value="IOT">物联网设备</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* 设备状态 */}
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>设备状态</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || 'UNKNOWN'}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择设备状态" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="ONLINE">在线</SelectItem>
+                    <SelectItem value="OFFLINE">离线</SelectItem>
+                    <SelectItem value="DEGRADED">降级</SelectItem>
+                    <SelectItem value="UNKNOWN">未知</SelectItem>
+                    <SelectItem value="MAINTENANCE">维护中</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

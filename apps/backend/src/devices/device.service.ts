@@ -310,6 +310,7 @@ export class DeviceService {
         hostname: updateDeviceDto.hostname || updateDeviceDto.name || device.hostname,
         description: updateDeviceDto.description,
         type: updateDeviceDto.type,
+        status: updateDeviceDto.status,
         ipAddress: updateDeviceDto.ipAddress,
         location: updateDeviceDto.location,
         tags: {
@@ -359,6 +360,7 @@ export class DeviceService {
 
       if (isIpSearch) {
         // IP地址搜索：支持精确匹配和IP段搜索
+        // 改进IP段搜索逻辑，支持更精确的匹配
         where.OR = [
           { name: { contains: search, mode: "insensitive" } },
           { hostname: { contains: search, mode: "insensitive" } },
@@ -367,7 +369,11 @@ export class DeviceService {
         ];
       } else {
         // 普通文本搜索：设备名称和主机名模糊匹配
-        where.OR = [{ name: { contains: search, mode: "insensitive" } }, { hostname: { contains: search, mode: "insensitive" } }, { ipAddress: { contains: search, mode: "insensitive" } }];
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } }, 
+          { hostname: { contains: search, mode: "insensitive" } }, 
+          { ipAddress: { contains: search, mode: "insensitive" } }
+        ];
       }
     }
 

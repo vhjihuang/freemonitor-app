@@ -49,12 +49,8 @@ export default function DevicesPage() {
   const deleteDevice = useDeleteDevice();
   
   // 获取所有设备用于统计
-  // 获取所有设备用于统计，使用相同的过滤条件
-  const { data: allDevicesResponse } = useDevices({
-    search: search || undefined,
-    status: status !== 'all' ? status : undefined,
-    type: type !== 'all' ? type : undefined,
-  })
+  // 获取所有设备用于统计，不应用搜索、状态和类型过滤
+  const { data: allDevicesResponse } = useDevices({});
   
   const devices = devicesResponse || [];
   const allDevices = allDevicesResponse || [];
@@ -107,12 +103,15 @@ export default function DevicesPage() {
           searchValue={search}
           statusValue={status}
           typeValue={type}
+          totalCount={allDevices.length}
+          filteredCount={devices.length}
         />
         
         <DeviceList
           devices={devices}
           isLoading={isLoading}
           error={error}
+          searchTerm={search}
           onEdit={(device) => {
             setEditingDevice(device);
             setIsEditDialogOpen(true);
