@@ -8,6 +8,7 @@ import { NotFoundException, BusinessException } from "../common/exceptions/app.e
 import { DatabaseFilters } from "@freemonitor/types";
 import { CreateMetricDto } from "./dto/create-metric.dto";
 import { CreateAlertDto } from "./dto/create-alert.dto";
+import { QueryAlertDto } from "./dto/query-alert.dto";
 
 @Injectable()
 export class DeviceService {
@@ -109,17 +110,8 @@ export class DeviceService {
       this.logger.error(`处理设备 ${createAlertDto.deviceId} 告警时发生错误`, {
         error: error.message,
         stack: error.stack,
-        deviceId: createAlertDto.deviceId,
-        userId,
       });
-
-      // 如果是已知的业务异常，直接抛出
-      if (error instanceof NotFoundException || error instanceof BusinessException) {
-        throw error;
-      }
-
-      // 其他异常统一包装为业务异常
-      throw new BusinessException("告警处理失败");
+      throw error;
     }
   }
 
@@ -526,5 +518,144 @@ export class DeviceService {
 
     // 处理其他Prisma错误
     throw new BusinessException("创建设备失败");
+  }
+
+  async queryAlerts(query: QueryAlertDto, userId: string) {
+    const { 
+      page = 1, 
+      limit = 10, 
+      severity, 
+      deviceId, 
+      deviceName, 
+      type, 
+      isResolved,
+      startTime,
+      endTime,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = query;
+
+    // 构建查询条件
+    const where: Prisma.AlertWhereInput = {
+      device: {
+        userId,
+        isActive: true
+      }
+    };
+
+    // 添加严重程度过滤
+    if (severity) {
+      const severities = Array.isArray(severity) ? severity : [severity];
+      where.severity = {
+        in: severities.map(s => s.toUpperCase()) as AlertSeverity[]
+      };
+    }
+
+    // 添加设备ID过滤
+    if (deviceId) {
+      where.deviceId = deviceId;
+    }
+
+    // 添加设备名称过滤 - 修正对象合并逻辑
+    if (deviceName) {
+      // 直接在device条件中添加name过滤
+      if (where.device) {
+        where.device.name = {
+          contains: deviceName,
+          mode: 'insensitive'
+        };
+      }
+    }
+
+    // 添加类型过滤
+    if (type) {
+      where.type = type as AlertType;
+    }
+
+    // 添加解决状态过滤
+    if (isResolved !== undefined) {
+      where.isResolved = isResolved;
+    }
+
+    // 添加时间范围过滤
+    if (startTime || endTime) {
+      where.createdAt = {};
+      if (startTime) {
+        const start = new Date(startTime);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestException('无效的开始时间格式');
+        }
+        where.createdAt.gte = start;
+      }
+      if (endTime) {
+        const end = new Date(endTime);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestException('无效的结束时间格式');
+        }
+        where.createdAt.lte = end;
+      }
+    }
+
+    // 计算分页参数
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    // 构建排序参数
+    let orderBy: Prisma.AlertOrderByWithRelationInput = {};
+    switch (sortBy) {
+      case 'severity':
+        orderBy = { severity: sortOrder };
+        break;
+      case 'type':
+        orderBy = { type: sortOrder };
+        break;
+      case 'deviceName':
+        orderBy = { device: { name: sortOrder } };
+        break;
+      default:
+        orderBy = { createdAt: sortOrder };
+        break;
+    }
+
+    // 执行查询
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.alert.findMany({
+        where,
+        skip,
+        take,
+        orderBy,
+        include: {
+          device: {
+            select: {
+              id: true,
+              name: true,
+              hostname: true,
+              ipAddress: true
+            }
+          }
+        }
+      }),
+      this.prisma.alert.count({ where })
+    ]);
+
+    // 获取统计信息 - 使用正确的类型
+    const stats = await this.prisma.alert.groupBy({
+      by: ['severity'],
+      where,
+      _count: {
+        id: true
+      }
+    });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      stats: stats.map(s => ({
+        severity: s.severity,
+        count: s._count.id
+      }))
+    };
   }
 }

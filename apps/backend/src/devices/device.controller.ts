@@ -9,6 +9,7 @@ import { ApiCommonResponses } from "../common/decorators/api-common-responses.de
 import { DevAuthGuard } from "../auth/guards/dev-auth.guard";
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
+import { QueryAlertDto } from './dto/query-alert.dto';
 
 interface RequestWithUser extends Request {
   user?: User;
@@ -156,5 +157,26 @@ export class DeviceController {
     
     this.logger.log(`设备 ${id} 告警上报成功`);
     return alert;
+  }
+
+  @Get('alerts')
+  @ApiOperation({ summary: '查询告警列表' })
+  @ApiCommonResponses()
+  async queryAlerts(
+    @Query() query: QueryAlertDto,
+    @Req() req: RequestWithUser
+  ) {
+    this.logger.log('查询告警列表', { query, userId: req.user?.id });
+    
+    const result = await this.deviceService.queryAlerts(query, req.user?.id || "dev-user-id");
+    
+    this.logger.log('告警列表查询成功', { 
+      count: result.data.length, 
+      total: result.total,
+      page: query.page,
+      limit: query.limit
+    });
+    
+    return result;
   }
 }
