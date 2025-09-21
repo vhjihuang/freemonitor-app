@@ -16,10 +16,10 @@ export default function UnauthorizedPage() {
             You do not have permission to view this page. Please contact your administrator if you believe this is an error.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button onClick={() => router.push('/dashboard')} variant="default">
+            <Button onClick={() => router.replace('/dashboard')} variant="default">
               Go to Dashboard
             </Button>
-            <Button onClick={() => router.push('/')} variant="outline">
+            <Button onClick={() => router.replace('/')} variant="outline">
               Go Home
             </Button>
           </div>

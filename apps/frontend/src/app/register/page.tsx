@@ -18,8 +18,8 @@ export default function RegisterPage() {
       // 使用 auth.ts 中的 register 函数
       await register(email, password, name);
 
-      // 重定向到仪表板
-      router.push('/dashboard');
+      // 重定向到仪表板（替换当前路由）
+      router.replace('/dashboard');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : '注册失败');

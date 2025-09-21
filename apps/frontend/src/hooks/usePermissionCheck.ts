@@ -42,6 +42,7 @@ export function usePermissionCheck(
     return requiredRoles.some((role) => {
       const userRole = user.role as string;
       const requiredRole = role as string;
+      // 统一转换为小写进行比较，符合项目规范
       return userRole.toLowerCase() === requiredRole.toLowerCase();
     });
   };
@@ -58,8 +59,12 @@ export function usePermissionCheck(
 
     // 如果用户没有所需角色且需要重定向
     if (!hasPermission && redirectUnauthorized) {
+      console.log(`[权限检查] 用户 ${user?.email} 角色 ${user?.role} 无权限访问，重定向到未授权页面`);
       setIsRedirecting(true);
-      router.push('/unauthorized');
+      // 使用replace而不是push，避免在浏览器历史中留下记录，符合项目规范
+      router.replace('/unauthorized');
+      // 立即返回，防止继续执行后续逻辑
+      return;
     }
   }, [user, authLoading, isAuthenticated, requiredRoles, router, redirectUnauthorized]);
 
