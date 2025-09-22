@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TokenBlacklistService } from './token-blacklist.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppLoggerService } from '../common/services/logger.service';
 
 // Mock Prisma service
 const mockPrismaService = {
@@ -8,6 +9,16 @@ const mockPrismaService = {
     findFirst: jest.fn(),
     deleteMany: jest.fn()
   }
+};
+
+const mockLoggerService = {
+  createLogger: jest.fn().mockReturnValue({
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    logDbOperation: jest.fn(),
+  }),
 };
 
 describe('TokenBlacklistService', () => {
@@ -21,6 +32,10 @@ describe('TokenBlacklistService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService
+        },
+        {
+          provide: AppLoggerService,
+          useValue: mockLoggerService
         }
       ]
     }).compile();
@@ -51,14 +66,13 @@ describe('TokenBlacklistService', () => {
       expect(mockPrismaService.refreshToken.findFirst).toHaveBeenCalledWith({
         where: {
           token: mockToken,
-          revoked: true
-        }
+          revoked: true,
+        },
       });
     });
 
     it('should return false when token is not blacklisted', async () => {
       const mockToken = 'valid-token-123';
-      
       mockPrismaService.refreshToken.findFirst.mockResolvedValue(null);
 
       const result = await service.isTokenBlacklisted(mockToken);
@@ -67,16 +81,14 @@ describe('TokenBlacklistService', () => {
       expect(mockPrismaService.refreshToken.findFirst).toHaveBeenCalledWith({
         where: {
           token: mockToken,
-          revoked: true
-        }
+          revoked: true,
+        },
       });
     });
 
     it('should return false when database query fails', async () => {
-      const mockToken = 'test-token-123';
-      const mockError = new Error('Database connection failed');
-      
-      mockPrismaService.refreshToken.findFirst.mockRejectedValue(mockError);
+      const mockToken = 'error-token-123';
+      mockPrismaService.refreshToken.findFirst.mockRejectedValue(new Error('Database error'));
 
       const result = await service.isTokenBlacklisted(mockToken);
 
@@ -86,23 +98,22 @@ describe('TokenBlacklistService', () => {
 
   describe('cleanupExpiredTokens', () => {
     it('should successfully delete expired tokens', async () => {
-      const mockDeletedCount = { count: 5 };
-      
-      mockPrismaService.refreshToken.deleteMany.mockResolvedValue(mockDeletedCount);
+      const mockDeletedTokens = { count: 5 };
+      mockPrismaService.refreshToken.deleteMany.mockResolvedValue(mockDeletedTokens);
 
       await service.cleanupExpiredTokens();
 
       expect(mockPrismaService.refreshToken.deleteMany).toHaveBeenCalledWith({
         where: {
-          expiresAt: { lte: expect.any(Date) }
-        }
+          expiresAt: {
+            lt: expect.any(Date),
+          },
+        },
       });
     });
 
     it('should handle database error gracefully', async () => {
-      const mockError = new Error('Database delete failed');
-      
-      mockPrismaService.refreshToken.deleteMany.mockRejectedValue(mockError);
+      mockPrismaService.refreshToken.deleteMany.mockRejectedValue(new Error('Database error'));
 
       await expect(service.cleanupExpiredTokens()).resolves.toBeUndefined();
     });

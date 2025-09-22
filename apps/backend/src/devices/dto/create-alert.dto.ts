@@ -12,12 +12,24 @@ export class CreateAlertDto {
   message: string;
 
   @ApiProperty({ 
-    example: 'critical', 
+    example: 'CRITICAL', 
     description: '告警严重程度',
-    enum: ['critical', 'warning', 'info']
+    enum: ['INFO', 'WARNING', 'ERROR', 'CRITICAL']
   })
-  @IsEnum(['critical', 'warning', 'info'], { message: '告警严重程度必须是 critical, warning, info 之一' })
-  severity: 'critical' | 'warning' | 'info';
+  @IsEnum(['INFO', 'WARNING', 'ERROR', 'CRITICAL'], { message: '告警严重程度必须是 INFO, WARNING, ERROR, CRITICAL 之一' })
+  severity: 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+
+  @ApiProperty({ 
+    example: 'CPU', 
+    description: '告警类型',
+    enum: ['CPU', 'MEMORY', 'DISK', 'NETWORK', 'OFFLINE', 'CUSTOM'],
+    required: false
+  })
+  @IsEnum(['CPU', 'MEMORY', 'DISK', 'NETWORK', 'OFFLINE', 'CUSTOM'], { 
+    message: '告警类型必须是 CPU, MEMORY, DISK, NETWORK, OFFLINE, CUSTOM 之一' 
+  })
+  @IsOptional()
+  type?: 'CPU' | 'MEMORY' | 'DISK' | 'NETWORK' | 'OFFLINE' | 'CUSTOM';
 
   @ApiProperty({ 
     example: '2023-01-01T12:00:00Z', 

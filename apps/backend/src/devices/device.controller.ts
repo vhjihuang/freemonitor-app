@@ -10,6 +10,7 @@ import { DevAuthGuard } from "../auth/guards/dev-auth.guard";
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { QueryAlertDto } from './dto/query-alert.dto';
+import { AcknowledgeAlertDto, BulkAcknowledgeAlertDto, ResolveAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
 
 interface RequestWithUser extends Request {
   user?: User;
@@ -159,7 +160,7 @@ export class DeviceController {
     return alert;
   }
 
-  @Get('alerts')
+  @Get('alerts/list')
   @ApiOperation({ summary: '查询告警列表' })
   @ApiCommonResponses()
   async queryAlerts(
@@ -175,6 +176,90 @@ export class DeviceController {
       total: result.total,
       page: query.page,
       limit: query.limit
+    });
+    
+    return result;
+  }
+
+  @Post('alerts/:alertId/acknowledge')
+  @ApiOperation({ summary: '确认告警' })
+  @ApiCommonResponses()
+  async acknowledgeAlert(
+    @Param('alertId') alertId: string,
+    @Body() dto: AcknowledgeAlertDto,
+    @Req() req: RequestWithUser,
+  ) {
+    this.logger.log('确认告警', { alertId, userId: req.user?.id });
+
+    const result = await this.deviceService.acknowledgeAlert(
+      alertId,
+      dto,
+      req.user?.id || 'dev-user-id',
+    );
+
+    this.logger.log('告警确认成功', { alertId, userId: req.user?.id });
+    return result;
+  }
+
+  @Post('alerts/acknowledge/bulk')
+  @ApiOperation({ summary: '批量确认告警' })
+  @ApiCommonResponses()
+  async bulkAcknowledgeAlerts(
+    @Body() dto: BulkAcknowledgeAlertDto,
+    @Req() req: RequestWithUser,
+  ) {
+    this.logger.log('批量确认告警', { alertCount: dto.alertIds.length, userId: req.user?.id });
+
+    const result = await this.deviceService.bulkAcknowledgeAlerts(
+      dto,
+      req.user?.id || 'dev-user-id',
+    );
+
+    this.logger.log('批量告警确认成功', { 
+      acknowledgedCount: result.length, 
+      userId: req.user?.id 
+    });
+    
+    return result;
+  }
+
+  @Post('alerts/:alertId/resolve')
+  @ApiOperation({ summary: '解决告警' })
+  @ApiCommonResponses()
+  async resolveAlert(
+    @Param('alertId') alertId: string,
+    @Body() dto: ResolveAlertDto,
+    @Req() req: RequestWithUser,
+  ) {
+    this.logger.log('解决告警', { alertId, userId: req.user?.id });
+
+    const result = await this.deviceService.resolveAlert(
+      alertId,
+      dto,
+      req.user?.id || 'dev-user-id',
+    );
+
+    this.logger.log('告警解决成功', { alertId, userId: req.user?.id });
+    return result;
+  }
+
+  @Post('alerts/resolve/bulk')
+  @ApiOperation({ summary: '批量解决告警' })
+  @ApiCommonResponses()
+  async bulkResolveAlerts(
+    @Body() dto: BulkResolveAlertDto,
+    @Req() req: RequestWithUser,
+  ) {
+    this.logger.log('批量解决告警', { alertCount: dto.alertIds.length, userId: req.user?.id });
+
+    const result = await this.deviceService.bulkResolveAlerts(
+      dto,
+      req.user?.id || 'dev-user-id',
+    );
+
+    this.logger.log('批量告警解决成功', { 
+      resolvedCount: result.length, 
+      userId: req.user?.id 
     });
     
     return result;

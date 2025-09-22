@@ -1,5 +1,5 @@
+// src/lib/api/index.ts
+export * from './alertApi';
 export * from './deviceApi';
 export * from './dashboardApi';
-// 未来可以导出其他模块的 API
-// export * from './userApi';
-// export * from './authApi';
+export * from './alertApi';

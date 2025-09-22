@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DeviceService } from './device.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueryAlertDto } from './dto/query-alert.dto';
+import { AcknowledgeAlertDto, ResolveAlertDto, BulkAcknowledgeAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
+import { NotFoundException } from '../common/exceptions/app.exception';
+import { BadRequestException } from '@nestjs/common';
 
 // Mock PrismaService
 const mockPrismaService = {
@@ -10,6 +13,8 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     groupBy: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn(),
   },
   device: {
     findFirst: jest.fn(),
@@ -235,6 +240,229 @@ describe('DeviceService', () => {
       );
       
       expect(prisma.alert.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+  });
+  
+  describe('acknowledgeAlert', () => {
+    const userId = 'test-user-id';
+    const alertId = 'alert-1';
+    
+    const mockAlert = {
+      id: alertId,
+      deviceId: 'device-1',
+      message: 'Test alert',
+      severity: 'ERROR',
+      type: 'CPU',
+      isResolved: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resolvedAt: null,
+      acknowledgedAt: null,
+      metadata: null,
+      userId: null,
+      device: {
+        id: 'device-1',
+        name: 'Test Device',
+        hostname: 'test-host',
+        ipAddress: '192.168.1.1',
+        userId: userId,
+      },
+    };
+    
+    const mockAcknowledgedAlert = {
+      ...mockAlert,
+      status: 'ACKNOWLEDGED',
+      acknowledgedAt: new Date(),
+      acknowledgedBy: userId,
+      acknowledgeComment: '处理中',
+    };
+
+    it('should acknowledge an alert', async () => {
+      const acknowledgeDto: AcknowledgeAlertDto = {
+        alertId: alertId,
+        comment: '处理中',
+      };
+
+      mockPrismaService.alert.findFirst.mockResolvedValue(mockAlert);
+      mockPrismaService.alert.update.mockResolvedValue(mockAcknowledgedAlert);
+
+      const result = await service.acknowledgeAlert(alertId, acknowledgeDto, userId);
+
+      expect(result).toEqual(mockAcknowledgedAlert);
+      expect(prisma.alert.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: alertId,
+          device: {
+            userId: userId,
+            isActive: true,
+          },
+        },
+        include: {
+          device: true,
+        },
+      });
+      expect(prisma.alert.update).toHaveBeenCalledWith({
+        where: { id: alertId },
+        data: {
+          status: 'ACKNOWLEDGED',
+          acknowledgedAt: expect.any(Date),
+          acknowledgedBy: userId,
+          acknowledgeComment: acknowledgeDto.comment,
+        },
+      });
+    });
+
+    it('should throw NotFoundException when alert not found', async () => {
+      const acknowledgeDto: AcknowledgeAlertDto = {
+        alertId: alertId,
+        comment: '处理中',
+      };
+
+      mockPrismaService.alert.findFirst.mockResolvedValue(null);
+
+      await expect(service.acknowledgeAlert(alertId, acknowledgeDto, userId))
+        .rejects
+        .toThrow(NotFoundException);
+    });
+  });
+
+  describe('bulkAcknowledgeAlerts', () => {
+    const userId = 'test-user-id';
+    
+    it('should throw BadRequestException when more than 100 alerts', async () => {
+      const bulkAcknowledgeDto: BulkAcknowledgeAlertDto = {
+        alertIds: Array(101).fill('').map((_, i) => `alert-${i}`),
+        comment: '批量处理',
+      };
+
+      await expect(service.bulkAcknowledgeAlerts(bulkAcknowledgeDto, userId))
+        .rejects
+        .toThrow(BadRequestException);
+    });
+  });
+
+  describe('resolveAlert', () => {
+    const userId = 'test-user-id';
+    const alertId = 'alert-1';
+    
+    const mockAcknowledgedAlert = {
+      id: alertId,
+      deviceId: 'device-1',
+      message: 'Test alert',
+      severity: 'ERROR',
+      type: 'CPU',
+      isResolved: false,
+      status: 'ACKNOWLEDGED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resolvedAt: null,
+      acknowledgedAt: new Date(),
+      metadata: null,
+      userId: null,
+      device: {
+        id: 'device-1',
+        name: 'Test Device',
+        hostname: 'test-host',
+        ipAddress: '192.168.1.1',
+        userId: userId,
+      },
+    };
+    
+    const mockResolvedAlert = {
+      ...mockAcknowledgedAlert,
+      status: 'RESOLVED',
+      isResolved: true,
+      resolvedAt: new Date(),
+      resolvedBy: userId,
+      solutionType: 'FIXED',
+      resolveComment: '已解决',
+    };
+
+    it('should resolve an alert', async () => {
+      const resolveDto: ResolveAlertDto = {
+        alertId: alertId,
+        solutionType: 'FIXED',
+        comment: '已解决',
+      };
+
+      mockPrismaService.alert.findFirst.mockResolvedValue(mockAcknowledgedAlert);
+      mockPrismaService.alert.update.mockResolvedValue(mockResolvedAlert);
+
+      const result = await service.resolveAlert(alertId, resolveDto, userId);
+
+      expect(result).toEqual(mockResolvedAlert);
+      expect(prisma.alert.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: alertId,
+          device: {
+            userId: userId,
+            isActive: true,
+          },
+        },
+        include: {
+          device: true,
+        },
+      });
+      expect(prisma.alert.update).toHaveBeenCalledWith({
+        where: { id: alertId },
+        data: {
+          status: 'RESOLVED',
+          isResolved: true,
+          resolvedAt: expect.any(Date),
+          resolvedBy: userId,
+          solutionType: resolveDto.solutionType,
+          resolveComment: resolveDto.comment,
+        },
+      });
+    });
+
+    it('should throw NotFoundException when alert not found', async () => {
+      const resolveDto: ResolveAlertDto = {
+        alertId: alertId,
+        solutionType: 'FIXED',
+        comment: '已解决',
+      };
+
+      mockPrismaService.alert.findFirst.mockResolvedValue(null);
+
+      await expect(service.resolveAlert(alertId, resolveDto, userId))
+        .rejects
+        .toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when alert status is not acknowledged or in progress', async () => {
+      const resolveDto: ResolveAlertDto = {
+        alertId: alertId,
+        solutionType: 'FIXED',
+        comment: '已解决',
+      };
+
+      const mockUnacknowledgedAlert = {
+        ...mockAcknowledgedAlert,
+        status: 'UNACKNOWLEDGED',
+      };
+
+      mockPrismaService.alert.findFirst.mockResolvedValue(mockUnacknowledgedAlert);
+
+      await expect(service.resolveAlert(alertId, resolveDto, userId))
+        .rejects
+        .toThrow(BadRequestException);
+    });
+  });
+
+  describe('bulkResolveAlerts', () => {
+    const userId = 'test-user-id';
+    
+    it('should throw BadRequestException when more than 50 alerts', async () => {
+      const bulkResolveDto: BulkResolveAlertDto = {
+        alertIds: Array(51).fill('').map((_, i) => `alert-${i}`),
+        solutionType: 'FIXED',
+        comment: '批量解决',
+      };
+
+      await expect(service.bulkResolveAlerts(bulkResolveDto, userId))
+        .rejects
+        .toThrow(BadRequestException);
     });
   });
 });

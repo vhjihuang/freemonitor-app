@@ -5,9 +5,32 @@ import { Role } from '@freemonitor/types';
 import { StatsOverview } from '@/components/dashboard/StatsOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageTemplate } from '@/components/layout/PageTemplate';
+import { useAlerts } from '@/hooks/useAlerts';
+import { AlertSeverityBadge } from '@/components/alerts/AlertSeverityBadge';
+import { format } from 'date-fns';
+import { zhCN } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
+import { Alert } from '@freemonitor/types';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const { data, isLoading, error } = useAlerts({
+    page: 1,
+    limit: 5,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
+
+  const alerts = data?.data || [];
 
   return (
     <PageTemplate currentPage="仪表盘" currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.VIEWER]}>
@@ -19,61 +42,70 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* 状态概览卡片 */}
         <StatsOverview />
 
-        {/* 管理员额外信息 */}
-        {user?.role === Role.ADMIN && (
-          <Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="col-span-4">
             <CardHeader>
-              <CardTitle>管理员面板</CardTitle>
+              <CardTitle>系统状态</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <h3 className="font-semibold">用户管理</h3>
-                  <p className="text-sm text-muted-foreground">
-                    管理用户账户和权限
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">系统分析</h3>
-                  <p className="text-sm text-muted-foreground">
-                    查看详细的系统指标和报告
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-semibold">配置管理</h3>
-                  <p className="text-sm text-muted-foreground">
-                    调整系统设置和参数
-                  </p>
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-green-500 mb-2">正常</div>
+                  <p className="text-muted-foreground">所有设备运行正常</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* 最近活动 */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+          
+          <Card className="col-span-3">
             <CardHeader>
               <CardTitle>最近告警</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                告警功能即将上线...
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>设备状态趋势</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                图表功能即将上线...
-              </p>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div>加载中...</div>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-red-500">加载失败: {error.message}</div>
+                </div>
+              ) : alerts.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-muted-foreground">暂无告警</div>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>设备</TableHead>
+                      <TableHead>消息</TableHead>
+                      <TableHead>严重程度</TableHead>
+                      <TableHead className="text-right">时间</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {alerts.map((alert: Alert) => (
+                      <TableRow key={alert.id}>
+                        <TableCell className="font-medium max-w-[100px] truncate">
+                          {alert.deviceId || '未知设备'}
+                        </TableCell>
+                        <TableCell className="max-w-[150px] truncate">
+                          {alert.message}
+                        </TableCell>
+                        <TableCell>
+                          <AlertSeverityBadge severity={alert.severity} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {format(new Date(alert.createdAt), 'MM-dd HH:mm', { locale: zhCN })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </div>

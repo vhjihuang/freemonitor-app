@@ -64,20 +64,26 @@ model Metric {
 }
 
 model Alert {
-  id             String        @id @default(cuid())
-  deviceId       String
-  message        String
-  createdAt      DateTime      @default(now())
-  type           AlertType
-  isResolved     Boolean       @default(false)
-  resolvedAt     DateTime?
-  acknowledgedAt DateTime?
-  metadata       Json?
-  userId         String?
-  updatedAt      DateTime      @updatedAt
-  severity       AlertSeverity @default(ERROR)
-  device         Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  User           User?         @relation(fields: [userId], references: [id])
+  id                 String        @id @default(cuid())
+  deviceId           String
+  message            String
+  createdAt          DateTime      @default(now())
+  type               AlertType
+  isResolved         Boolean       @default(false)
+  resolvedAt         DateTime?
+  acknowledgedAt     DateTime?
+  metadata           Json?
+  userId             String?
+  updatedAt          DateTime      @updatedAt
+  severity           AlertSeverity @default(ERROR)
+  acknowledgeComment String?
+  acknowledgedBy     String?
+  status             AlertStatus   @default(UNACKNOWLEDGED)
+  resolveComment     String?
+  resolvedBy         String?
+  solutionType       String?
+  device             Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  User               User?         @relation(fields: [userId], references: [id])
 
   @@index([deviceId])
   @@index([isResolved])
@@ -154,6 +160,13 @@ model DeviceGroup {
   @@index([isActive])
   @@index([name, isActive])
   @@map("device_groups")
+}
+
+enum AlertStatus {
+  UNACKNOWLEDGED
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
 }
 
 enum DeviceStatus {
