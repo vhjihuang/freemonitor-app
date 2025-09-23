@@ -1,5 +1,5 @@
 // apps/backend/src/devices/dto/create-metric.dto.ts
-import { IsString, IsNumber, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateMetricDto {
@@ -27,4 +27,48 @@ export class CreateMetricDto {
   @IsDateString({}, { message: '时间戳格式不正确' })
   @IsOptional()
   timestamp?: string;
+
+  @ApiProperty({ 
+    example: 1024.5, 
+    description: '网络流入 (bytes)',
+    required: false 
+  })
+  @IsNumber({}, { message: '网络流入必须是数字' })
+  @IsOptional()
+  networkIn?: number;
+
+  @ApiProperty({ 
+    example: 512.3, 
+    description: '网络流出 (bytes)',
+    required: false 
+  })
+  @IsNumber({}, { message: '网络流出必须是数字' })
+  @IsOptional()
+  networkOut?: number;
+
+  @ApiProperty({ 
+    example: 3600, 
+    description: '运行时间 (秒)',
+    required: false 
+  })
+  @IsInt({ message: '运行时间必须是整数' })
+  @IsOptional()
+  uptime?: number;
+
+  @ApiProperty({ 
+    example: 45.5, 
+    description: '温度 (°C)',
+    required: false 
+  })
+  @IsNumber({}, { message: '温度必须是数字' })
+  @IsOptional()
+  temperature?: number;
+
+  @ApiProperty({ 
+    example: {}, 
+    description: '自定义数据',
+    required: false 
+  })
+  @IsOptional()
+  custom?: any;
 }

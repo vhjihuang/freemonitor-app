@@ -1,6 +1,6 @@
 // src/lib/api/deviceApi.ts
 import { apiClient } from '../api';
-import { Device, CreateDeviceDto, UpdateDeviceDto } from '@freemonitor/types';
+import { Device, CreateDeviceDto, UpdateDeviceDto, Metric } from '@freemonitor/types';
 
 // 提取响应数据的统一工具函数
 const handleResponse = <T>(response: { data: T } | T): T => {
@@ -84,7 +84,17 @@ export const deleteDevice = async (id: string): Promise<void> => {
  * @param metricData 指标数据
  * @returns Promise<any> - 创建的指标
  */
-export const createDeviceMetric = async (deviceId: string, metricData: any): Promise<any> => {
+export const createDeviceMetric = async (deviceId: string, metricData: {
+  cpu: number;
+  memory: number;
+  disk: number;
+  timestamp?: Date;
+  networkIn?: number;
+  networkOut?: number;
+  uptime?: number;
+  temperature?: number;
+  custom?: any;
+}): Promise<any> => {
   const response = await apiClient.post<any>(`devices/${deviceId}/metrics`, {
     ...metricData,
     deviceId
@@ -103,5 +113,23 @@ export const createDeviceAlert = async (deviceId: string, alertData: any): Promi
     ...alertData,
     deviceId
   });
+  return handleResponse(response);
+};
+
+/**
+ * 查询设备指标
+ * @param params 查询参数
+ * @returns Promise<{data: Metric[], total: number, page: number, limit: number}> - 指标列表和分页信息
+ */
+export const queryDeviceMetrics = async (params?: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  deviceId?: string;
+  startTime?: string;
+  endTime?: string;
+}): Promise<{data: Metric[], total: number, page: number, limit: number}> => {
+  const response = await apiClient.get<any>('devices/metrics/list', { params });
   return handleResponse(response);
 };

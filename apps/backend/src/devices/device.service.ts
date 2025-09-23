@@ -8,6 +8,7 @@ import { DatabaseFilters } from '@freemonitor/types';
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { QueryAlertDto } from './dto/query-alert.dto';
+import { QueryMetricDto } from './dto/query-metric.dto';
 import { ResolveAlertDto, BulkResolveAlertDto, AcknowledgeAlertDto, BulkAcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
 import { Logger } from '@nestjs/common';
 
@@ -116,6 +117,11 @@ export class DeviceService {
           memory: createMetricDto.memory,
           disk: createMetricDto.disk,
           timestamp: createMetricDto.timestamp ? new Date(createMetricDto.timestamp) : new Date(),
+          ...(createMetricDto.networkIn !== undefined && { networkIn: createMetricDto.networkIn }),
+          ...(createMetricDto.networkOut !== undefined && { networkOut: createMetricDto.networkOut }),
+          ...(createMetricDto.uptime !== undefined && { uptime: createMetricDto.uptime }),
+          ...(createMetricDto.temperature !== undefined && { temperature: createMetricDto.temperature }),
+          ...(createMetricDto.custom !== undefined && { custom: createMetricDto.custom }),
         },
       });
 
@@ -838,5 +844,98 @@ export class DeviceService {
     });
     
     return result;
+  }
+
+  async queryMetrics(query: QueryMetricDto, userId: string) {
+    const { 
+      page = 1, 
+      limit = 20, 
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
+      deviceId,
+      startTime,
+      endTime
+    } = query;
+
+    // 构建查询条件
+    const where: Prisma.MetricWhereInput = {
+      device: {
+        userId: userId,
+        ...DatabaseFilters.activeDevice()
+      }
+    };
+
+    // 添加设备ID过滤
+    if (deviceId) {
+      where.deviceId = deviceId;
+    }
+
+    // 添加时间范围过滤
+    if (startTime || endTime) {
+      where.timestamp = {};
+      if (startTime) {
+        const start = new Date(startTime);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestException('无效的开始时间格式');
+        }
+        where.timestamp.gte = start;
+      }
+      if (endTime) {
+        const end = new Date(endTime);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestException('无效的结束时间格式');
+        }
+        where.timestamp.lte = end;
+      }
+    }
+
+    // 计算分页参数
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    // 构建排序参数
+    let orderBy: Prisma.MetricOrderByWithRelationInput = {};
+    switch (sortBy) {
+      case 'cpu':
+        orderBy = { cpu: sortOrder };
+        break;
+      case 'memory':
+        orderBy = { memory: sortOrder };
+        break;
+      case 'disk':
+        orderBy = { disk: sortOrder };
+        break;
+      default:
+        orderBy = { timestamp: sortOrder };
+        break;
+    }
+
+    // 执行查询
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.metric.findMany({
+        where,
+        skip,
+        take,
+        orderBy,
+        include: {
+          device: {
+            select: {
+              id: true,
+              name: true,
+              hostname: true,
+              ipAddress: true
+            }
+          }
+        }
+      }),
+      this.prisma.metric.count({ where })
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit
+    };
   }
 }

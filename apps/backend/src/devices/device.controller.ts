@@ -10,6 +10,7 @@ import { DevAuthGuard } from "../auth/guards/dev-auth.guard";
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { QueryAlertDto } from './dto/query-alert.dto';
+import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, BulkAcknowledgeAlertDto, ResolveAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
 
 interface RequestWithUser extends Request {
@@ -260,6 +261,27 @@ export class DeviceController {
     this.logger.log('批量告警解决成功', { 
       resolvedCount: result.length, 
       userId: req.user?.id 
+    });
+    
+    return result;
+  }
+
+  @Get('metrics/list')
+  @ApiOperation({ summary: '查询指标列表' })
+  @ApiCommonResponses()
+  async queryMetrics(
+    @Query() query: QueryMetricDto,
+    @Req() req: RequestWithUser
+  ) {
+    this.logger.log('查询指标列表', { query, userId: req.user?.id });
+    
+    const result = await this.deviceService.queryMetrics(query, req.user?.id || "dev-user-id");
+    
+    this.logger.log('指标列表查询成功', { 
+      count: result.data.length, 
+      total: result.total,
+      page: query.page,
+      limit: query.limit
     });
     
     return result;

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DeviceService } from './device.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { QueryAlertDto } from './dto/query-alert.dto';
+import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, ResolveAlertDto, BulkAcknowledgeAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
 import { NotFoundException } from '../common/exceptions/app.exception';
 import { BadRequestException } from '@nestjs/common';
@@ -25,6 +26,8 @@ const mockPrismaService = {
   },
   metric: {
     create: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -81,7 +84,7 @@ describe('DeviceService', () => {
     ];
 
     const mockStats = [
-      { severity: 'ERROR', _count: { id: 1 } },
+      { severity: 'ERROR', _count: { _all: 1 } },
     ];
 
     it('should query alerts with default parameters', async () => {
@@ -111,7 +114,7 @@ describe('DeviceService', () => {
           },
         },
         _count: {
-          id: true,
+          _all: true,
         },
       });
     });
@@ -461,6 +464,111 @@ describe('DeviceService', () => {
       };
 
       await expect(service.bulkResolveAlerts(bulkResolveDto, userId))
+        .rejects
+        .toThrow(BadRequestException);
+    });
+  });
+
+  describe('queryMetrics', () => {
+    const userId = 'test-user-id';
+    
+    beforeEach(() => {
+      // Clear all mocks before each test
+      jest.clearAllMocks();
+    });
+
+    it('should query metrics with default parameters', async () => {
+      const queryDto: QueryMetricDto = {};
+      
+      const mockMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      mockPrismaService.$transaction.mockResolvedValue([mockMetrics, 1]);
+      
+      const result = await service.queryMetrics(queryDto, userId);
+      
+      expect(result).toEqual({
+        data: mockMetrics,
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
+      
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should query metrics with custom parameters', async () => {
+      const queryDto: QueryMetricDto = {
+        page: 2,
+        limit: 10,
+        sortBy: 'cpu',
+        sortOrder: 'asc',
+        deviceId: 'device-1',
+        startTime: '2023-01-01T00:00:00Z',
+        endTime: '2023-01-02T00:00:00Z',
+      };
+      
+      const mockMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      mockPrismaService.$transaction.mockResolvedValue([mockMetrics, 1]);
+      
+      const result = await service.queryMetrics(queryDto, userId);
+      
+      expect(result).toEqual({
+        data: mockMetrics,
+        total: 1,
+        page: 2,
+        limit: 10,
+      });
+      
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for invalid start time format', async () => {
+      const queryDto: QueryMetricDto = {
+        startTime: 'invalid-date',
+      };
+      
+      await expect(service.queryMetrics(queryDto, userId))
+        .rejects
+        .toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException for invalid end time format', async () => {
+      const queryDto: QueryMetricDto = {
+        endTime: 'invalid-date',
+      };
+      
+      await expect(service.queryMetrics(queryDto, userId))
         .rejects
         .toThrow(BadRequestException);
     });
