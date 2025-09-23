@@ -9,11 +9,13 @@ import { SecurityModule } from "./security/security.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "@nestjs/config";
+import { ScheduleModule } from "@nestjs/schedule";
 import { jwtConfig, devUserConfig, devConfig } from "./config/jwt.config";
 import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
     DevicesModule,

@@ -29,6 +29,10 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
   },
+  metricHistory: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+  },
 };
 
 describe('DeviceService', () => {
@@ -497,7 +501,10 @@ describe('DeviceService', () => {
         },
       ];
       
-      mockPrismaService.$transaction.mockResolvedValue([mockMetrics, 1]);
+      // Mock两次transaction调用
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockMetrics, 1]) // 第一次调用：实时数据查询
+        .mockResolvedValueOnce([[], 0]); // 第二次调用：历史数据查询
       
       const result = await service.queryMetrics(queryDto, userId);
       
@@ -508,7 +515,8 @@ describe('DeviceService', () => {
         limit: 20,
       });
       
-      expect(prisma.$transaction).toHaveBeenCalled();
+      // 验证调用了两次transaction
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it('should query metrics with custom parameters', async () => {
@@ -539,7 +547,10 @@ describe('DeviceService', () => {
         },
       ];
       
-      mockPrismaService.$transaction.mockResolvedValue([mockMetrics, 1]);
+      // Mock两次transaction调用
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockMetrics, 1]) // 第一次调用：实时数据查询
+        .mockResolvedValueOnce([[], 0]); // 第二次调用：历史数据查询
       
       const result = await service.queryMetrics(queryDto, userId);
       
@@ -550,7 +561,8 @@ describe('DeviceService', () => {
         limit: 10,
       });
       
-      expect(prisma.$transaction).toHaveBeenCalled();
+      // 验证调用了两次transaction
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     });
 
     it('should throw BadRequestException for invalid start time format', async () => {

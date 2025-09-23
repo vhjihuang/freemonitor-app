@@ -11,6 +11,7 @@ import { QueryAlertDto } from './dto/query-alert.dto';
 import { QueryMetricDto } from './dto/query-metric.dto';
 import { ResolveAlertDto, BulkResolveAlertDto, AcknowledgeAlertDto, BulkAcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
 import { Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class DeviceService {
@@ -33,6 +34,21 @@ export class DeviceService {
         name: true,
       },
     },
+  };
+
+  static readonly METRIC_HISTORY_SELECT = {
+    id: true,
+    deviceId: true,
+    cpu: true,
+    memory: true,
+    disk: true,
+    timestamp: true,
+    networkIn: true,
+    networkOut: true,
+    uptime: true,
+    temperature: true,
+    custom: true,
+    aggregationLevel: true,
   };
 
   constructor(private readonly prisma: PrismaService) {}
@@ -910,8 +926,8 @@ export class DeviceService {
         break;
     }
 
-    // 执行查询
-    const [data, total] = await this.prisma.$transaction([
+    // 执行查询（先查询实时数据，如果不够再查询历史数据）
+    const [realtimeData, realtimeTotal] = await this.prisma.$transaction([
       this.prisma.metric.findMany({
         where,
         skip,
@@ -931,11 +947,278 @@ export class DeviceService {
       this.prisma.metric.count({ where })
     ]);
 
+    // 如果实时数据不够，查询历史数据补充
+    let data = realtimeData;
+    let total = realtimeTotal;
+    
+    if (realtimeData.length < take && (startTime || !endTime)) {
+      // 计算还需要多少数据
+      const remaining = take - realtimeData.length;
+      
+      // 构建历史数据查询条件
+      const historyWhere: Prisma.MetricHistoryWhereInput = {
+        device: {
+          userId: userId,
+          ...DatabaseFilters.activeDevice()
+        }
+      };
+      
+      // 添加设备ID过滤
+      if (deviceId) {
+        historyWhere.deviceId = deviceId;
+      }
+      
+      // 添加时间范围过滤
+      if (startTime || endTime) {
+        historyWhere.timestamp = {};
+        if (startTime) {
+          const start = new Date(startTime);
+          if (isNaN(start.getTime())) {
+            throw new BadRequestException('无效的开始时间格式');
+          }
+          historyWhere.timestamp.gte = start;
+        }
+        if (endTime) {
+          const end = new Date(endTime);
+          if (isNaN(end.getTime())) {
+            throw new BadRequestException('无效的结束时间格式');
+          }
+          historyWhere.timestamp.lte = end;
+        }
+      }
+      
+      // 查询历史数据
+      const [historyData, historyTotal] = await this.prisma.$transaction([
+        this.prisma.metricHistory.findMany({
+          where: historyWhere,
+          take: remaining,
+          orderBy,
+          include: {
+            device: {
+              select: {
+                id: true,
+                name: true,
+                hostname: true,
+                ipAddress: true
+              }
+            }
+          }
+        }),
+        this.prisma.metricHistory.count({ where: historyWhere })
+      ]);
+      
+      // 合并数据
+      data = [...realtimeData, ...historyData];
+      total = realtimeTotal + historyTotal;
+    }
+
     return {
       data,
       total,
       page,
       limit
     };
+  }
+
+  /**
+   * 归档历史数据
+   * 将超过7天的指标数据从metric表迁移到metric_history表
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async archiveMetrics() {
+    this.logger.log('开始执行指标数据归档任务');
+    
+    try {
+      // 计算7天前的时间
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
+      
+      // 查找需要归档的数据
+      const metricsToArchive = await this.prisma.metric.findMany({
+        where: {
+          timestamp: {
+            lt: cutoffDate
+          }
+        }
+      });
+      
+      if (metricsToArchive.length === 0) {
+        this.logger.log('没有需要归档的指标数据');
+        return { archivedCount: 0 };
+      }
+      
+      // 将数据迁移到历史表
+      const archivePromises = metricsToArchive.map(metric => 
+        this.prisma.metricHistory.create({
+          data: {
+            ...metric,
+            aggregationLevel: 'raw'
+          },
+          select: DeviceService.METRIC_HISTORY_SELECT
+        })
+      );
+      
+      await Promise.all(archivePromises);
+      
+      // 删除已归档的数据
+      await this.prisma.metric.deleteMany({
+        where: {
+          timestamp: {
+            lt: cutoffDate
+          }
+        }
+      });
+      
+      this.logger.log(`成功归档 ${metricsToArchive.length} 条指标数据`);
+      return { archivedCount: metricsToArchive.length };
+    } catch (error) {
+      this.logger.error('指标数据归档任务失败', error);
+      throw new BusinessException('数据归档失败');
+    }
+  }
+
+  /**
+   * 压缩历史数据
+   * 将超过30天的历史数据按小时聚合压缩
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async compressHistoricalMetrics() {
+    this.logger.log('开始执行历史数据压缩任务');
+    
+    try {
+      // 计算30天前的时间
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
+      
+      // 查找需要压缩的数据
+      const metricsToCompress = await this.prisma.metricHistory.findMany({
+        where: {
+          timestamp: {
+            lt: cutoffDate
+          },
+          aggregationLevel: 'raw'
+        }
+      });
+      
+      if (metricsToCompress.length === 0) {
+        this.logger.log('没有需要压缩的历史数据');
+        return { compressedCount: 0 };
+      }
+      
+      // 按设备和小时分组数据
+      const groupedMetrics = this.groupMetricsByHour(metricsToCompress);
+      
+      // 创建压缩后的数据
+      const compressedMetrics = [];
+      for (const [key, metrics] of Object.entries(groupedMetrics)) {
+        const compressedMetric = this.compressMetrics(metrics);
+        compressedMetrics.push(compressedMetric);
+      }
+      
+      // 插入压缩后的数据
+      const insertPromises = compressedMetrics.map(metric => 
+        this.prisma.metricHistory.create({
+          data: {
+            ...metric,
+            aggregationLevel: 'hour'
+          },
+          select: DeviceService.METRIC_HISTORY_SELECT
+        })
+      );
+      
+      await Promise.all(insertPromises);
+      
+      // 删除已压缩的原始数据
+      const deviceIds = [...new Set(metricsToCompress.map(m => m.deviceId))];
+      for (const deviceId of deviceIds) {
+        await this.prisma.metricHistory.deleteMany({
+          where: {
+            deviceId,
+            timestamp: {
+              lt: cutoffDate
+            },
+            aggregationLevel: 'raw'
+          }
+        });
+      }
+      
+      this.logger.log(`成功压缩 ${metricsToCompress.length} 条历史数据为 ${compressedMetrics.length} 条聚合数据`);
+      return { 
+        originalCount: metricsToCompress.length, 
+        compressedCount: compressedMetrics.length 
+      };
+    } catch (error) {
+      this.logger.error('历史数据压缩任务失败', error);
+      throw new BusinessException('数据压缩失败');
+    }
+  }
+
+  /**
+   * 按设备和小时对指标数据进行分组
+   */
+  private groupMetricsByHour(metrics: any[]) {
+    const grouped: Record<string, any[]> = {};
+    
+    for (const metric of metrics) {
+      // 创建小时级别的时间戳作为分组键
+      const hourTimestamp = new Date(metric.timestamp);
+      hourTimestamp.setMinutes(0, 0, 0);
+      
+      const key = `${metric.deviceId}-${hourTimestamp.getTime()}`;
+      
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(metric);
+    }
+    
+    return grouped;
+  }
+
+  /**
+   * 对一组指标数据进行压缩（计算平均值）
+   */
+  private compressMetrics(metrics: any[]) {
+    if (metrics.length === 0) return null;
+    
+    // 取第一个指标作为基础结构
+    const baseMetric = { ...metrics[0] };
+    
+    // 计算数值字段的平均值
+    const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
+    const avg = (arr: number[]) => arr.length > 0 ? sum(arr) / arr.length : 0;
+    
+    // 收集所有数值字段的值
+    const cpuValues = metrics.map(m => m.cpu).filter(v => v !== undefined);
+    const memoryValues = metrics.map(m => m.memory).filter(v => v !== undefined);
+    const diskValues = metrics.map(m => m.disk).filter(v => v !== undefined);
+    
+    // 更新基础指标
+    if (cpuValues.length > 0) baseMetric.cpu = avg(cpuValues);
+    if (memoryValues.length > 0) baseMetric.memory = avg(memoryValues);
+    if (diskValues.length > 0) baseMetric.disk = avg(diskValues);
+    
+    // 对于其他可选字段，保留第一个值或计算平均值
+    if (metrics.some(m => m.networkIn !== undefined)) {
+      const networkInValues = metrics.map(m => m.networkIn).filter(v => v !== undefined);
+      if (networkInValues.length > 0) baseMetric.networkIn = avg(networkInValues);
+    }
+    
+    if (metrics.some(m => m.networkOut !== undefined)) {
+      const networkOutValues = metrics.map(m => m.networkOut).filter(v => v !== undefined);
+      if (networkOutValues.length > 0) baseMetric.networkOut = avg(networkOutValues);
+    }
+    
+    if (metrics.some(m => m.uptime !== undefined)) {
+      const uptimeValues = metrics.map(m => m.uptime).filter(v => v !== undefined);
+      if (uptimeValues.length > 0) baseMetric.uptime = Math.round(avg(uptimeValues));
+    }
+    
+    if (metrics.some(m => m.temperature !== undefined)) {
+      const temperatureValues = metrics.map(m => m.temperature).filter(v => v !== undefined);
+      if (temperatureValues.length > 0) baseMetric.temperature = avg(temperatureValues);
+    }
+    
+    return baseMetric;
   }
 }
