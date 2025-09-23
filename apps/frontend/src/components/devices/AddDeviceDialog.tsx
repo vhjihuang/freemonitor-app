@@ -24,14 +24,16 @@ export function AddDeviceDialog({ open, onOpenChange, onSuccess }: AddDeviceDial
       await createDevice(data);
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('创建设备失败:', err);
-      // 使用标准的错误处理方式
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('创建设备失败');
+      // 提取具体的错误信息
+      let errorMessage = '创建设备失败';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

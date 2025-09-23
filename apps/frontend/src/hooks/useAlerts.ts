@@ -16,7 +16,6 @@ export const useAlerts = (params?: AlertQueryDto) => {
     queryKey: ['alerts', page, limit, severity, isResolved, deviceName, sortBy, sortOrder],
     queryFn: () => getAlertsWithMeta(params),
     staleTime: 5 * 60 * 1000,
-    placeholderData: (previousData, previousQuery) => previousData, // 保留旧数据直到新数据加载完成
   });
 
   return {

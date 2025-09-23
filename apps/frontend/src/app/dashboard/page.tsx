@@ -3,6 +3,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Role } from '@freemonitor/types';
 import { StatsOverview } from '@/components/dashboard/StatsOverview';
+import { RealtimeDataChart } from '@/components/dashboard/RealtimeDataChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageTemplate } from '@/components/layout/PageTemplate';
 import { useAlerts } from '@/hooks/useAlerts';
@@ -45,19 +46,9 @@ export default function DashboardPage() {
         <StatsOverview />
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Card className="col-span-4">
-            <CardHeader>
-              <CardTitle>系统状态</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-green-500 mb-2">正常</div>
-                  <p className="text-muted-foreground">所有设备运行正常</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="col-span-4">
+            <RealtimeDataChart />
+          </div>
           
           <Card className="col-span-3">
             <CardHeader>
@@ -74,7 +65,12 @@ export default function DashboardPage() {
                 </div>
               ) : alerts.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="text-muted-foreground">暂无告警</div>
+                  <div className="text-center">
+                    <div className="text-muted-foreground mb-4">暂无告警</div>
+                    <p className="text-sm text-muted-foreground">
+                      如果您刚部署系统，请访问 <a href="/test-data" className="text-blue-500 hover:underline">测试数据页面</a> 生成一些示例数据。
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <Table>
@@ -108,6 +104,13 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+        
+        {/* 添加测试数据提示 */}
+        <div className="text-center text-sm text-muted-foreground">
+          <p>
+            如果图表中没有数据显示，请访问 <a href="/test-data" className="text-blue-500 hover:underline">测试数据页面</a> 生成一些示例数据。
+          </p>
         </div>
       </div>
     </PageTemplate>

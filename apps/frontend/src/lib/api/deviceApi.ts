@@ -130,6 +130,11 @@ export const queryDeviceMetrics = async (params?: {
   startTime?: string;
   endTime?: string;
 }): Promise<{data: Metric[], total: number, page: number, limit: number}> => {
-  const response = await apiClient.get<any>('devices/metrics/list', { params });
+  const response = await apiClient.get<any>('devices/metrics/list', { 
+    params: {
+      page: params?.page || 1, // 添加默认页码
+      ...params
+    }
+  });
   return handleResponse(response);
 };

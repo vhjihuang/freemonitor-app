@@ -42,16 +42,6 @@ import { ResolveAlertDialog } from '@/components/alerts/ResolveAlertDialog';
 import { useBulkAcknowledgeAlerts, useBulkResolveAlerts } from '@/hooks/useAlerts';
 import { AlertTriangle, Filter } from 'lucide-react';
 
-// 扩展 Alert 类型以包含设备信息
-interface AlertWithDevice extends Alert {
-  device?: {
-    id: string;
-    name: string;
-    hostname: string;
-    ipAddress: string;
-  };
-}
-
 export default function AlertsPage() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
@@ -73,8 +63,7 @@ export default function AlertsPage() {
   const { mutate: bulkAcknowledge } = useBulkAcknowledgeAlerts();
   const { mutate: bulkResolve } = useBulkResolveAlerts();
 
-  // 使用扩展类型
-  const alerts = (data || []) as AlertWithDevice[];
+  const alerts = data?.data || [];
   const total = data?.total || 0;
   const totalPages = Math.ceil(total / limit);
 

@@ -4,10 +4,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { QueryAlertDto } from './dto/query-alert.dto';
 import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, ResolveAlertDto, BulkAcknowledgeAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
-import { NotFoundException } from '../common/exceptions/app.exception';
+import { CreateDeviceDto, UpdateDeviceDto } from './dto';
+import { NotFoundException, BusinessException } from '../common/exceptions/app.exception';
 import { BadRequestException } from '@nestjs/common';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { NotificationService } from '../notification/notification.service';
+import { User } from '@prisma/client';
 
 // Mock PrismaService
 const mockPrismaService = {
@@ -26,6 +28,7 @@ const mockPrismaService = {
     findMany: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),
+    delete: jest.fn(),
   },
   metric: {
     create: jest.fn(),
@@ -35,6 +38,9 @@ const mockPrismaService = {
   metricHistory: {
     findMany: jest.fn(),
     count: jest.fn(),
+  },
+  deviceGroup: {
+    findUnique: jest.fn(),
   },
 };
 
@@ -74,6 +80,324 @@ describe('DeviceService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('create', () => {
+    const user: User = {
+      id: 'user-1',
+      email: 'test@example.com',
+      password: 'password',
+      name: 'Test User',
+      role: 'USER',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const createDeviceDto: CreateDeviceDto = {
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.100',
+      description: 'Test device',
+      type: 'SERVER',
+    };
+
+    const mockDevice = {
+      id: 'device-1',
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.100',
+      description: 'Test device',
+      type: 'SERVER',
+      location: null,
+      tags: [],
+      status: 'UNKNOWN',
+      createdAt: new Date(),
+      deviceGroup: null,
+    };
+
+    it('should create a device successfully', async () => {
+      mockPrismaService.device.findFirst
+        .mockResolvedValueOnce(null) // 检查活跃设备
+        .mockResolvedValueOnce(null); // 检查非活跃设备
+      mockPrismaService.device.create.mockResolvedValue(mockDevice);
+
+      const result = await service.create(createDeviceDto, user);
+
+      expect(result).toEqual(mockDevice);
+      expect(prisma.device.findFirst).toHaveBeenCalledTimes(2);
+      expect(prisma.device.create).toHaveBeenCalledWith({
+        data: {
+          name: createDeviceDto.name,
+          hostname: createDeviceDto.hostname,
+          ipAddress: createDeviceDto.ipAddress,
+          description: createDeviceDto.description,
+          type: createDeviceDto.type,
+          location: undefined,
+          tags: [],
+          userId: user.id,
+          deviceGroupId: null,
+        },
+        select: DeviceService.SELECT,
+      });
+    });
+
+    it('should throw BusinessException when device IP already exists', async () => {
+      const existingDevice = {
+        ...mockDevice,
+        id: 'existing-device',
+        userId: user.id,
+        isActive: true,
+      };
+
+      mockPrismaService.device.findFirst.mockResolvedValue(existingDevice);
+
+      await expect(service.create(createDeviceDto, user))
+        .rejects
+        .toThrow(BusinessException);
+    });
+
+    it('should delete existing inactive device and create new one', async () => {
+      const inactiveDevice = {
+        ...mockDevice,
+        id: 'inactive-device',
+        userId: user.id,
+        isActive: false,
+      };
+
+      mockPrismaService.device.findFirst
+        .mockResolvedValueOnce(null) // 检查活跃设备
+        .mockResolvedValueOnce(inactiveDevice); // 检查非活跃设备
+      mockPrismaService.device.delete.mockResolvedValue(inactiveDevice);
+      mockPrismaService.device.create.mockResolvedValue(mockDevice);
+
+      const result = await service.create(createDeviceDto, user);
+
+      expect(result).toEqual(mockDevice);
+      expect(prisma.device.delete).toHaveBeenCalledWith({
+        where: { id: inactiveDevice.id },
+      });
+      expect(prisma.device.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('update', () => {
+    const userId = 'user-1';
+    const deviceId = 'device-1';
+
+    const updateDeviceDto: UpdateDeviceDto = {
+      name: 'Updated Device',
+      description: 'Updated description',
+    };
+
+    const existingDevice = {
+      id: deviceId,
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.100',
+      description: 'Test device',
+      type: 'SERVER',
+      status: 'UNKNOWN',
+      location: null,
+      tags: [],
+      userId,
+      deviceGroupId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const updatedDevice = {
+      ...existingDevice,
+      ...updateDeviceDto,
+    };
+
+    it('should update a device successfully', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(existingDevice);
+      mockPrismaService.device.update.mockResolvedValue(updatedDevice);
+
+      const result = await service.update(deviceId, updateDeviceDto, userId);
+
+      expect(result).toEqual(updatedDevice);
+      expect(prisma.device.findFirst).toHaveBeenCalledWith({
+        where: { id: deviceId, userId },
+      });
+      expect(prisma.device.update).toHaveBeenCalledWith({
+        where: { id: deviceId },
+        data: {
+          name: updateDeviceDto.name,
+          hostname: existingDevice.hostname,
+          description: updateDeviceDto.description,
+          type: existingDevice.type,
+          status: undefined,
+          ipAddress: existingDevice.ipAddress,
+          location: undefined,
+          tags: { set: [] },
+          deviceGroupId: null,
+        },
+        select: DeviceService.SELECT,
+      });
+    });
+
+    it('should throw NotFoundException when device not found', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(null);
+
+      await expect(service.update(deviceId, updateDeviceDto, userId))
+        .rejects
+        .toThrow(NotFoundException);
+    });
+  });
+
+  describe('softDelete', () => {
+    const userId = 'user-1';
+    const deviceId = 'device-1';
+
+    const existingDevice = {
+      id: deviceId,
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.100',
+      userId,
+    };
+
+    it('should soft delete a device successfully', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(existingDevice);
+      mockPrismaService.device.update.mockResolvedValue({
+        ...existingDevice,
+        isActive: false,
+      });
+
+      const result = await service.softDelete(deviceId, userId);
+
+      expect(result).toEqual({
+        ...existingDevice,
+        isActive: false,
+      });
+      expect(prisma.device.findFirst).toHaveBeenCalledWith({
+        where: { id: deviceId, userId },
+      });
+      expect(prisma.device.update).toHaveBeenCalledWith({
+        where: { id: deviceId, userId: userId, isActive: true },
+        data: { isActive: false },
+      });
+    });
+
+    it('should throw NotFoundException when device not found', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(null);
+
+      await expect(service.softDelete(deviceId, userId))
+        .rejects
+        .toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAllByUser', () => {
+    const userId = 'user-1';
+    const mockDevices = [
+      {
+        id: 'device-1',
+        name: 'Test Device 1',
+        hostname: 'host-1',
+        ipAddress: '192.168.1.100',
+        status: 'ONLINE',
+        type: 'SERVER',
+        location: null,
+        tags: [],
+        createdAt: new Date(),
+        deviceGroup: null,
+      },
+    ];
+
+    it('should find devices with default parameters', async () => {
+      mockPrismaService.device.findMany.mockResolvedValue(mockDevices);
+
+      const result = await service.findAllByUser(userId);
+
+      expect(result).toEqual(mockDevices);
+      expect(prisma.device.findMany).toHaveBeenCalledWith({
+        where: {
+          userId,
+          isActive: true,
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        skip: 0,
+        take: undefined,
+        select: DeviceService.SELECT,
+      });
+    });
+
+    it('should find devices with search and filters', async () => {
+      mockPrismaService.device.findMany.mockResolvedValue(mockDevices);
+
+      const result = await service.findAllByUser(userId, 'test', 'ONLINE', 1, 10, undefined, 'SERVER', 'name', 'asc');
+
+      expect(result).toEqual(mockDevices);
+      expect(prisma.device.findMany).toHaveBeenCalledWith({
+        where: {
+          userId,
+          isActive: true,
+          OR: [
+            { name: { contains: 'test', mode: 'insensitive' } },
+            { hostname: { contains: 'test', mode: 'insensitive' } },
+            { ipAddress: { contains: 'test', mode: 'insensitive' } },
+          ],
+          status: 'ONLINE',
+          type: 'SERVER',
+        },
+        orderBy: [{ name: 'asc' }],
+        skip: 0,
+        take: 10,
+        select: DeviceService.SELECT,
+      });
+    });
+  });
+
+  describe('findOne', () => {
+    const userId = 'user-1';
+    const deviceId = 'device-1';
+
+    const mockDevice = {
+      id: deviceId,
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.100',
+      description: 'Test device',
+      type: 'SERVER',
+      status: 'UNKNOWN',
+      location: null,
+      tags: [],
+      userId,
+      deviceGroup: null,
+      metrics: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('should find a device by ID', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(mockDevice);
+
+      const result = await service.findOne(deviceId, userId);
+
+      expect(result).toEqual(mockDevice);
+      expect(prisma.device.findFirst).toHaveBeenCalledWith({
+        where: { id: deviceId, userId, isActive: true },
+        include: {
+          deviceGroup: true,
+          metrics: {
+            take: 1,
+            orderBy: { timestamp: 'desc' },
+          },
+        },
+      });
+    });
+
+    it('should throw NotFoundException when device not found', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(deviceId, userId))
+        .rejects
+        .toThrow(NotFoundException);
+    });
+  });
+
+  // 其他测试用例保持不变...
   describe('queryAlerts', () => {
     const userId = 'test-user-id';
     const mockAlerts = [

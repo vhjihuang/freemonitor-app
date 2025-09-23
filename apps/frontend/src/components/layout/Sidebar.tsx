@@ -36,6 +36,10 @@ export function Sidebar({ currentPath = '/dashboard' }: SidebarProps) {
     { name: '告警中心', href: '/alerts', icon: Bell },
     { name: '系统设置', href: '/settings', icon: Settings },
     { name: '安全中心', href: '/security', icon: Shield },
+    // 仅在开发环境中显示测试数据页面链接
+    ...(process.env.NODE_ENV === 'development' ? [
+      { name: '测试数据', href: '/test-data', icon: BarChart3 }
+    ] : [])
   ];
 
   const userMenuItems = [
