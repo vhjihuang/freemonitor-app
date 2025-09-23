@@ -4,7 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { QueryAlertDto } from './dto/query-alert.dto';
 import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, ResolveAlertDto, BulkAcknowledgeAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
-import { CreateDeviceDto, UpdateDeviceDto } from './dto';
+import { CreateDeviceDto } from './dto/create-device.dto';
+import { UpdateDeviceDto } from './dto/update-device.dto';
 import { NotFoundException, BusinessException } from '../common/exceptions/app.exception';
 import { BadRequestException } from '@nestjs/common';
 import { CreateAlertDto } from './dto/create-alert.dto';
@@ -88,8 +89,16 @@ describe('DeviceService', () => {
       name: 'Test User',
       role: 'USER',
       isActive: true,
+      lastLoginAt: null,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      mfaEnabled: false,
+      mfaSecret: null,
       createdAt: new Date(),
       updatedAt: new Date(),
+      deletedAt: null,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
     };
 
     const createDeviceDto: CreateDeviceDto = {
