@@ -6,6 +6,8 @@ import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, ResolveAlertDto, BulkAcknowledgeAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
 import { NotFoundException } from '../common/exceptions/app.exception';
 import { BadRequestException } from '@nestjs/common';
+import { CreateAlertDto } from './dto/create-alert.dto';
+import { NotificationService } from '../notification/notification.service';
 
 // Mock PrismaService
 const mockPrismaService = {
@@ -16,6 +18,7 @@ const mockPrismaService = {
     groupBy: jest.fn(),
     findFirst: jest.fn(),
     update: jest.fn(),
+    create: jest.fn(),
   },
   device: {
     findFirst: jest.fn(),
@@ -35,6 +38,11 @@ const mockPrismaService = {
   },
 };
 
+// Mock NotificationService
+const mockNotificationService = {
+  sendNotification: jest.fn(),
+};
+
 describe('DeviceService', () => {
   let service: DeviceService;
   let prisma: PrismaService;
@@ -46,6 +54,10 @@ describe('DeviceService', () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: NotificationService,
+          useValue: mockNotificationService,
         },
       ],
     }).compile();
@@ -771,6 +783,88 @@ describe('DeviceService', () => {
       await expect(service.queryMetrics(queryDto, userId))
         .rejects
         .toThrow(BadRequestException);
+    });
+  });
+
+  describe('createAlert', () => {
+    const userId = 'test-user-id';
+    const deviceId = 'test-device-id';
+    const createAlertDto: CreateAlertDto = {
+      deviceId: deviceId,
+      message: 'Test alert message',
+      severity: 'ERROR',
+      type: 'CPU',
+    };
+
+    const mockDevice = {
+      id: deviceId,
+      name: 'Test Device',
+      hostname: 'test-host',
+      ipAddress: '192.168.1.1',
+      userId: userId,
+      isActive: true,
+    };
+
+    const mockAlert = {
+      id: 'alert-1',
+      deviceId: deviceId,
+      message: 'Test alert message',
+      severity: 'ERROR',
+      type: 'CPU',
+      status: 'UNACKNOWLEDGED',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      resolvedAt: null,
+      acknowledgedAt: null,
+      metadata: null,
+      userId: null,
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should create an alert and send notification', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(mockDevice);
+      mockPrismaService.alert.create.mockResolvedValue(mockAlert);
+      mockNotificationService.sendNotification.mockResolvedValue([
+        { success: true, messageId: 'notification-1', timestamp: new Date() }
+      ]);
+
+      const result = await service.createAlert(createAlertDto, userId);
+
+      expect(result).toEqual(mockAlert);
+      expect(prisma.device.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: deviceId,
+          userId: userId,
+          isActive: true,
+        },
+      });
+      expect(prisma.alert.create).toHaveBeenCalledWith({
+        data: {
+          deviceId: deviceId,
+          message: 'Test alert message',
+          severity: 'ERROR',
+          type: 'CPU',
+          status: 'UNACKNOWLEDGED',
+        },
+      });
+      expect(mockNotificationService.sendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...mockAlert,
+          device: mockDevice
+        }),
+        'ERROR'
+      );
+    });
+
+    it('should throw NotFoundException when device not found', async () => {
+      mockPrismaService.device.findFirst.mockResolvedValue(null);
+
+      await expect(service.createAlert(createAlertDto, userId))
+        .rejects
+        .toThrow(NotFoundException);
     });
   });
 });

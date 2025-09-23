@@ -12,6 +12,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ScheduleModule } from "@nestjs/schedule";
 import { jwtConfig, devUserConfig, devConfig } from "./config/jwt.config";
 import { CommonModule } from './common/common.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CommonModule } from './common/common.module';
     SecurityModule,
     AuthModule,
     DashboardModule,
+    NotificationModule,
     ConfigModule.forRoot({
       load: [jwtConfig, devUserConfig, devConfig],
       isGlobal: true,

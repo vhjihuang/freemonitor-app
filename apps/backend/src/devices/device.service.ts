@@ -12,6 +12,7 @@ import { QueryMetricDto } from './dto/query-metric.dto';
 import { ResolveAlertDto, BulkResolveAlertDto, AcknowledgeAlertDto, BulkAcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
 import { Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class DeviceService {
@@ -51,7 +52,10 @@ export class DeviceService {
     aggregationLevel: true,
   };
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService
+  ) {}
 
   async createAlert(createAlertDto: CreateAlertDto, userId: string) {
     this.logger.log(`开始处理设备 ${createAlertDto.deviceId} 的告警`, {
@@ -89,6 +93,29 @@ export class DeviceService {
         deviceId: createAlertDto.deviceId,
         userId,
       });
+
+      // 发送通知
+      try {
+        const alertWithDevice = {
+          ...alert,
+          device: device
+        };
+        
+        const notificationResults = await this.notificationService.sendNotification(
+          alertWithDevice, 
+          createAlertDto.severity as AlertSeverity
+        );
+        
+        this.logger.log(`告警通知发送完成`, {
+          alertId: alert.id,
+          results: notificationResults,
+        });
+      } catch (notificationError) {
+        this.logger.error(`告警通知发送失败: ${notificationError.message}`, {
+          alertId: alert.id,
+          error: notificationError.message,
+        });
+      }
 
       return alert;
     } catch (error) {
