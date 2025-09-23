@@ -565,6 +565,194 @@ describe('DeviceService', () => {
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
     });
 
+    it('should query metrics with different sort fields', async () => {
+      const queryDto: QueryMetricDto = {
+        sortBy: 'memory',
+        sortOrder: 'desc',
+      };
+      
+      const mockMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockMetrics, 1])
+        .mockResolvedValueOnce([[], 0]);
+      
+      await service.queryMetrics(queryDto, userId);
+      
+      // 验证排序参数
+      expect(prisma.metric.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { memory: 'desc' },
+        }),
+      );
+    });
+
+    it('should query metrics with device ID filter', async () => {
+      const queryDto: QueryMetricDto = {
+        deviceId: 'device-1',
+      };
+      
+      const mockMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      const expectedWhere = {
+        device: {
+          userId: userId,
+          isActive: true,
+        },
+        deviceId: 'device-1',
+      };
+      
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockMetrics, 1])
+        .mockResolvedValueOnce([[], 0]);
+      mockPrismaService.metric.findMany.mockResolvedValue(mockMetrics);
+      mockPrismaService.metric.count.mockResolvedValue(1);
+      
+      await service.queryMetrics(queryDto, userId);
+      
+      // 验证设备ID过滤
+      expect(prisma.metric.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+        }),
+      );
+    });
+
+    it('should query metrics with time range filter', async () => {
+      const startTime = '2023-01-01T00:00:00Z';
+      const endTime = '2023-01-02T00:00:00Z';
+      const queryDto: QueryMetricDto = {
+        startTime,
+        endTime,
+      };
+      
+      const mockMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      const expectedWhere = {
+        device: {
+          userId: userId,
+          isActive: true,
+        },
+        timestamp: {
+          gte: new Date(startTime),
+          lte: new Date(endTime),
+        },
+      };
+      
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockMetrics, 1])
+        .mockResolvedValueOnce([[], 0]);
+      mockPrismaService.metric.findMany.mockResolvedValue(mockMetrics);
+      mockPrismaService.metric.count.mockResolvedValue(1);
+      
+      await service.queryMetrics(queryDto, userId);
+      
+      // 验证时间范围过滤
+      expect(prisma.metric.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+        }),
+      );
+    });
+
+    it('should combine real-time and historical data when needed', async () => {
+      const queryDto: QueryMetricDto = {
+        limit: 30,
+      };
+      
+      const mockRealtimeMetrics = [
+        {
+          id: 'metric-1',
+          deviceId: 'device-1',
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+          timestamp: new Date(),
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      const mockHistoryMetrics = [
+        {
+          id: 'metric-2',
+          deviceId: 'device-1',
+          cpu: 65.5,
+          memory: 50.2,
+          disk: 35.8,
+          timestamp: new Date(Date.now() - 86400000), // 1天前
+          device: {
+            id: 'device-1',
+            name: 'Test Device',
+            hostname: 'test-host',
+            ipAddress: '192.168.1.1',
+          },
+        },
+      ];
+      
+      // Mock四次transaction调用（实时数据查询、实时数据计数、历史数据查询、历史数据计数）
+      mockPrismaService.$transaction
+        .mockResolvedValueOnce([mockRealtimeMetrics, 15]) // 实时数据查询（只返回15条）
+        .mockResolvedValueOnce([mockHistoryMetrics, 20]); // 历史数据查询（补充15条）
+      
+      const result = await service.queryMetrics(queryDto, userId);
+      
+      // 验证返回的数据是实时和历史数据的组合
+      expect(result.data).toEqual([...mockRealtimeMetrics, ...mockHistoryMetrics]);
+      expect(result.total).toEqual(35); // 15 + 20
+      expect(result.page).toEqual(1);
+      expect(result.limit).toEqual(30);
+    });
+
     it('should throw BadRequestException for invalid start time format', async () => {
       const queryDto: QueryMetricDto = {
         startTime: 'invalid-date',
