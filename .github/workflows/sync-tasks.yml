@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 检出代码
-      uses: actions/checkout@v5
+      uses: actions/checkout@v5  # 更新这里
 
     - name: 设置Python环境
       uses: actions/setup-python@v5
@@ -24,7 +24,9 @@ jobs:
     - name: 安装依赖
       run: |
         python -m pip install --upgrade pip
-        pip install PyGithub
+        pip install -r requirements.txt  # 推荐使用 requirements.txt
+      env:
+        PIP_CACHE_DIR: /tmp/pip-cache
 
     - name: 解析文档任务
       run: |
@@ -38,9 +40,3 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-
-    - name: 上传任务JSON作为artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: parsed-tasks
-        path: tasks.json
