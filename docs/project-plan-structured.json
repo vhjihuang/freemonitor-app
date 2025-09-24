@@ -1,0 +1,212 @@
+{
+  "projectName": "FreeMonitor",
+  "status": "开发中",
+  "overallProgress": "65%",
+  "lastUpdated": "2025-09-24",
+  "modules": [
+    {
+      "name": "前端应用",
+      "directory": "apps/frontend",
+      "owner": "您自己",
+      "status": "🟡 40%",
+      "description": "Next.js 14 + Tailwind + shadcn/ui"
+    },
+    {
+      "name": "后端应用",
+      "directory": "apps/backend",
+      "owner": "您自己",
+      "status": "🔴 80%",
+      "description": "NestJS + Prisma + PostgreSQL"
+    },
+    {
+      "name": "共享类型",
+      "directory": "packages/types",
+      "owner": "您自己",
+      "status": "✅ 100%",
+      "description": "TypeScript 接口、枚举、DTO"
+    },
+    {
+      "name": "UI 组件库",
+      "directory": "packages/ui",
+      "owner": "您自己",
+      "status": "🟡 30%",
+      "description": "基于 shadcn/ui 的封装组件"
+    },
+    {
+      "name": "部署配置",
+      "directory": "docker/, scripts/",
+      "owner": "您自己",
+      "status": "🟡 30%",
+      "description": "Docker, Railway, Vercel"
+    },
+    {
+      "name": "知识库",
+      "directory": "docs/",
+      "owner": "您自己",
+      "status": "🟡 10%",
+      "description": "架构图、数据库模式、API 文档"
+    }
+  ],
+  "phases": [
+    {
+      "name": "阶段一：认证系统完善",
+      "progress": "95%",
+      "status": "🔴 高优先级",
+      "description": "已完成大部分"
+    },
+    {
+      "name": "阶段二：核心监控功能",
+      "progress": "85%",
+      "status": "🔴 高优先级",
+      "description": "核心功能基本完成"
+    },
+    {
+      "name": "阶段三：数据展示与处理",
+      "progress": "30%",
+      "status": "🟡 中优先级",
+      "description": "进行中"
+    },
+    {
+      "name": "阶段四：用户体验优化",
+      "progress": "60%",
+      "status": "🟡 中优先级",
+      "description": "进行中"
+    },
+    {
+      "name": "阶段五：API 与数据流",
+      "progress": "75%",
+      "status": "🟢 低优先级",
+      "description": "基础完成"
+    },
+    {
+      "name": "阶段六：后端服务完善",
+      "progress": "70%",
+      "status": "🟢 低优先级",
+      "description": "进行中"
+    },
+    {
+      "name": "阶段七：安全增强",
+      "progress": "80%",
+      "status": "🔴 高优先级",
+      "description": "基本完成"
+    },
+    {
+      "name": "阶段八：测试与质量",
+      "progress": "55%",
+      "status": "🟡 中优先级",
+      "description": "进行中"
+    },
+    {
+      "name": "阶段九：部署与运维",
+      "progress": "30%",
+      "status": "🟢 低优先级",
+      "description": "初始阶段"
+    }
+  ],
+  "phaseDetails": [
+    {
+      "phase": "阶段一：认证系统完善",
+      "document": "./02-phase-1-auth-system.md",
+      "tasks": [
+        {
+          "title": "修复 dev-auth.guard.ts 配置问题",
+          "status": "✅ 已完成",
+          "completionDate": "25-09-14 16:40"
+        },
+        {
+          "title": "完善 auth.service.ts 登录逻辑",
+          "status": "✅ 已完成",
+          "completionDate": "25-09-14 16:41"
+        },
+        {
+          "title": "实现 JWT 策略验证",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "添加刷新令牌端点",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "创建用户注册服务",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "添加密码重置功能",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "实现密码重置邮件发送功能",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "实现权限系统",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "扩展优化角色权限系统",
+          "status": "⏸ 暂停/待定"
+        },
+        {
+          "title": "后端认证系统优化",
+          "status": "☐ 未开始"
+        }
+      ]
+    },
+    {
+      "phase": "阶段二：核心监控功能",
+      "document": "./03-phase-2-core-monitoring.md",
+      "tasks": [
+        {
+          "title": "创建仪表盘布局组件",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "实现状态概览卡片",
+          "status": "✅ 已完成"
+        },
+        {
+          "title": "添加实时数据图表",
+          "status": "☐ 未开始"
+        },
+        {
+          "title": "创建最近告警面板",
+          "status": "🔄 进行中"
+        },
+        {
+          "title": "实现数据刷新机制",
+          "status": "☐ 未开始"
+        }
+      ]
+    }
+  ],
+  "priorityLevels": [
+    {
+      "level": "🔴 高优先级",
+      "description": "认证、核心功能"
+    },
+    {
+      "level": "🟡 中优先级",
+      "description": "用户体验、测试"
+    },
+    {
+      "level": "🟢 低优先级",
+      "description": "高级功能、文档、部署"
+    }
+  ],
+  "automations": [
+    {
+      "name": "变更日志",
+      "description": "已自动从 Git Commit 生成",
+      "document": "./development/changelog.md"
+    },
+    {
+      "name": "数据库模式",
+      "description": "由 schema.prisma 自动生成",
+      "command": "npm run generate:db-schema"
+    },
+    {
+      "name": "每日提醒",
+      "description": "GitHub Actions 会每天早上 9 点向您的 Discord 发送待办提醒"
+    }
+  ]
+}
