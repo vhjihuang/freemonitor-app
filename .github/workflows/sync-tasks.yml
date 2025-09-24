@@ -19,14 +19,14 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.9'
-        cache: 'pip'
+        # cache: 'pip'
 
     - name: 安装依赖
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt  # 推荐使用 requirements.txt
-      env:
-        PIP_CACHE_DIR: /tmp/pip-cache
+      # env:
+      #   PIP_CACHE_DIR: /tmp/pip-cache
 
     - name: 解析文档任务
       run: |
