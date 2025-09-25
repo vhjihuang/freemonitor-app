@@ -1,1 +1,324 @@
-[]
+[
+  {
+    "title": "扩展优化角色权限系统",
+    "description": "扩展和优化现有的角色权限控制系统，使其在实际业务中发挥更大作用",
+    "priority": "高",
+    "status": "待开始",
+    "phase": "阶段一：认证系统完善"
+  },
+  {
+    "title": "后端认证系统优化",
+    "description": "优化后端认证安全性、会话管理和错误处理",
+    "priority": "高",
+    "status": "待开始",
+    "phase": "阶段一：认证系统完善"
+  },
+  {
+    "title": "前端认证系统优化",
+    "description": "优化前端认证安全性、一致性和用户体验",
+    "priority": "高",
+    "status": "待开始",
+    "phase": "阶段一：认证系统完善"
+  },
+  {
+    "title": "更新项目 README",
+    "description": "完善项目介绍和设置指南",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "文档与测试"
+  },
+  {
+    "title": "编写认证服务单元测试",
+    "description": "为认证服务编写单元测试",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "文档与测试"
+  },
+  {
+    "title": "实现状态概览卡片",
+    "description": "显示设备状态关键指标",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段二：核心监控功能"
+  },
+  {
+    "title": "添加实时数据图表",
+    "description": "可视化设备指标数据",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段二：核心监控功能"
+  },
+  {
+    "title": "创建最近告警面板",
+    "description": "显示最新告警信息",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段二：核心监控功能"
+  },
+  {
+    "title": "实现数据刷新机制",
+    "description": "优化数据刷新性能",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段二：核心监控功能"
+  },
+  {
+    "title": "实现告警查询接口",
+    "description": "提供告警数据查询 API",
+    "priority": "中",
+    "status": "已完成",
+    "phase": "阶段三：数据展示与处理"
+  },
+  {
+    "title": "实现数据表格组件",
+    "description": "支持排序和分页的表格组件",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "添加图表组件集成",
+    "description": "集成第三方图表库",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "创建模态框组件",
+    "description": "实现通用模态框",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "实现通知 Toast 组件",
+    "description": "实现通知系统",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "优化移动端布局",
+    "description": "适配小屏幕设备",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "实现错误边界处理",
+    "description": "捕获和显示渲染错误",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "优化导航用户体验",
+    "description": "改进导航栏和面包屑",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "添加页面过渡动画",
+    "description": "实现页面切换动画",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段四：用户体验优化"
+  },
+  {
+    "title": "添加请求重试机制",
+    "description": "自动重试失败请求",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段五：API 与数据流"
+  },
+  {
+    "title": "添加 useMetrics hook",
+    "description": "管理指标数据状态",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段五：API 与数据流"
+  },
+  {
+    "title": "实现数据缓存策略",
+    "description": "优化数据获取性能",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段五：API 与数据流"
+  },
+  {
+    "title": "添加数据库事务处理",
+    "description": "支持数据库事务",
+    "priority": "中",
+    "status": "进行中",
+    "phase": "阶段六：后端服务完善"
+  },
+  {
+    "title": "创建数据种子脚本",
+    "description": "初始化数据库数据",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段六：后端服务完善"
+  },
+  {
+    "title": "添加数据库迁移脚本",
+    "description": "管理数据库模式变更",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段六：后端服务完善"
+  },
+  {
+    "title": "添加速率限制",
+    "description": "控制请求频率",
+    "priority": "中",
+    "status": "进行中",
+    "phase": "阶段七：安全增强"
+  },
+  {
+    "title": "添加设备服务测试",
+    "description": "测试设备管理功能",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "实现工具函数测试",
+    "description": "测试工具函数",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "创建 API 端点测试",
+    "description": "测试 API 端点",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "添加设备管理测试",
+    "description": "测试设备管理流程",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "实现监控功能测试",
+    "description": "测试数据收集和告警",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "创建性能测试套件",
+    "description": "测试系统性能",
+    "priority": "中",
+    "status": "未开始",
+    "phase": "阶段八：测试与质量"
+  },
+  {
+    "title": "优化 Docker 配置文件",
+    "description": "优化 Docker 构建",
+    "priority": "低",
+    "status": "进行中",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "添加多阶段构建",
+    "description": "分离开发和生产依赖",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "创建开发环境配置",
+    "description": "配置开发环境",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "完善生产环境配置",
+    "description": "优化生产环境",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "优化 Railway 部署配置",
+    "description": "优化后端部署",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "完善 Vercel 部署设置",
+    "description": "优化前端部署",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "添加环境变量管理",
+    "description": "管理环境变量",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "创建部署脚本",
+    "description": "自动化部署流程",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "完善 API 文档",
+    "description": "文档化 API 接口",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "创建部署指南",
+    "description": "编写部署步骤",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "编写开发文档",
+    "description": "提供架构和贡献指南",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "添加数据库备份脚本",
+    "description": "实现数据库备份",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "创建数据迁移工具",
+    "description": "支持数据迁移",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "实现日志分析脚本",
+    "description": "分析系统日志",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  },
+  {
+    "title": "添加监控检查脚本",
+    "description": "检查服务健康",
+    "priority": "低",
+    "status": "未开始",
+    "phase": "阶段九：部署与运维"
+  }
+]
