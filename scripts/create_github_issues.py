@@ -124,7 +124,7 @@ class GitHubIssueCreator:
         
         # 添加自动创建标识
         body += "---\n"
-        body += "<!-- 此Issue由自动化脚本创建 -->\n"
+        body += "<!-- 此Issue由自动化脚本创建/更新 -->\n"
         
         return body
     
@@ -139,8 +139,8 @@ class GitHubIssueCreator:
         else:
             return "🟡 中优先级"
         
-    def create_issue(self, task: Dict[str, Any], phase: str) -> str:
-        """创建单个Issue"""
+    def _get_labels_for_task(self, task: Dict[str, Any], phase: str) -> List[str]:
+        """为任务获取标签"""
         # 准备标签
         labels = ["task", "automated"]
         
@@ -165,7 +165,13 @@ class GitHubIssueCreator:
             clean_label = label.lower().replace(' ', '-').replace('/', '-').replace('[', '').replace(']', '')
             self._create_label_if_not_exists(clean_label)
             
+        return labels
+        
+    def create_or_update_issue(self, task: Dict[str, Any], phase: str) -> str:
+        """创建或更新Issue"""
         # 格式化标题
+        clean_phase = phase.split('[')[0].strip()
+        clean_phase = clean_phase.replace('🔴', '').replace('🟡', '').replace('🟢', '').strip()
         title = f"[{clean_phase}] {task.get('title', '未命名任务')}"
         if len(title) > 250:  # GitHub标题限制
             title = title[:247] + "..."
@@ -173,27 +179,39 @@ class GitHubIssueCreator:
         # 格式化内容
         body = self._format_task_body(task, phase)
         
+        # 获取标签
+        labels = self._get_labels_for_task(task, phase)
+        
         try:
             # 检查是否已存在相同标题的Issue
             existing_issues = self.repo.get_issues(state='all')
+            existing_issue = None
             for issue in existing_issues:
                 if issue.title == title:
-                    print(f"跳过已存在的Issue: {title}")
-                    return f"已存在: {issue.html_url}"
+                    existing_issue = issue
+                    break
                     
-            # 创建Issue
-            issue = self.repo.create_issue(
-                title=title,
-                body=body,
-                labels=labels
-            )
-            
-            print(f"已创建Issue: {title}")
-            return issue.html_url
+            if existing_issue:
+                # 更新已存在的Issue
+                existing_issue.edit(
+                    body=body,
+                    labels=labels
+                )
+                print(f"已更新Issue: {title}")
+                return existing_issue.html_url
+            else:
+                # 创建新的Issue
+                issue = self.repo.create_issue(
+                    title=title,
+                    body=body,
+                    labels=labels
+                )
+                print(f"已创建Issue: {title}")
+                return issue.html_url
             
         except Exception as e:
-            print(f"创建Issue失败: {title} - {e}")
-            return f"创建失败: {e}"
+            print(f"处理Issue失败: {title} - {e}")
+            return f"处理失败: {e}"
             
     def create_issues_from_docs(self, json_file: str) -> List[str]:
         """从docs中的JSON文件创建Issues"""
@@ -209,7 +227,7 @@ class GitHubIssueCreator:
                 tasks = phase_detail.get('tasks', [])
                 
                 for task in tasks:
-                    url = self.create_issue(task, phase)
+                    url = self.create_or_update_issue(task, phase)
                     issue_urls.append(url)
                 
             return issue_urls
@@ -259,7 +277,7 @@ def main():
         
     urls = creator.create_issues_from_docs(json_file)
     
-    print(f"\n创建了 {len(urls)} 个Issues:")
+    print(f"\n处理了 {len(urls)} 个Issues:")
     for url in urls:
         print(url)
 
