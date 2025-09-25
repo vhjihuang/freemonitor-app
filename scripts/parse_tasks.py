@@ -122,6 +122,18 @@ class TaskParser:
             "阶段九：部署与运维": "10-phase-9-deployment.md"
         }
         
+        # 确保phaseDetails包含所有阶段
+        existing_phases = {phase_detail.get('phase', '') for phase_detail in self.project_data.get('phaseDetails', [])}
+        
+        # 添加缺失的阶段
+        for phase_name in phase_files.keys():
+            if phase_name not in existing_phases:
+                self.project_data.setdefault('phaseDetails', []).append({
+                    'phase': phase_name,
+                    'document': f"./{phase_files[phase_name]}",
+                    'tasks': []
+                })
+        
         # 更新phaseDetails
         updated_count = 0
         for phase_detail in self.project_data.get('phaseDetails', []):
@@ -135,6 +147,8 @@ class TaskParser:
                     updated_count += len(tasks)
                 else:
                     print(f"警告: 找不到文件 {md_file_path}")
+                    # 即使文件不存在，也要确保tasks字段存在
+                    phase_detail.setdefault('tasks', [])
         
         # 写回更新后的数据
         try:

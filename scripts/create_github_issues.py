@@ -198,6 +198,12 @@ class GitHubIssueCreator:
                     labels=labels
                 )
                 print(f"已更新Issue: {title}")
+                
+                # 如果任务已完成，关闭Issue
+                if "✅" in task.get('status', '') or "已完成" in task.get('status', ''):
+                    existing_issue.edit(state='closed')
+                    print(f"已关闭Issue: {title}")
+                
                 return existing_issue.html_url
             else:
                 # 创建新的Issue
@@ -207,6 +213,12 @@ class GitHubIssueCreator:
                     labels=labels
                 )
                 print(f"已创建Issue: {title}")
+                
+                # 如果任务已完成，关闭Issue
+                if "✅" in task.get('status', '') or "已完成" in task.get('status', ''):
+                    issue.edit(state='closed')
+                    print(f"已关闭Issue: {title}")
+                
                 return issue.html_url
             
         except Exception as e:
