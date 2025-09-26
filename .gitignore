@@ -103,3 +103,5 @@ packages/*/build/
 packages/*/.next/
 
 prisma/migrations_backup_*/
+
+TASKS.md # 此文件用来方便大模型知道本地项目进度
