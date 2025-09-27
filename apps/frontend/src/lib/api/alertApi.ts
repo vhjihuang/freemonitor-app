@@ -43,6 +43,12 @@ export const getAlertsWithMeta = async (params?: AlertQueryDto): Promise<AlertLi
   return handleResponse<AlertListResponse>(response.data); // 提取 response.data.data
 };
 
+export const getRecentAlerts = async (limit: number = 10) => {
+  const response = await apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } });
+  
+  return response.data;
+};
+
 // 其余函数保持不变
 export const acknowledgeAlert = async (alertId: string, comment: string) => {
   const response = await apiClient.post<Alert>(`devices/alerts/${alertId}/acknowledge`, { alertId, comment });

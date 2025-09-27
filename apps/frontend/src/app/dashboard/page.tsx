@@ -6,7 +6,7 @@ import { StatsOverview } from '@/components/dashboard/StatsOverview';
 import { RealtimeDataChart } from '@/components/dashboard/RealtimeDataChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageTemplate } from '@/components/layout/PageTemplate';
-import { useAlerts } from '@/hooks/useAlerts';
+import { useRecentAlerts } from '@/hooks/useAlerts';
 import { AlertSeverityBadge } from '@/components/alerts/AlertSeverityBadge';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -24,12 +24,7 @@ import { Alert } from '@freemonitor/types';
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const { data, isLoading, error } = useAlerts({
-    page: 1,
-    limit: 5,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
-  });
+  const { data, isLoading, error } = useRecentAlerts(10);
 
   const alerts = data?.data || [];
 
@@ -70,6 +65,9 @@ export default function DashboardPage() {
                     <p className="text-sm text-muted-foreground">
                       如果您刚部署系统，请访问 <a href="/test-data" className="text-blue-500 hover:underline">测试数据页面</a> 生成一些示例数据。
                     </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      在测试数据页面的步骤3中生成测试告警数据。
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -86,7 +84,7 @@ export default function DashboardPage() {
                     {alerts.map((alert: Alert) => (
                       <TableRow key={alert.id}>
                         <TableCell className="font-medium max-w-[100px] truncate">
-                          {alert.deviceId || '未知设备'}
+                          {alert.device?.name || alert.deviceId || '未知设备'}
                         </TableCell>
                         <TableCell className="max-w-[150px] truncate">
                           {alert.message}
@@ -95,7 +93,7 @@ export default function DashboardPage() {
                           <AlertSeverityBadge severity={alert.severity} />
                         </TableCell>
                         <TableCell className="text-right">
-                          {format(new Date(alert.createdAt), 'MM-dd HH:mm', { locale: zhCN })}
+                          {alert.createdAt ? format(new Date(alert.createdAt), 'MM-dd HH:mm', { locale: zhCN }) : '无时间'}
                         </TableCell>
                       </TableRow>
                     ))}

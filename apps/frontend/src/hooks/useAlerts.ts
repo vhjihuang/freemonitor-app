@@ -1,6 +1,6 @@
 // src/hooks/useAlerts.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAlerts,getAlertsWithMeta, acknowledgeAlert, bulkAcknowledgeAlerts, resolveAlert, bulkResolveAlerts } from '@/lib/api/alertApi';
+import { getAlerts, getAlertsWithMeta, getRecentAlerts, acknowledgeAlert, bulkAcknowledgeAlerts, resolveAlert, bulkResolveAlerts } from '@/lib/api/alertApi';
 import { Alert, AlertQueryDto } from '@freemonitor/types';
 import { useToastContext } from '@/components/providers/toast-provider';
 import type { AlertResponse } from '@/types/api';
@@ -20,6 +20,24 @@ export const useAlerts = (params?: AlertQueryDto) => {
 
   return {
     data,
+    error,
+    isLoading,
+    refetch,
+  };
+};
+
+/**
+ * 获取最近告警的自定义hooks
+ */
+export const useRecentAlerts = (limit: number = 10) => {
+  const { data, error, isLoading, refetch } = useQuery<AlertListResponse, Error>({
+    queryKey: ['recent-alerts', limit],
+    queryFn: () => getRecentAlerts(limit),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return {
+    data: data,
     error,
     isLoading,
     refetch,
