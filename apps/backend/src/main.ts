@@ -83,7 +83,7 @@ async function bootstrap() {
   // HttpExceptionFilter已经在CommonModule中通过APP_FILTER提供，无需在此处手动注册
 
   // ✅ 4. 注册全局响应拦截器
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  // ResponseInterceptor将通过依赖注入自动注册
 
   // ✅ 5. 启用 CORS
   const corsOrigins = process.env.CORS_ORIGIN?.split(",") || ["https://freemonitor-app-frontend.vercel.app", "http://localhost:3000", "http://localhost:3001"];

@@ -1,7 +1,8 @@
 import { Module, Global } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppLoggerService } from './services/logger.service';
 import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-exception.filter';
+import { ResponseInterceptor } from './interceptors/response.interceptor';
 
 /**
  * 公共模块
@@ -11,6 +12,7 @@ import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-excepti
 @Module({
   providers: [
     AppLoggerService,
+    ResponseInterceptor,
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,
@@ -19,7 +21,11 @@ import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-excepti
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
   ],
-  exports: [AppLoggerService]
+  exports: [AppLoggerService, ResponseInterceptor]
 })
 export class CommonModule {}

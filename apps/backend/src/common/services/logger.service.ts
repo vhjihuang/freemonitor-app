@@ -81,17 +81,31 @@ export class AppLoggerService extends ConsoleLogger {
     executionTime?: number,
     meta?: any
   ): void {
+    // 基本请求信息
     const baseMessage = `${method} ${url} - ${statusCode}`;
-    const userInfo = userId ? ` (User: ${userId})` : '';
+    
+    // 用户信息
+    const userInfo = userId ? ` (User: ${userId})` : ' (Anonymous)';
+    
+    // 执行时间
     const timeInfo = executionTime ? ` (${executionTime}ms)` : '';
+    
+    // 完整消息
     const message = `Request: ${baseMessage}${userInfo}${timeInfo}`;
-
+    
+    // 根据状态码决定日志级别
     if (statusCode >= 500) {
       this.error(message, undefined, undefined, meta);
     } else if (statusCode >= 400) {
       this.warn(message, undefined, meta);
     } else {
-      this.log(message, undefined, meta);
+      // 对于成功的请求，在开发环境中记录详细信息
+      if (this.devConfig.detailedLogs) {
+        this.log(message, undefined, meta);
+      } else {
+        // 在生产环境中只记录基本信息
+        this.log(`Request: ${method} ${url} - ${statusCode}${userInfo}${timeInfo}`);
+      }
     }
   }
 

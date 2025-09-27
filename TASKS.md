@@ -39,7 +39,7 @@
 - [x] [创建仪表盘布局组件](./docs/03-phase-2-core-monitoring.md#创建仪表盘布局组件) ✅ 已完成
 - [x] [实现状态概览卡片](./docs/03-phase-2-core-monitoring.md#实现状态概览卡片) ✅ 已完成
 - [x] [添加实时数据图表](./docs/03-phase-2-core-monitoring.md#添加实时数据图表) ✅ 已完成
-- [ ] [创建最近告警面板](./docs/03-phase-2-core-monitoring.md#创建最近告警面板) ☐ 未开始
+- [x] [创建最近告警面板](./docs/03-phase-2-core-monitoring.md#创建最近告警面板) ✅ 已完成
 - [ ] [实现数据刷新机制](./docs/03-phase-2-core-monitoring.md#实现数据刷新机制) ☐ 未开始
 - [x] [完善设备列表页面](./docs/03-phase-2-core-monitoring.md#完善设备列表页面) ✅ 已完成
 - [x] [创建设备详情页面](./docs/03-phase-2-core-monitoring.md#创建设备详情页面) ✅ 已完成

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateTestData } from '@/lib/generateTestData';
+import { generateTestAlerts } from '@/lib/generateTestAlerts';
 import { createTestDevices } from './create-test-devices';
 
 export default function TestDataPage() {
@@ -40,6 +41,21 @@ export default function TestDataPage() {
     }
   };
 
+  const handleGenerateAlerts = async () => {
+    setLoading(true);
+    setMessage('正在生成测试告警...');
+    
+    try {
+      await generateTestAlerts();
+      setMessage('测试告警生成成功！');
+    } catch (error) {
+      console.error('生成测试告警失败:', error);
+      setMessage('生成测试告警失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -62,7 +78,7 @@ export default function TestDataPage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium mb-2">步骤2: 生成测试数据</h3>
+              <h3 className="text-lg font-medium mb-2">步骤2: 生成测试指标数据</h3>
               <p className="mb-4 text-sm text-muted-foreground">
                 为所有设备生成测试指标数据，以便在实时数据图表中显示。
               </p>
@@ -71,6 +87,19 @@ export default function TestDataPage() {
                 disabled={loading}
               >
                 {loading ? '生成中...' : '生成测试数据'}
+              </Button>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-medium mb-2">步骤3: 生成测试告警数据</h3>
+              <p className="mb-4 text-sm text-muted-foreground">
+                为所有设备生成测试告警数据，以便在最近告警列表中显示。
+              </p>
+              <Button 
+                onClick={handleGenerateAlerts} 
+                disabled={loading}
+              >
+                {loading ? '生成中...' : '生成测试告警'}
               </Button>
             </div>
 

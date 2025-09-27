@@ -182,6 +182,34 @@ export class DeviceController {
     return result;
   }
 
+  @Get('alerts/recent')
+  @ApiOperation({ summary: '获取最近告警' })
+  @ApiCommonResponses()
+  async getRecentAlerts(
+    @Query('limit') limit: number = 10,
+    @Req() req: RequestWithUser
+  ) {
+    this.logger.log('获取最近告警', { userId: req.user?.id, limit });
+    
+    // 使用现有的queryAlerts方法，预设参数以获取最近的告警
+    const query: QueryAlertDto = {
+      page: 1,
+      limit: Math.min(limit, 50), // 限制最大返回50条记录
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    };
+    
+    const result = await this.deviceService.queryAlerts(query, req.user?.id || "dev-user-id");
+    
+    this.logger.log('最近告警获取成功', { 
+      count: result.data.length, 
+      total: result.total,
+      limit: query.limit
+    });
+    
+    return result;
+  }
+
   @Post('alerts/:alertId/acknowledge')
   @ApiOperation({ summary: '确认告警' })
   @ApiCommonResponses()
