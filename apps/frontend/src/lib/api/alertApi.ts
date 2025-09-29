@@ -27,10 +27,14 @@ export interface AlertResponse {
 }
 
 const handleResponse = <T>(response: { data: T } | T): T => {
-  return (response as { data: T }).data !== undefined 
-    ? (response as { data: T }).data 
-    : (response as T);
+  // 如果响应是对象且包含data字段，返回data字段
+  if (response && typeof response === 'object' && 'data' in response) {
+    return (response as { data: T }).data;
+  }
+  // 否则直接返回响应
+  return response as T;
 };
+
 
 export const getAlerts = async (params?: AlertQueryDto) => {
   const response = await apiClient.get<AlertResponse>('devices/alerts/list', { params });
@@ -46,7 +50,7 @@ export const getAlertsWithMeta = async (params?: AlertQueryDto): Promise<AlertLi
 export const getRecentAlerts = async (limit: number = 10) => {
   const response = await apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } });
   
-  return response.data;
+  return handleResponse(response);
 };
 
 // 其余函数保持不变
