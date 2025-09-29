@@ -56,9 +56,18 @@ export default function AlertsPage() {
     page,
     limit,
     severity: severity !== 'all' ? severity : undefined,
-    isResolved: status !== 'all' ? status === 'resolved' : undefined,
+    status: status !== 'all' ? status : undefined,
     deviceName: deviceName || undefined,
   });
+
+  // 自动刷新数据
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000); // 每30秒刷新一次
+    
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   const { mutate: bulkAcknowledge } = useBulkAcknowledgeAlerts();
   const { mutate: bulkResolve } = useBulkResolveAlerts();

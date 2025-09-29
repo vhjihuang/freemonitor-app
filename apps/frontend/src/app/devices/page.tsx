@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 
 import { DeviceList } from '@/components/devices/DeviceList';
@@ -45,6 +45,15 @@ export default function DevicesPage() {
     page: page > 0 ? page : undefined,
     limit: limit > 0 ? limit : undefined
   })
+
+  // 自动刷新数据
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000); // 每30秒刷新一次
+    
+    return () => clearInterval(interval);
+  }, [refetch]);
 
   const deleteDevice = useDeleteDevice();
   
