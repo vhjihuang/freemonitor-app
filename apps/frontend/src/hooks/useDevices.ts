@@ -18,6 +18,8 @@ export const useDevices = (params?: {
     queryKey: ['devices', params],
     queryFn: () => getDevices(params),
     staleTime: 5 * 60 * 1000, // 5分钟
+    retry: 3, // 添加重试机制
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 指数退避
   });
 
   return {

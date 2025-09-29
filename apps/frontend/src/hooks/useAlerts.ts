@@ -16,6 +16,8 @@ export const useAlerts = (params?: AlertQueryDto) => {
     queryKey: ['alerts', page, limit, severity, isResolved, deviceName, sortBy, sortOrder],
     queryFn: () => getAlertsWithMeta(params),
     staleTime: 5 * 60 * 1000,
+    retry: 3, // 添加重试机制
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 指数退避
   });
 
   return {
