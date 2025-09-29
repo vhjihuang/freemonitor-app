@@ -1,6 +1,11 @@
-import { Controller, Get, UseGuards, Query, Logger } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Logger, Req } from '@nestjs/common';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
 import { DashboardService } from './dashboard.service';
+import { User } from "@prisma/client";
+
+interface RequestWithUser extends Request {
+  user?: User;
+}
 
 @Controller('dashboard')
 @UseGuards(DevAuthGuard)
@@ -10,12 +15,12 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  async getDashboardStats() {
+  async getDashboardStats(@Req() req: RequestWithUser) {
     this.logger.log('Dashboard stats endpoint accessed');
     
     // 直接返回数据，让拦截器处理统一格式
     // 异常会被全局异常过滤器自动处理
-    const stats = await this.dashboardService.getDashboardStats();
+    const stats = await this.dashboardService.getDashboardStats(req.user?.id || "dev-user-id");
     return stats;
   }
 

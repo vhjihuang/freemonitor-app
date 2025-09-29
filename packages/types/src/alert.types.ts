@@ -38,6 +38,7 @@ export interface AlertQueryDto {
   deviceName?: string;
   type?: string;
   isResolved?: boolean;
+  status?: string;
   startTime?: string;
   endTime?: string;
   sortBy?: string;

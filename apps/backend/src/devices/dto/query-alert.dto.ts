@@ -80,6 +80,15 @@ export class QueryAlertDto {
   isResolved?: boolean;
 
   @ApiProperty({ 
+    example: 'unacknowledged', 
+    description: '告警状态',
+    required: false 
+  })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @ApiProperty({ 
     example: '2023-01-01T00:00:00Z', 
     description: '开始时间',
     required: false 

@@ -547,6 +547,7 @@ export class DeviceService {
       deviceName, 
       type, 
       isResolved,
+      status,
       startTime,
       endTime,
       sortBy = 'createdAt',
@@ -593,6 +594,20 @@ export class DeviceService {
     // 添加解决状态过滤
     if (isResolved !== undefined) {
       where.isResolved = isResolved;
+    }
+    
+    // 如果没有明确设置isResolved，但前端传了status参数，则根据status设置过滤条件
+    if (isResolved === undefined && query.status) {
+      const status = query.status;
+      if (status === 'resolved') {
+        where.isResolved = true;
+      } else if (status === 'unacknowledged') {
+        where.status = 'UNACKNOWLEDGED';
+      } else if (status === 'acknowledged') {
+        where.status = 'ACKNOWLEDGED';
+      } else if (status === 'in_progress') {
+        where.status = 'IN_PROGRESS';
+      }
     }
 
     // 添加时间范围过滤
@@ -672,7 +687,9 @@ export class DeviceService {
       limit,
       stats: stats.map(s => ({
         severity: s.severity,
-        count: s._count._all
+        _count: {
+          id: s._count._all
+        }
       }))
     };
   }

@@ -8,9 +8,9 @@ export class DashboardService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboardStats(): Promise<DashboardStatsDto> {
+  async getDashboardStats(userId: string = "dev-user-id"): Promise<DashboardStatsDto> {
     try {
-      this.logger.log('Fetching dashboard statistics');
+      this.logger.log('Fetching dashboard statistics for user:', userId);
 
       // 使用事务确保数据一致性
       const [onlineDevices, offlineDevices, totalDevices, activeAlerts] = await this.prisma.$transaction([
@@ -19,6 +19,7 @@ export class DashboardService {
           where: {
             status: 'ONLINE',
             isActive: true,
+            userId: userId,
           },
         }),
         // 离线设备数量
@@ -26,18 +27,24 @@ export class DashboardService {
           where: {
             status: 'OFFLINE',
             isActive: true,
+            userId: userId,
           },
         }),
         // 总设备数量
         this.prisma.device.count({
           where: {
             isActive: true,
+            userId: userId,
           },
         }),
-        // 活跃告警数量（未解决的告警）
+        // 活跃告警数量（未解决的告警，按用户过滤）
         this.prisma.alert.count({
           where: {
             isResolved: false,
+            device: {
+              userId: userId,
+              isActive: true,
+            },
           },
         }),
       ]);
