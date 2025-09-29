@@ -475,6 +475,7 @@ describe('DeviceService', () => {
         severity: 'ERROR',
         deviceId: 'device-1',
         isResolved: false,
+        status: 'unacknowledged',
         sortBy: 'createdAt',
         sortOrder: 'desc',
       };
@@ -576,6 +577,64 @@ describe('DeviceService', () => {
         severity: {
           in: ['ERROR', 'WARNING'],
         },
+      };
+
+      mockPrismaService.$transaction.mockResolvedValue([mockAlerts, 1]);
+      mockPrismaService.alert.groupBy.mockResolvedValue(mockStats);
+      mockPrismaService.alert.findMany.mockResolvedValue(mockAlerts);
+      mockPrismaService.alert.count.mockResolvedValue(1);
+
+      await service.queryAlerts(queryDto, userId);
+
+      expect(prisma.alert.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+        }),
+      );
+      
+      expect(prisma.alert.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('should query alerts with status filter', async () => {
+      const queryDto: QueryAlertDto = {
+        status: 'unacknowledged',
+      };
+
+      const expectedWhere = {
+        device: {
+          userId,
+          isActive: true,
+        },
+        status: 'UNACKNOWLEDGED',
+      };
+
+      mockPrismaService.$transaction.mockResolvedValue([mockAlerts, 1]);
+      mockPrismaService.alert.groupBy.mockResolvedValue(mockStats);
+      mockPrismaService.alert.findMany.mockResolvedValue(mockAlerts);
+      mockPrismaService.alert.count.mockResolvedValue(1);
+
+      await service.queryAlerts(queryDto, userId);
+
+      expect(prisma.alert.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+        }),
+      );
+      
+      expect(prisma.alert.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+
+    it('should query alerts with resolved status', async () => {
+      const queryDto: QueryAlertDto = {
+        status: 'resolved',
+      };
+
+      const expectedWhere = {
+        device: {
+          userId,
+          isActive: true,
+        },
+        isResolved: true,
       };
 
       mockPrismaService.$transaction.mockResolvedValue([mockAlerts, 1]);
