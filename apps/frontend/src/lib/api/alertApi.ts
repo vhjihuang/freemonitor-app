@@ -43,8 +43,7 @@ export const getAlerts = async (params?: AlertQueryDto) => {
 
 export const getAlertsWithMeta = async (params?: AlertQueryDto): Promise<AlertListResponse> => {
   const response = await apiClient.get<AlertResponse>('devices/alerts/list', { params });
-  console.log('API Response:', response.data); // 调试用
-  return handleResponse<AlertListResponse>(response.data); // 提取 response.data.data
+  return handleResponse<AlertListResponse>(response); // 提取 response.data
 };
 
 export const getRecentAlerts = async (limit: number = 10) => {

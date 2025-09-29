@@ -11,9 +11,9 @@ import type { AlertListResponse } from '@/lib/api/alertApi';
  * 提供告警数据获取功能，包括加载状态、错误处理和数据缓存
  */
 export const useAlerts = (params?: AlertQueryDto) => {
-  const { page = 1, limit = 10, severity, isResolved, deviceName, sortBy, sortOrder } = params || {};
+  const { page = 1, limit = 10, severity, status, deviceName, sortBy, sortOrder } = params || {};
   const { data, error, isLoading, refetch } = useQuery<AlertListResponse, Error>({
-    queryKey: ['alerts', page, limit, severity, isResolved, deviceName, sortBy, sortOrder],
+    queryKey: ['alerts', page, limit, severity, status, deviceName, sortBy, sortOrder],
     queryFn: () => getAlertsWithMeta(params),
     staleTime: 5 * 60 * 1000,
     retry: 3, // 添加重试机制
