@@ -18,6 +18,43 @@
 
 #### 提交活动
 
+- 7bbc7db vhjihuang 2025-10-01 Merge branch 'main' of github.com:vhjihuang/freemonitor-app
+- cfbe739 vhjihuang 2025-09-30 docs: 更新项目文档和类型定义
+- 07d93c9 vhjihuang 2025-09-30 fix: 修复图表组件无限请求问题
+- 859e54e vhjihuang 2025-09-30 自动更新Changelog
+- 43364c9 vhjihuang 2025-09-30 feat(auth): 优化认证系统错误处理和安全性验证
+- b3221a3 vhjihuang 2025-09-30 feat: 添加UI图表和数据表格组件
+- 3dd0465 vhjihuang 2025-09-30 docs: 更新项目文档内容
+- 51d9cbb vhjihuang 2025-09-30 feat: 实现文档自动化生成与同步机制
+- 782da5c vhjihuang 2025-09-30 fix: 调整图表布局，将设备和指标选择器移到图表外部
+- d146978 vhjihuang 2025-09-30 fix: 修复告警页面数据渲染问题
+- b2aca30 vhjihuang 2025-09-29 test: 为告警状态过滤功能添加测试用例
+- f5d7f21 vhjihuang 2025-09-29 refactor: 优化API响应处理逻辑
+- 256c1c3 vhjihuang 2025-09-29 feat: 在React Query hooks中添加重试机制和创建useMetrics hook
+- 427644f vhjihuang 2025-09-29 feat: 为设备列表和告警页面添加自动刷新功能
+- 58b25b2 vhjihuang 2025-09-29 fix: 修复仪表盘和告警页面数据不一致问题，按用户过滤数据
+- 827814c vhjihuang 2025-09-27 feat(alerts): implement recent alerts panel and related functionality
+- 5ed3cf8 vhjihuang 2025-09-27 fix(dashboard): resolve alert data display issue and TypeScript errors
+- 0a681d9 vhjihuang 2025-09-26 docs: sync project progress and task status
+- 74dabc0 vhjihuang 2025-09-26 feat: update .gitignore and delete TODO.todo、tasks.json
+- fbb9ea8 vhjihuang 2025-09-26 Update project plan and task synchronization scripts
+
+#### 项目状态
+
+- 整体进度: 65%
+  - 前端应用: 🟡 40%
+  - 后端应用: 🔴 80%
+  - 共享类型: ✅ 100%
+  - UI 组件库: 🟡 30%
+  - 部署配置: 🟡 30%
+  - 知识库: 🟡 10%
+
+---
+
+### 2025-09-30
+
+#### 提交活动
+
 - 43364c9 vhjihuang 2025-09-30 feat(auth): 优化认证系统错误处理和安全性验证
 - b3221a3 vhjihuang 2025-09-30 feat: 添加UI图表和数据表格组件
 - 3dd0465 vhjihuang 2025-09-30 docs: 更新项目文档内容
