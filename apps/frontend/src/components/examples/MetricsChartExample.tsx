@@ -1,10 +1,11 @@
 // src/components/examples/MetricsChartExample.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { RefreshCw } from 'lucide-react';
 import { 
   ChartContainer, 
@@ -14,9 +15,10 @@ import {
   ChartLegendContent,
 } from '@/components/ui/chart';
 import { Line, XAxis, YAxis, CartesianGrid, LineChart } from 'recharts';
-import { queryDeviceMetrics } from '@/lib/api/deviceApi';
 import { useDevices } from '@/hooks/useDevices';
+import { useMetrics } from '@/hooks/useMetrics';
 import { Metric } from '@freemonitor/types';
+import { subHours, subDays, format } from 'date-fns';
 
 interface ChartDataPoint {
   timestamp: string;
@@ -42,165 +44,126 @@ const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
 ];
 
 export function MetricsChartExample() {
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'disk'>('cpu');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | '30d'>('1h');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(100); // 后端限制每页条数不能超过100
   
   const { data: devices = [], isLoading: devicesLoading } = useDevices();
-
-  // 计算时间范围
-  const calculateTimeRange = () => {
+  
+  // 计算时间范围 - 使用 date-fns 简化时间计算
+  const { startTime, endTime } = useMemo(() => {
     const now = new Date();
     let startTime: Date;
     
     switch (timeRange) {
       case '1h':
-        startTime = new Date(now.getTime() - 60 * 60 * 1000);
+        startTime = subHours(now, 1);
         break;
       case '6h':
-        startTime = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        startTime = subHours(now, 6);
         break;
       case '24h':
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        startTime = subHours(now, 24);
         break;
       case '7d':
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        startTime = subDays(now, 7);
         break;
       case '30d':
-        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        startTime = subDays(now, 30);
         break;
       default:
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        startTime = subHours(now, 24);
     }
     
     return {
       startTime: startTime.toISOString(),
       endTime: now.toISOString()
     };
-  };
-
-  // 获取图表数据
-  const fetchChartData = async (isManualRefresh = false) => {
-    if (devicesLoading || devices.length === 0) return;
-    
-    // 如果没有选择设备，选择第一个设备
-    const deviceId = selectedDeviceId || devices[0]?.id;
-    
-    if (!deviceId) {
-      setError('没有可用的设备');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (isManualRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      
-      setError(null);
-      
-      const { startTime, endTime } = calculateTimeRange();
-      
-      // 分页获取数据以满足图表需求
-      let allMetrics: Metric[] = [];
-      let page = 1;
-      const limit = 100; // API限制的最大值
-      let hasMore = true;
-      
-      // 最多获取5页数据，避免过多请求
-      while (hasMore && page <= 5) {
-        const result = await queryDeviceMetrics({
-          deviceId,
-          startTime,
-          endTime,
-          page,
-          limit,
-          sortBy: 'timestamp',
-          sortOrder: 'asc'
-        });
-        
-        allMetrics = [...allMetrics, ...result.data];
-        
-        // 如果返回的数据少于limit，说明没有更多数据了
-        if (result.data.length < limit) {
-          hasMore = false;
-        }
-        
-        page++;
-      }
-      
-      // 转换数据格式
-      const formattedData: ChartDataPoint[] = allMetrics.map((metric: Metric) => ({
-        timestamp: new Date(metric.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        cpu: metric.cpu,
-        memory: metric.memory,
-        disk: metric.disk,
-        networkIn: metric.networkIn,
-        networkOut: metric.networkOut
-      }));
-      
-      setChartData(formattedData);
-      setSelectedDeviceId(deviceId);
-    } catch (err) {
-      console.error('获取图表数据失败:', err);
-      setError('获取数据失败，请稍后重试');
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  // 刷新数据
-  const handleRefresh = () => {
-    fetchChartData(true);
-  };
-
-  // 初始化和设备变化时获取数据
-  useEffect(() => {
-    if (!devicesLoading && devices.length > 0) {
-      fetchChartData();
-    }
-  }, [devicesLoading, devices, selectedDeviceId, timeRange]);
-
-  // 设置自动刷新
-  useEffect(() => {
-    // 根据时间范围设置刷新间隔
-    let refreshInterval: number;
-    
+  }, [timeRange]); // 只有当timeRange变化时才重新计算
+  
+  // 使用React Query获取指标数据
+  const deviceId = selectedDeviceId || (devices.length > 0 ? devices[0].id : '');
+  
+  const { 
+    data: metricsData, 
+    error: metricsError, 
+    isLoading: metricsLoading,
+    refetch: refetchMetrics 
+  } = useMetrics({
+    deviceId,
+    startTime,
+    endTime,
+    page,
+    limit,
+    sortBy: 'timestamp',
+    sortOrder: 'asc',
+  }, {
+    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    refetchOnWindowFocus: false, // 禁用窗口聚焦时刷新
+    refetchOnReconnect: false, // 禁用网络重连时刷新
+    enabled: !devicesLoading && devices.length > 0 && !!deviceId,
+  });
+  
+  // 智能刷新策略配置
+  function getRefreshConfig(timeRange: string) {
     switch (timeRange) {
       case '1h':
-        refreshInterval = 5000; // 5秒
-        break;
+        return { staleTime: 5 * 1000, refetchInterval: 5 * 1000 }; // 5秒
       case '6h':
-        refreshInterval = 10000; // 10秒
-        break;
+        return { staleTime: 10 * 1000, refetchInterval: 10 * 1000 }; // 10秒
       case '24h':
-        refreshInterval = 30000; // 30秒
-        break;
+        return { staleTime: 30 * 1000, refetchInterval: 30 * 1000 }; // 30秒
       case '7d':
-        refreshInterval = 60000; // 1分钟
-        break;
+        return { staleTime: 60 * 1000, refetchInterval: 60 * 1000 }; // 1分钟
       case '30d':
-        refreshInterval = 300000; // 5分钟
-        break;
+        return { staleTime: 5 * 60 * 1000, refetchInterval: 5 * 60 * 1000 }; // 5分钟
       default:
-        refreshInterval = 30000;
+        return { staleTime: 30 * 1000, refetchInterval: 30 * 1000 };
     }
-    
-    const interval = setInterval(() => {
-      if (!isRefreshing) {
-        fetchChartData();
-      }
-    }, refreshInterval);
-    
-    return () => clearInterval(interval);
-  }, [timeRange, isRefreshing]);
+  }
+
+  // 转换数据格式 - 使用 date-fns 简化时间格式化
+  const chartData: ChartDataPoint[] = metricsData?.data?.map((metric: Metric) => ({
+    timestamp: format(new Date(metric.timestamp), 'HH:mm'),
+    cpu: metric.cpu,
+    memory: metric.memory,
+    disk: metric.disk,
+    networkIn: metric.networkIn,
+    networkOut: metric.networkOut
+  })) || [];
+  
+  // 计算加载状态和错误状态
+  const loading = devicesLoading || metricsLoading;
+  const error = metricsError ? getErrorMessage(metricsError) : null;
+  const isRefreshing = metricsLoading && chartData.length > 0;
+  
+  // 错误消息处理函数
+  function getErrorMessage(error: Error): string {
+    if (error.message.includes('认证') || error.message.includes('401')) {
+      return '认证已过期，请重新登录';
+    }
+    if (error.message.includes('网络') || error.message.includes('连接')) {
+      return '网络连接失败，请检查网络设置';
+    }
+    if (error.message.includes('设备') || error.message.includes('404')) {
+      return '设备不存在或无法访问';
+    }
+    return '获取数据失败，请稍后重试';
+  }
+
+  // 手动刷新数据
+  const handleRefresh = () => {
+    refetchMetrics();
+  };
+
+  // 设备选择变化时更新设备ID
+  useEffect(() => {
+    if (!devicesLoading && devices.length > 0 && !selectedDeviceId) {
+      setSelectedDeviceId(devices[0].id);
+    }
+  }, [devicesLoading, devices, selectedDeviceId]);
 
   // 设备加载中
   if (devicesLoading) {
@@ -398,6 +361,87 @@ export function MetricsChartExample() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* 分页控件 */}
+            {metricsData && metricsData.total > limit && (
+              <div className="flex flex-col items-center space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  共 {metricsData.total} 条记录，当前显示第 {(page - 1) * limit + 1} - {Math.min(page * limit, metricsData.total)} 条
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPage(Math.max(1, page - 1))}
+                        className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    
+                    {/* 生成页码 */}
+                    {(() => {
+                      const totalPages = Math.ceil(metricsData.total / limit);
+                      const pages = [];
+                      
+                      // 显示当前页和前后1页，以及首尾页
+                      if (totalPages <= 7) {
+                        // 如果总页数小于等于7，显示所有页码
+                        for (let i = 1; i <= totalPages; i++) {
+                          pages.push(i);
+                        }
+                      } else {
+                        // 显示第1页
+                        pages.push(1);
+                        
+                        // 显示当前页前后1页
+                        const startPage = Math.max(2, page - 1);
+                        const endPage = Math.min(totalPages - 1, page + 1);
+                        
+                        // 如果当前页离首页较远，显示省略号
+                        if (startPage > 2) {
+                          pages.push('...');
+                        }
+                        
+                        // 显示当前页及其前后页
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(i);
+                        }
+                        
+                        // 如果当前页离尾页较远，显示省略号
+                        if (endPage < totalPages - 1) {
+                          pages.push('...');
+                        }
+                        
+                        // 显示最后一页
+                        pages.push(totalPages);
+                      }
+                      
+                      return pages.map((pageNum, index) => (
+                        <PaginationItem key={index}>
+                          {pageNum === '...' ? (
+                            <span className="px-2">...</span>
+                          ) : (
+                            <PaginationLink
+                              onClick={() => setPage(pageNum as number)}
+                              isActive={page === pageNum}
+                              className="cursor-pointer"
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ));
+                    })()}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPage(Math.min(Math.ceil(metricsData.total / limit), page + 1))}
+                        className={page >= Math.ceil(metricsData.total / limit) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
