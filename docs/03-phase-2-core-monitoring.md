@@ -87,17 +87,28 @@
 - 后端：添加了`/devices/alerts/recent` API端点，用于获取最近的告警
 - 前端：实现了`useRecentAlerts` hook和更新了仪表盘页面，使用新的API端点获取并显示最近告警
 
-### ☐ 实现数据刷新机制
+### ✅ 实现数据刷新机制
 
-**状态**: 未开始
+**状态**: 已完成
 
 **描述**: 优化数据刷新性能
 
 **实现逻辑**: 设置定时器 → 提供手动刷新 → 优化请求频率
 
-**相关文件**: apps/frontend/src/app/dashboard
+**相关文件**: 
+- apps/frontend/src/components/dashboard/RealtimeDataChart.tsx
+- apps/frontend/src/components/dashboard/StatsOverview.tsx
+- apps/frontend/src/hooks/useDashboardStats.ts
+- apps/frontend/src/hooks/useMetrics.ts
 
 **验收标准**: 数据每 5 秒刷新，手动刷新正常工作
+
+**实际实现**:
+- **智能刷新策略**: 根据时间范围自动调整刷新频率（1小时:10秒，30天:15分钟）
+- **手动刷新功能**: 提供刷新按钮，支持用户手动触发数据更新
+- **React Query集成**: 使用staleTime和refetchInterval实现自动刷新
+- **缓存优化**: 5分钟缓存策略，避免重复请求
+- **错误处理**: 支持重试机制和错误状态显示
 
 ## 设备管理 🔴
 

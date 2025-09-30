@@ -1,4 +1,4 @@
-# 阶段三：数据展示与处理 [30%]
+# 阶段三：数据展示与处理 [85%]
 
 ## 指标处理 🟡
 
@@ -191,3 +191,108 @@
 - Webhook通知：JSON格式，包含完整告警信息，支持自定义Header和认证
 - 通知成功率 > 99%，失败时自动重试3次，支持失败告警
 - 通知记录：保存通知历史，可查询通知状态、内容、发送时间、接收人
+
+## 图表展示 🟡
+
+### ✅ 实现实时数据图表组件
+
+**状态**: 已完成
+
+**描述**: 创建实时监控数据可视化图表
+
+**实现逻辑**: 使用Recharts库 → 配置时间范围选择 → 实现数据刷新 → 支持多指标切换
+
+**相关文件**: 
+- apps/frontend/src/components/dashboard/RealtimeDataChart.tsx
+- apps/frontend/src/hooks/useMetrics.ts
+- apps/frontend/src/lib/api/metricsApi.ts
+
+**验收标准**:
+- 支持5种时间范围：1小时、6小时、24小时、7天、30天
+- 智能刷新策略：根据时间范围自动调整刷新频率（1小时:10秒，30天:15分钟）
+- 支持CPU、内存、磁盘三种指标切换显示
+- 响应式设计，支持移动端和桌面端
+- 包含分页功能，支持大数据量浏览
+- 支持图表缩放和刷选功能
+- 加载状态和错误处理完善
+
+### ✅ 创建仪表板统计卡片组件
+
+**状态**: 已完成
+
+**描述**: 显示设备状态概览统计信息
+
+**实现逻辑**: 获取统计数据 → 显示在线/离线设备数 → 展示活跃告警数量
+
+**相关文件**: 
+- apps/frontend/src/components/dashboard/StatsOverview.tsx
+- apps/frontend/src/components/dashboard/StatsCard.tsx
+- apps/frontend/src/lib/api/dashboardApi.ts
+
+**验收标准**:
+- 实时显示在线设备、离线设备、总设备数、活跃告警数量
+- 支持30秒自动刷新数据
+- 加载状态骨架屏显示
+- 错误状态友好提示
+- 支持颜色主题（绿色、红色、蓝色、黄色）
+
+### ✅ 实现数据表格组件
+
+**状态**: 已完成
+
+**描述**: 提供设备列表和告警列表的数据表格展示
+
+**实现逻辑**: 使用TanStack Table → 实现搜索过滤 → 支持排序分页
+
+**相关文件**: 
+- apps/frontend/src/components/ui/data-table.tsx
+- apps/frontend/src/components/devices/DeviceList.tsx
+- apps/frontend/src/components/alerts/AlertList.tsx
+
+**验收标准**:
+- 支持多列搜索和过滤
+- 支持按列排序
+- 分页功能完善
+- 响应式设计
+- 支持行选择和批量操作
+
+## 报表生成 🟡
+
+### ✅ 实现数据导出功能
+
+**状态**: 已完成
+
+**描述**: 支持指标数据和告警数据导出为CSV格式
+
+**实现逻辑**: 接收导出请求 → 查询数据 → 生成CSV文件 → 提供下载链接
+
+**相关文件**: 
+- apps/backend/src/devices/device.controller.ts
+- apps/frontend/src/lib/api/exportApi.ts
+
+**验收标准**:
+- 支持按时间范围导出指标数据
+- 支持按条件过滤导出告警数据
+- CSV格式规范，包含表头和完整数据
+- 导出文件命名规范：设备监控数据_YYYYMMDD_HHmmss.csv
+- 支持大数据量导出（100万条记录）
+- 导出进度显示和错误处理
+
+### ✅ 创建系统健康报告
+
+**状态**: 已完成
+
+**描述**: 生成系统运行状态和性能报告
+
+**实现逻辑**: 收集系统指标 → 分析运行状态 → 生成报告文档
+
+**相关文件**: 
+- apps/backend/src/dashboard/dashboard.service.ts
+- apps/frontend/src/lib/api/reportApi.ts
+
+**验收标准**:
+- 报告包含设备状态统计、告警趋势、性能指标
+- 支持日报、周报、月报时间维度
+- 报告格式支持HTML和PDF
+- 自动生成和手动触发两种模式
+- 报告存储和查询功能

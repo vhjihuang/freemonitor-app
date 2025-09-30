@@ -24,26 +24,39 @@ def extract_tasks_from_md(file_path: str, phase_name: str) -> List[Dict[str, Any
         print(f"错误: 无法读取文件 {file_path} - {e}")
         return tasks
     
-    # 使用正则表达式匹配任务块
-    # 匹配任务标题和状态
-    task_pattern = r'###\s*(.*?)\s*@?(?:done\((.*?)\))?\n\n([\s\S]*?)\n(?=\n###|\Z)'
+    # 改进的正则表达式，更好地匹配任务格式
+    # 匹配任务标题和状态（支持多种格式）
+    task_pattern = r'###\s*([✅🔄⏸☐\[x\]\[~\]\[\s\]]?)\s*(.*?)\s*(?:@done\((.*?)\))?\n\n([\s\S]*?)\n(?=\n###|\Z)'
     task_blocks = re.finditer(task_pattern, content, re.DOTALL)
     
     for match in task_blocks:
-        title = match.group(1).strip()
-        completion_date = match.group(2)
-        task_content = match.group(3).strip()
+        status_symbol = match.group(1).strip()
+        title = match.group(2).strip()
+        completion_date = match.group(3)
+        task_content = match.group(4).strip()
         
-        # 提取状态
+        # 优先从内容中提取状态
         status = "☐ 未开始"  # 默认状态
         status_pattern = r'\*\*状态\*\*:\s*(.*?)(?=\n|$)'
         status_match = re.search(status_pattern, task_content)
         if status_match:
             status = status_match.group(1).strip()
+        else:
+            # 如果内容中没有状态，根据符号判断
+            status_map = {
+                '✅': '✅ 已完成',
+                '[x]': '✅ 已完成',
+                '🔄': '🔄 进行中',
+                '[~]': '🔄 进行中',
+                '⏸': '⏸ 暂停/待定',
+                '☐': '☐ 未开始',
+                '[ ]': '☐ 未开始',
+                '': '☐ 未开始'
+            }
+            status = status_map.get(status_symbol, '☐ 未开始')
         
-        # 如果标题中有状态符号，也提取出来
-        if '@done' in title:
-            title = title.split('@done')[0].strip()
+        # 清理标题中的状态符号
+        title = re.sub(r'^[✅🔄⏸☐\[x\]\[~\]\[\s\]]\s*', '', title).strip()
         
         task = {
             'title': title,
@@ -55,36 +68,63 @@ def extract_tasks_from_md(file_path: str, phase_name: str) -> List[Dict[str, Any
             
         tasks.append(task)
     
-    # 处理没有"状态"字段但有符号的任务
-    simple_pattern = r'###\s*([✅🔄⏸☐])\s*(.*?)\s*@?(?:done\((.*?)\))?'
-    simple_matches = re.finditer(simple_pattern, content)
-    
-    for match in simple_matches:
-        status_symbol = match.group(1)
-        title = match.group(2).strip()
-        completion_date = match.group(3)
-        
-        # 检查是否已经添加了这个任务
-        existing = any(task['title'] == title for task in tasks)
-        if not existing:
-            status_map = {
-                '✅': '✅ 已完成',
-                '🔄': '🔄 进行中',
-                '⏸': '⏸ 暂停/待定',
-                '☐': '☐ 未开始'
-            }
-            
-            task = {
-                'title': title,
-                'status': status_map.get(status_symbol, '☐ 未开始')
-            }
-            
-            if completion_date:
-                task['completionDate'] = completion_date
-                
-            tasks.append(task)
-    
     return tasks
+
+
+def calculate_progress(tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """计算任务进度"""
+    total_tasks = len(tasks)
+    if total_tasks == 0:
+        return {
+            'completed': 0,
+            'inProgress': 0,
+            'pending': 0,
+            'total': 0,
+            'percentage': 0
+        }
+    
+    completed = sum(1 for task in tasks if task['status'] == '✅ 已完成')
+    in_progress = sum(1 for task in tasks if task['status'] == '🔄 进行中')
+    pending = total_tasks - completed - in_progress
+    
+    # 改进的百分比计算：已完成任务占100%，进行中任务占50%
+    percentage = (completed + in_progress * 0.5) / total_tasks * 100
+    
+    return {
+        'completed': completed,
+        'inProgress': in_progress,
+        'pending': pending,
+        'total': total_tasks,
+        'percentage': round(percentage, 1)
+    }
+
+
+def calculate_overall_progress(project_data: Dict[str, Any]) -> float:
+    """根据权重体系计算总体进度"""
+    # 模块权重分配（权威数据源）
+    weights = {
+        'frontend': 0.30,  # 前端应用
+        'backend': 0.30,   # 后端服务
+        'sharedTypes': 0.05,  # 共享类型
+        'uiLibrary': 0.10,    #  UI组件库
+        'deployment': 0.15,   # 部署配置
+        'knowledgeBase': 0.10  # 知识库
+    }
+    
+    total_progress = 0
+    
+    # 计算各模块进度
+    for module in project_data.get('modules', []):
+        module_name = module.get('name', '')
+        if module_name in weights:
+            # 从status字段提取进度百分比
+            status = module.get('status', '0%')
+            progress_match = re.search(r'(\d+)%', status)
+            if progress_match:
+                progress = int(progress_match.group(1))
+                total_progress += progress * weights[module_name]
+    
+    return round(total_progress, 1)
 
 
 def update_project_plan_from_docs(docs_dir: str, json_file: str):
@@ -125,16 +165,25 @@ def update_project_plan_from_docs(docs_dir: str, json_file: str):
             if os.path.exists(md_file_path):
                 tasks = extract_tasks_from_md(md_file_path, phase)
                 phase_detail['tasks'] = tasks
-                print(f"已更新 {phase} 的任务信息，共 {len(tasks)} 个任务")
+                
+                # 计算阶段进度
+                progress = calculate_progress(tasks)
+                phase_detail['progress'] = progress
+                
+                print(f"已更新 {phase} 的任务信息，共 {len(tasks)} 个任务，进度 {progress['percentage']}%")
                 updated_count += len(tasks)
             else:
                 print(f"警告: 找不到文件 {md_file_path}")
+    
+    # 计算并更新总体进度
+    overall_progress = calculate_overall_progress(project_data)
+    project_data['overallProgress'] = f"{overall_progress}%"
     
     # 写回更新后的数据
     try:
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(project_data, f, ensure_ascii=False, indent=2)
-        print(f"已更新 {json_file}，总共更新了 {updated_count} 个任务")
+        print(f"已更新 {json_file}，总共更新了 {updated_count} 个任务，总体进度 {overall_progress}%")
     except Exception as e:
         print(f"错误: 无法写入文件 {json_file} - {e}")
         sys.exit(1)

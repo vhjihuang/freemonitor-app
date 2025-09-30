@@ -1,4 +1,4 @@
-# 阶段一：认证系统完善 [95%]
+# 阶段一：认证系统完善 [90%]
 
 ## 后端认证 🔴
 
@@ -200,9 +200,9 @@
 
 **负责人**: 开发团队
 
-### ☐ 后端认证系统优化 🔴
+### ✅ 后端认证系统优化 🔴
 
-**状态**: 待开始
+**状态**: 已完成
 
 **描述**: 优化后端认证安全性、会话管理和错误处理
 
@@ -214,20 +214,21 @@
 - apps/backend/src/auth/jwt.strategy.ts
 - apps/backend/src/auth/dev-auth.guard.ts
 - apps/backend/src/config/jwt.config.ts
+- apps/backend/src/auth/token-blacklist.service.ts
 
 **子任务**:
-- ✅ 实现 refresh token 数据库存储：将 refresh token 存储在数据库中并与用户关联
-- ✅ 添加 token 黑名单机制：实现已撤销/过期 token 的黑名单管理
-- ☐ 增强开发环境配置：提供开发环境下的认证行为配置选项
-- ☐ 添加详细的日志记录：记录认证关键操作和错误信息
-- ☐ 完善错误处理和状态码：确保统一的错误响应格式
+- ✅ 实现 refresh token 数据库存储：refresh token 已存储在数据库中并与用户关联，支持多设备管理
+- ✅ 添加 token 黑名单机制：通过 TokenBlacklistService 实现已撤销/过期 token 的黑名单管理
+- ✅ 增强开发环境配置：DevAuthGuard 已提供开发环境下的认证行为配置选项
+- ✅ 添加详细的日志记录：所有认证关键操作都有详细的日志记录，包含时间戳、用户信息和操作结果
+- ✅ 完善错误处理和状态码：已实现统一的错误响应格式和异常处理机制
 
 **验收标准**:
-- refresh token 存储在数据库中，支持查询、更新和删除
-- 被撤销的 token 能被正确识别并拒绝访问
-- 开发环境下可以通过配置控制认证行为，如启用/禁用 DevAuthGuard
-- 所有认证相关操作都有详细的日志记录，包含时间戳、用户信息和操作结果
-- 统一使用 { success: boolean, data?: any, error?: { code: string, message: string } } 格式的响应
+- ✅ refresh token 存储在数据库中，支持查询、更新和删除
+- ✅ 被撤销的 token 能被正确识别并拒绝访问
+- ✅ 开发环境下可以通过配置控制认证行为，如启用/禁用 DevAuthGuard
+- ✅ 所有认证相关操作都有详细的日志记录，包含时间戳、用户信息和操作结果
+- ✅ 统一使用 { success: boolean, data?: any, error?: { code: string, message: string } } 格式的响应
 
 **负责人**: 开发团队
 
