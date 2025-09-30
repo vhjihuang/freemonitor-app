@@ -2,6 +2,12 @@
   "name": "freemonitor-app",
   "private": true,
   "scripts": {
+    "docs:sync": "python scripts/document_sync.py full",
+    "docs:tasks": "python scripts/document_sync.py tasks",
+    "docs:changelog": "python scripts/document_sync.py changelog",
+    "docs:bidirectional": "python scripts/document_sync.py bidirectional",
+    "docs:preview": "cd docs && python -m http.server 8000",
+    "dev:sync": "npm run docs:sync && echo '开发文档已同步'",
     "preinstall": "npx only-allow pnpm",
     "dev": "kill-port 3001 && turbo run dev",
     "build": "turbo run build",

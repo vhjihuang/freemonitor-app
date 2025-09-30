@@ -1,0 +1,60 @@
+name: 文档自动化生成与同步
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'scripts/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-docs-and-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: 解析文档任务并同步Issues
+        run: |
+          python scripts/parse_tasks.py
+          python scripts/create_github_issues.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+  generate-changelog:
+    needs: sync-docs-and-issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          
+      - name: 设置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          
+      - name: 更新开发Changelog
+        run: |
+          python scripts/update_dev_changelog.py
+          
+      - name: 提交Changelog更新
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自动更新Changelog"
+          file_pattern: "docs/development/changelog.md"
