@@ -105,3 +105,6 @@ packages/*/.next/
 prisma/migrations_backup_*/
 
 TASKS.md # 此文件用来方便大模型知道本地项目进度
+IFLOW.md
+system_prompt.txt
+.trae/ # Trae AI 配置文件

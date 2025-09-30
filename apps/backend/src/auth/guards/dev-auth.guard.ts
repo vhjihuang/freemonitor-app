@@ -163,7 +163,7 @@ export class DevAuthGuard extends AuthGuard('jwt') implements CanActivate {
       context.getClass(),
     ]);
     
-    if (!requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) {
       this.logger.debug('No roles required for this route');
       return true;
     }
@@ -180,11 +180,23 @@ export class DevAuthGuard extends AuthGuard('jwt') implements CanActivate {
       this.logger.debug('Assigned default USER role to dev user');
     }
     
+    // 确保用户有角色
+    if (!user.role) {
+      this.logger.debug('User has no role assigned');
+      return false;
+    }
+    
     // 统一转换为小写进行比较，解决大小写不一致问题
     const hasRole = requiredRoles.some((role) => 
       (user.role as string).toLowerCase() === (role as string).toLowerCase()
     );
+    
     this.logger.debug(`User role: ${user.role}, Required roles: [${requiredRoles.join(', ')}], Has required role: ${hasRole}`);
+    
+    if (!hasRole) {
+      this.logger.warn(`Access denied: User role ${user.role} does not match required roles [${requiredRoles.join(', ')}]`);
+    }
+    
     return hasRole;
   }
 }

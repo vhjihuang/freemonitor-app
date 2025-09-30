@@ -207,6 +207,13 @@ export class AuthService {
       throw new BadRequestException("邮箱和密码不能为空");
     }
 
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(loginDto.email)) {
+      this.logger.warn("登录请求失败: 邮箱格式无效", requestInfo);
+      throw new BadRequestException("邮箱格式无效");
+    }
+
     try {
       // 验证用户凭据
       const user = await this.validateUser(loginDto.email, loginDto.password);
@@ -214,6 +221,28 @@ export class AuthService {
       if (!user) {
         this.logger.warn("登录失败: 无效的邮箱或密码", requestInfo);
         throw new UnauthorizedException("无效的邮箱或密码");
+      }
+
+      // 检查用户是否被锁定（通过 isActive 字段）
+      // 注意：这里需要查询数据库获取完整的用户信息，因为 validateUser 返回的用户对象可能不包含 isActive 字段
+      const fullUser = await this.prisma.user.findUnique({
+        where: { 
+          id: user.id,
+          deletedAt: null
+        },
+        select: {
+          id: true,
+          isActive: true
+        }
+      });
+      
+      if (!fullUser || !fullUser.isActive) {
+        this.logger.warn("登录失败: 用户账户已被锁定或不存在", {
+          ...requestInfo,
+          userId: user.id,
+          userActive: fullUser?.isActive
+        });
+        throw new UnauthorizedException("账户已被锁定或不存在，请联系管理员");
       }
 
       // 更新用户最后登录时间 - 使用安全的字段选择

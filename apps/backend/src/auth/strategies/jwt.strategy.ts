@@ -78,7 +78,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         return done(new Error('Token has been revoked'), false);
       }
 
-      // 3. 验证用户状态
+      // 3. 验证payload完整性
+      if (!payload.sub || !payload.email) {
+        this.logger.warn('JWT令牌验证失败: 载荷不完整', undefined, {
+          ...requestInfo,
+          payloadKeys: Object.keys(payload)
+        });
+        return done(new Error('Invalid token payload'), false);
+      }
+
+      // 4. 验证用户状态
       const user = await this.prisma.user.findUnique({
         where: { 
           id: payload.sub,
@@ -94,6 +103,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
           userIdExists: false
         });
         return done(new Error('User not found or inactive'), false);
+      }
+      
+      // 5. 验证用户邮箱是否匹配
+      if (user.email !== payload.email) {
+        this.logger.warn('JWT令牌验证失败: 邮箱不匹配', undefined, {
+          ...requestInfo,
+          userEmail: user.email,
+          payloadEmail: payload.email
+        });
+        return done(new Error('Email mismatch'), false);
       }
       
       // 记录验证成功信息

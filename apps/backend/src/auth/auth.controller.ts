@@ -11,6 +11,7 @@ import {
   Patch,
   Param,
 } from '@nestjs/common';
+import { ValidationException } from '../common/exceptions/app.exception';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
@@ -34,6 +35,12 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || '';
+    
+    // 验证请求体
+    if (!loginDto || typeof loginDto !== 'object') {
+      throw new ValidationException('无效的请求格式');
+    }
+    
     return this.authService.login(loginDto, ip, userAgent);
   }
 

@@ -19,14 +19,24 @@ export function useAuth() {
 
   // 更新认证状态的函数，使用useCallback优化
   const updateAuthState = useCallback(() => {
-    const user = getCurrentUser();
-    const authenticated = isAuthenticated();
-    
-    setAuthState({
-      user,
-      isAuthenticated: authenticated,
-      isLoading: false,
-    });
+    try {
+      const user = getCurrentUser();
+      const authenticated = isAuthenticated();
+      
+      setAuthState({
+        user,
+        isAuthenticated: authenticated,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('更新认证状态失败:', error);
+      // 如果更新失败，设置为未认证状态
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    }
   }, []);
 
   useEffect(() => {

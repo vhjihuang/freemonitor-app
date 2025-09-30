@@ -91,6 +91,15 @@ export async function register(email: string, password: string, name: string): P
 // 保存认证数据
 function saveAuthData(data: AuthTokens): void {
   try {
+    // 验证数据完整性
+    if (!data.accessToken || typeof data.accessToken !== 'string') {
+      throw new Error('无效的访问令牌');
+    }
+    
+    if (data.user && typeof data.user !== 'object') {
+      throw new Error('无效的用户数据格式');
+    }
+    
     localStorage.setItem('accessToken', data.accessToken);
     
     if (data.refreshToken) {
@@ -108,6 +117,7 @@ function saveAuthData(data: AuthTokens): void {
     window.dispatchEvent(authChangeEvent);
   } catch (error) {
     console.error('Failed to save auth data to localStorage:', error);
+    throw error; // 重新抛出错误，让调用方处理
   }
 }
 
