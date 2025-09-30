@@ -1,21 +1,19 @@
+// src/components/examples/MetricsChartExample.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  Brush
-} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '@/components/ui/chart';
+import { Line, XAxis, YAxis, CartesianGrid, LineChart } from 'recharts';
 import { queryDeviceMetrics } from '@/lib/api/deviceApi';
 import { useDevices } from '@/hooks/useDevices';
 import { Metric } from '@freemonitor/types';
@@ -43,7 +41,7 @@ const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
   { value: '30d', label: '最近30天', interval: 1440 },
 ];
 
-export function RealtimeDataChart() {
+export function MetricsChartExample() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -209,7 +207,7 @@ export function RealtimeDataChart() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>实时数据图表</CardTitle>
+          <CardTitle>指标数据图表</CardTitle>
           <Button variant="outline" size="sm" disabled>
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -228,7 +226,7 @@ export function RealtimeDataChart() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>实时数据图表</CardTitle>
+          <CardTitle>指标数据图表</CardTitle>
           <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
@@ -260,7 +258,7 @@ export function RealtimeDataChart() {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>实时数据图表</CardTitle>
+          <CardTitle>指标数据图表</CardTitle>
           <Button variant="outline" size="sm" disabled>
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -277,7 +275,7 @@ export function RealtimeDataChart() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>实时数据图表</CardTitle>
+        <CardTitle>指标数据图表</CardTitle>
         <div className="flex space-x-2">
           <Select value={timeRange} onValueChange={(value: '1h' | '6h' | '24h' | '7d' | '30d') => setTimeRange(value)}>
             <SelectTrigger className="w-32">
@@ -314,7 +312,23 @@ export function RealtimeDataChart() {
         ) : (
           <div className="space-y-4">
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer
+                config={{
+                  cpu: {
+                    label: 'CPU使用率',
+                    color: '#8884d8',
+                  },
+                  memory: {
+                    label: '内存使用率',
+                    color: '#82ca9d',
+                  },
+                  disk: {
+                    label: '磁盘使用率',
+                    color: '#ffc658',
+                  },
+                }}
+                className="h-full w-full"
+              >
                 <LineChart
                   data={chartData}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -328,23 +342,37 @@ export function RealtimeDataChart() {
                     domain={[0, 100]} 
                     tickFormatter={(value) => `${value}%`}
                   />
-                  <Tooltip 
-                    formatter={(value) => [`${value}%`, selectedMetric.toUpperCase()]}
-                    labelFormatter={(label) => `时间: ${label}`}
+                  <ChartTooltip 
+                    cursor={false}
+                    content={<ChartTooltipContent />}
                   />
-                  <Legend />
+                  <ChartLegend content={<ChartLegendContent />} />
                   <Line
                     type="monotone"
-                    dataKey={selectedMetric}
-                    stroke={selectedMetric === 'cpu' ? '#8884d8' : selectedMetric === 'memory' ? '#82ca9d' : '#ffc658'}
-                    activeDot={{ r: 8 }}
+                    dataKey="cpu"
+                    stroke="var(--color-cpu)"
                     strokeWidth={2}
                     dot={false}
-                    isAnimationActive={false}
+                    activeDot={{ r: 8 }}
                   />
-                  {chartData.length > 50 && <Brush dataKey="timestamp" height={30} stroke="#8884d8" />}
+                  <Line
+                    type="monotone"
+                    dataKey="memory"
+                    stroke="var(--color-memory)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 8 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="disk"
+                    stroke="var(--color-disk)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 8 }}
+                  />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             </div>
             <div className="flex justify-center space-x-4">
               <Select value={selectedDeviceId || devices[0]?.id} onValueChange={(value: string) => setSelectedDeviceId(value)}>
