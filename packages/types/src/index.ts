@@ -9,6 +9,7 @@ export * from './alert.types';
 export * from './error-codes.constants';
 export * from './roles';
 export * from './database/database.filters';
+export * from './dashboard.types';
 
 // Auth DTOs
 export type { UserResponseDto } from './auth/user.response.dto';
