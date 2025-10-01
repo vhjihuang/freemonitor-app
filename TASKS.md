@@ -2,7 +2,7 @@
 
 ## 项目状态
 - **项目名称**: FreeMonitor
-- **整体进度**: 70%
+- **整体进度**: 85%
 - **状态**: 开发中
 - **最后更新**: 2025-09-27
 - **代码同步状态**: 已根据实际代码实现更新任务进度
@@ -30,19 +30,66 @@
 - [x] [完善错误处理显示](./docs/02-phase-1-auth-system.md#完善错误处理显示) ✅ 已完成
 - [ ] [更新项目 README](./docs/02-phase-1-auth-system.md#更新项目-readme) ☐ 未开始
 
-### 阶段二：核心监控功能 [85%] 🔴 高优先级
+### 扩展优化角色权限系统
+- **状态**: 进行中
+- **描述**: 扩展角色权限系统，支持更细粒度的权限控制
+- **相关文件**: `docs/02-phase-1-auth-system.md`
+- **子任务分解**:
+  - 🔄 扩展应用范围：将角色权限系统扩展到所有核心模块
+  - 🔄 完善用户角色管理：实现用户角色分配和权限配置界面
+  - 🔄 细化权限控制：实现基于资源的权限控制（RBAC）
+  - 🔄 前端权限展示：根据用户角色动态显示界面元素
+
+### 后端认证系统优化
+- **状态**: 进行中
+- **描述**: 优化后端认证安全性、会话管理和错误处理，分三阶段实施
+- **相关文件**: `docs/02-phase-1-auth-system.md`
+- **子任务分解**:
+  - **第一阶段（1-2周）**:
+    - ✅ refresh token 数据库存储
+    - ✅ token 黑名单机制
+    - 🔄 增强开发环境配置
+    - 🔄 添加详细日志记录
+  - **第二阶段（2-3周）**:
+    - ☐ 完善错误处理和状态码
+    - ☐ 会话管理增强
+    - ☐ 安全审计日志
+  - **第三阶段（长期规划）**:
+    - ☐ 多因素认证支持
+    - ☐ 第三方 OAuth 集成
+    - ☐ 高级安全功能
+
+### 前端认证系统优化
+- **状态**: 进行中
+- **描述**: 优化前端认证状态管理、token存储安全和错误处理，分三阶段实施
+- **相关文件**: `docs/02-phase-1-auth-system.md`
+- **子任务分解**:
+  - **第一阶段（1-2周）**:
+    - 🔄 token 存储安全优化（localStorage → httpOnly cookies）
+    - 🔄 认证状态同步统一
+    - 🔄 错误处理完善
+  - **第二阶段（2-3周）**:
+    - ☐ 用户体验优化
+    - ☐ 性能优化
+    - ☐ 测试覆盖完善
+  - **第三阶段（长期规划）**:
+    - ☐ 高级认证功能
+    - ☐ 第三方认证集成
+    - ☐ 安全审计功能
+
+### 阶段二：核心监控功能 [90%] 🔴 高优先级
 - [x] [创建仪表盘布局组件](./docs/03-phase-2-core-monitoring.md#创建仪表盘布局组件) ✅ 已完成
 - [x] [实现状态概览卡片](./docs/03-phase-2-core-monitoring.md#实现状态概览卡片) ✅ 已完成
 - [x] [添加实时数据图表](./docs/03-phase-2-core-monitoring.md#添加实时数据图表) ✅ 已完成
 - [x] [创建最近告警面板](./docs/03-phase-2-core-monitoring.md#创建最近告警面板) ✅ 已完成
-- [ ] [实现数据刷新机制](./docs/03-phase-2-core-monitoring.md#实现数据刷新机制) ☐ 未开始
+- [x] [实现数据刷新机制](./docs/03-phase-2-core-monitoring.md#实现数据刷新机制) ✅ 已完成
 - [x] [完善设备列表页面](./docs/03-phase-2-core-monitoring.md#完善设备列表页面) ✅ 已完成
 - [x] [创建设备详情页面](./docs/03-phase-2-core-monitoring.md#创建设备详情页面) ✅ 已完成
 - [x] [实现设备添加表单](./docs/03-phase-2-core-monitoring.md#实现设备添加表单) ✅ 已完成
 - [x] [添加设备编辑功能](./docs/03-phase-2-core-monitoring.md#添加设备编辑功能) ✅ 已完成
 - [x] [实现设备删除操作](./docs/03-phase-2-core-monitoring.md#实现设备删除操作) ✅ 已完成
 
-### 阶段三：数据展示与处理 [30%] 🟡 中优先级
+### 阶段三：数据展示与处理 [85%] 🔴 高优先级
 - [x] [实现指标数据收集服务](./docs/04-phase-3-data-processing.md#实现指标数据收集服务) ✅ 已完成
 - [x] [创建指标查询接口](./docs/04-phase-3-data-processing.md#创建指标查询接口) ✅ 已完成
 - [x] [添加历史数据存储](./docs/04-phase-3-data-processing.md#添加历史数据存储) ✅ 已完成
@@ -53,13 +100,13 @@
 - [x] [添加告警确认功能](./docs/04-phase-3-data-processing.md#添加告警确认功能) ✅ 已完成
 - [x] [创建告警解决流程](./docs/04-phase-3-data-processing.md#创建告警解决流程) ✅ 已完成
 
-### 阶段四：用户体验优化 [40%] 🟡 中优先级
+### 阶段四：用户体验优化 [85%] 🟡 中优先级
 - [x] [创建基础 UI 组件](./docs/05-phase-4-ux-optimization.md#创建基础-ui-组件) ✅ 已完成
-- [ ] [实现数据表格组件](./docs/05-phase-4-ux-optimization.md#实现数据表格组件) ☐ 未开始
-- [ ] [添加图表组件集成](./docs/05-phase-4-ux-optimization.md#添加图表组件集成) ☐ 未开始
-- [ ] [创建模态框组件](./docs/05-phase-4-ux-optimization.md#创建模态框组件) ☐ 未开始
-- [ ] [实现通知 Toast 组件](./docs/05-phase-4-ux-optimization.md#实现通知-toast-组件) ☐ 未开始
-- [ ] [优化移动端布局](./docs/05-phase-4-ux-optimization.md#优化移动端布局) ☐ 未开始
+- [x] [优化数据表格组件](./docs/05-phase-4-ux-optimization.md#优化数据表格组件) ✅ 已完成
+- [x] [完善图表组件](./docs/05-phase-4-ux-optimization.md#完善图表组件) ✅ 已完成
+- [x] [添加模态框组件](./docs/05-phase-4-ux-optimization.md#添加模态框组件) ✅ 已完成
+- [x] [实现通知 Toast 组件](./docs/05-phase-4-ux-optimization.md#实现通知-toast-组件) ✅ 已完成
+- [x] [优化设备列表页面](./docs/05-phase-4-ux-optimization.md#优化设备列表页面) ✅ 已完成
 - [x] [添加页面加载状态](./docs/05-phase-4-ux-optimization.md#添加页面加载状态) ✅ 已完成
 - [ ] [实现错误边界处理](./docs/05-phase-4-ux-optimization.md#实现错误边界处理) ☐ 未开始
 - [ ] [优化导航用户体验](./docs/05-phase-4-ux-optimization.md#优化导航用户体验) ☐ 未开始
@@ -75,7 +122,7 @@
 - [x] [创建 useAlerts hook](./docs/06-phase-5-api-dataflow.md#创建-usealerts-hook) ✅ 已完成
 - [x] [添加 useMetrics hook](./docs/06-phase-5-api-dataflow.md#添加-usemetrics-hook) ✅ 已完成
 
-### 阶段六：后端服务完善 [85%] 🟢 低优先级
+### 阶段六：后端服务完善 [100%] 🟢 低优先级
 - [x] [优化 Prisma 服务配置](./docs/07-phase-6-backend-enhancement.md#优化-prisma-服务配置) ✅ 已完成
 - [x] [添加数据库事务处理](./docs/07-phase-6-backend-enhancement.md#添加数据库事务处理) ✅ 已完成
 - [x] [实现数据验证中间件](./docs/07-phase-6-backend-enhancement.md#实现数据验证中间件) ✅ 已完成

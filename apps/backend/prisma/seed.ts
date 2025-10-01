@@ -10,24 +10,57 @@ async function main() {
 
   try {
     // 创建用户
-    const existingUser = await prisma.user.findUnique({
-      where: { email: 'admin@example.com' },
-    });
+    const usersToCreate = [
+      {
+        email: 'admin@example.com',
+        password: '123456',
+        name: 'Admin',
+        role: UserRole.ADMIN,
+      },
+      {
+        email: 'user@example.com',
+        password: '123456',
+        name: 'Test User',
+        role: UserRole.USER,
+      },
+      {
+        email: 'perf-test@example.com',
+        password: 'perf-test-password',
+        name: 'Performance Test User',
+        role: UserRole.USER,
+      }
+    ];
+
     let user;
-    if (!existingUser) {
-      const hashedPassword = await bcrypt.hash('123456', 10);
-      user = await prisma.user.create({
-        data: {
-          email: 'admin@example.com',
-          password: hashedPassword,
-          name: 'Admin',
-          role: UserRole.ADMIN,
-        },
+    for (const userData of usersToCreate) {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: userData.email },
       });
-      logger.log(`Seeded user: ${user.id}`);
-    } else {
-      user = existingUser;
-      logger.warn('User already exists, skipping creation.');
+      
+      if (!existingUser) {
+        const hashedPassword = await bcrypt.hash(userData.password, 10);
+        const createdUser = await prisma.user.create({
+          data: {
+            email: userData.email,
+            password: hashedPassword,
+            name: userData.name,
+            role: userData.role,
+          },
+        });
+        logger.log(`Seeded user: ${createdUser.email}`);
+        
+        // 将第一个用户作为主要用户（向后兼容）
+        if (userData.email === 'admin@example.com') {
+          user = createdUser;
+        }
+      } else {
+        logger.warn(`User ${userData.email} already exists, skipping creation.`);
+        
+        // 将第一个用户作为主要用户（向后兼容）
+        if (userData.email === 'admin@example.com') {
+          user = existingUser;
+        }
+      }
     }
 
     // 创建设备组
