@@ -31,14 +31,16 @@ def get_project_status():
         print(f"读取项目计划失败: {e}")
         return {}
 
-# 获取最近修改的文件
+# 获取最近修改的文件（排除changelog文件本身）
 def get_recently_modified_files():
     try:
         result = subprocess.run(
             ["git", "diff", "--name-only", "HEAD^..HEAD"],
             capture_output=True, text=True, check=True
         )
-        return result.stdout.strip().split('\n') if result.stdout else []
+        files = result.stdout.strip().split('\n') if result.stdout else []
+        # 过滤掉changelog文件本身，避免循环更新
+        return [f for f in files if f != "docs/development/changelog.md"]
     except Exception as e:
         print(f"获取最近修改文件失败: {e}")
         return []

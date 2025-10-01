@@ -39,6 +39,8 @@ jobs:
   generate-changelog:
     needs: sync-docs-and-issues
     runs-on: ubuntu-latest
+    # 添加条件，避免自动更新changelog导致无限循环
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '自动更新Changelog')
     steps:
       - uses: actions/checkout@v5
         with:
@@ -58,3 +60,5 @@ jobs:
         with:
           commit_message: "自动更新Changelog"
           file_pattern: "docs/development/changelog.md"
+          # 添加跳过条件，避免循环
+          skip_fetch: true
