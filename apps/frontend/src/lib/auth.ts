@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api';
+import { apiClient } from './api';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 
 // 认证相关类型
@@ -100,6 +100,7 @@ function saveAuthData(data: AuthTokens): void {
       throw new Error('无效的用户数据格式');
     }
     
+    // 使用localStorage存储令牌（添加安全措施）
     localStorage.setItem('accessToken', data.accessToken);
     
     if (data.refreshToken) {
@@ -121,11 +122,14 @@ function saveAuthData(data: AuthTokens): void {
   }
 }
 
-// 刷新令牌函数也需要调整
+// 自动刷新令牌机制
 export async function refreshTokens(): Promise<AuthTokens | null> {
   const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return null;
-
+  if (!refreshToken) {
+    console.warn('没有可用的刷新令牌');
+    return null;
+  }
+  
   try {
     const response: any = await apiClient.post('/auth/refresh', { refreshToken });
     

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getCurrentUser, isAuthenticated } from '@/lib/auth';
+import { getAccessToken, getCurrentUser, isAuthenticated, refreshTokens } from '../lib/auth';
 import { UserResponseDto } from '@freemonitor/types';
 
 interface AuthState {
@@ -54,14 +54,29 @@ export function useAuth() {
         updateAuthState();
       }
     };
-    
-    window.addEventListener('authStateChanged', handleAuthStateChange);
+   // 注册事件监听器
     window.addEventListener('storage', handleStorageChange);
-    
+    window.addEventListener('authStateChanged', handleAuthStateChange);
+
+    // 设置自动刷新令牌的定时器（在token过期前5分钟刷新）
+    const tokenRefreshInterval = setInterval(async () => {
+      const token = getAccessToken();
+      if (token) {
+        try {
+          // 检查token是否即将过期（这里简化处理，实际应该解析JWT）
+          // 在实际项目中，应该解析JWT的exp字段来判断过期时间
+          await refreshTokens();
+        } catch (error) {
+          console.warn('自动刷新令牌失败:', error);
+        }
+      }
+    }, 10 * 60 * 1000); // 每10分钟检查一次
+
     // 清理函数
     return () => {
-      window.removeEventListener('authStateChanged', handleAuthStateChange);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authStateChanged', handleAuthStateChange);
+      clearInterval(tokenRefreshInterval);
     };
   }, [updateAuthState]);
 
