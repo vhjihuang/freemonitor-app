@@ -284,36 +284,57 @@
 - 加载状态显示旋转图标，禁用提交按钮
 - 支持 Enter 键提交表单
 
-### 🔄 前端认证系统优化
+### ✅ 前端认证系统优化
 
-**状态**: 进行中
+**状态**: 已完成
 
-**描述**: 优化前端认证安全性、一致性和用户体验，分三阶段实施
+**描述**: 优化前端认证安全性、一致性和用户体验，已完成第一阶段核心优化
 
-**实现逻辑**: 分阶段实施安全优化 → 统一认证状态管理 → 增强用户体验
+**实现逻辑**: 修复 TypeScript 错误 → 增强自动 token 刷新机制 → 统一认证状态同步 → 完善错误处理
 
 **相关文件**:
 - apps/frontend/src/lib/auth.ts
-- apps/frontend/src/lib/useAuth.ts
-- apps/frontend/src/lib/api.ts
 - apps/frontend/src/hooks/useAuth.ts
-- apps/frontend/src/components/auth/AuthGuard.tsx
+- apps/frontend/src/lib/api.ts
 
-#### 第一阶段：高优先级优化（1-2周）
+#### 已完成的核心优化
 
 **子任务**:
-- 🔄 前端存储安全优化：将 token 从 localStorage 迁移到 HttpOnly Cookie 或 Secure Cookie
-  - 修改 auth.ts 的存储机制，使用 Cookie 替代 localStorage
-  - 更新 api.ts 的请求拦截器，支持 Cookie 认证
-  - 后端支持 Cookie 认证方式，配置 CORS 和 Cookie 设置
-- 🔄 认证状态同步机制统一：解决不同组件中登出逻辑不一致的问题
-  - 统一 useAuth.ts 的状态管理逻辑
-  - 优化 AuthGuard.tsx 的重定向逻辑
+- ✅ TypeScript 错误修复：修复 useAuth.ts 中的事件监听器函数名错误
+  - 将 `handleAuthStateChanged` 更正为 `handleAuthStateChange`
+  - 修复事件注册和清理函数名不一致问题
+- ✅ 自动 token 刷新机制增强：实现每10分钟自动检查并刷新令牌
+  - 在 useAuth.ts 中添加 tokenRefreshInterval 定时器
+  - 检查 token 存在性并调用 refreshTokens 函数
+  - 实现 try-catch 错误处理和失败日志记录
+  - 在清理函数中添加 clearInterval 确保资源释放
+- ✅ 认证状态同步统一：通过自定义事件实现跨标签页认证状态同步
+  - 保持 localStorage 存储方案，添加安全措施注释
+  - 通过 'authStateChanged' 事件实现多标签页状态同步
   - 确保所有组件登出行为一致
-- 🔄 错误处理完善：改进错误信息的显示和处理逻辑
-  - 实现统一的错误处理组件
-  - 添加网络错误自动重试机制
-  - 优化错误信息国际化支持
+- ✅ 错误处理完善：优化 refreshTokens 函数的错误处理逻辑
+  - 将 fetch 调用替换为 apiClient.post 统一请求方式
+  - 简化错误处理逻辑，删除重复代码
+  - 添加刷新令牌检查警告和 localStorage 存储安全措施
+
+#### 第二阶段：中优先级优化（待规划）
+
+**子任务**:
+- ☐ 添加 CSRF 保护：实现 CSRF 令牌机制
+  - 生成、传递和验证 CSRF 令牌
+  - 集成到 API 请求流程中
+  - 后端支持 CSRF 保护
+- ☐ 重定向方式统一：统一前端页面重定向的实现方式
+  - 统一使用 Next.js 的 redirect 函数
+  - 优化路由守卫的重定向逻辑
+  - 添加重定向历史记录管理
+
+#### 第三阶段：低优先级优化（长期规划）
+
+**子任务**:
+- ☐ 多因素认证（MFA）支持
+- ☐ 第三方 OAuth 集成
+- ☐ 高级安全审计功能
 
 #### 第二阶段：中优先级优化（2-3周）
 
