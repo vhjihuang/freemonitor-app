@@ -2,7 +2,7 @@
 
 由Git提交历史自动生成
 
-最后更新时间: 2025-09-30
+最后更新时间: 2025-10-01
 
 目录结构
 - [概述](#概述)
@@ -13,6 +13,50 @@
 本文档记录了FreeMonitor项目的变更历史，由Git提交历史自动生成。
 
 ## 变更记录
+
+### 2025-10-01
+
+#### 提交活动
+
+- ab153ee vhjihuang 2025-10-01 feat(auth): enhance user seeding with multiple test users and password encryption
+- caf1f21 vhjihuang 2025-09-30 自动更新Changelog
+- a7fa58a vhjihuang 2025-10-01 Merge remote-tracking branch 'origin/main'
+- 6fb4411 vhjihuang 2025-10-01 feat: 更新项目进度状态和任务文档
+- 9c44189 vhjihuang 2025-09-30 自动更新Changelog
+- 7bbc7db vhjihuang 2025-10-01 Merge branch 'main' of github.com:vhjihuang/freemonitor-app
+- cfbe739 vhjihuang 2025-09-30 docs: 更新项目文档和类型定义
+- 07d93c9 vhjihuang 2025-09-30 fix: 修复图表组件无限请求问题
+- 859e54e vhjihuang 2025-09-30 自动更新Changelog
+- 43364c9 vhjihuang 2025-09-30 feat(auth): 优化认证系统错误处理和安全性验证
+- b3221a3 vhjihuang 2025-09-30 feat: 添加UI图表和数据表格组件
+- 3dd0465 vhjihuang 2025-09-30 docs: 更新项目文档内容
+- 51d9cbb vhjihuang 2025-09-30 feat: 实现文档自动化生成与同步机制
+- 782da5c vhjihuang 2025-09-30 fix: 调整图表布局，将设备和指标选择器移到图表外部
+- d146978 vhjihuang 2025-09-30 fix: 修复告警页面数据渲染问题
+- b2aca30 vhjihuang 2025-09-29 test: 为告警状态过滤功能添加测试用例
+- f5d7f21 vhjihuang 2025-09-29 refactor: 优化API响应处理逻辑
+- 256c1c3 vhjihuang 2025-09-29 feat: 在React Query hooks中添加重试机制和创建useMetrics hook
+- 427644f vhjihuang 2025-09-29 feat: 为设备列表和告警页面添加自动刷新功能
+- 58b25b2 vhjihuang 2025-09-29 fix: 修复仪表盘和告警页面数据不一致问题，按用户过滤数据
+
+#### 项目状态
+
+- 整体进度: 71.5%
+  - frontend: 🟢 85%
+  - backend: 🟢 85%
+  - sharedTypes: ✅ 100%
+  - uiLibrary: 🟡 40%
+  - deployment: 🟡 50%
+  - knowledgeBase: 🟡 40%
+
+#### 最近修改的重要文件
+
+- **后端相关**:
+  - apps/backend/prisma/seed.ts
+- **文档相关**:
+  - docs/02-phase-1-auth-system.md
+
+---
 
 ### 2025-09-30
 
