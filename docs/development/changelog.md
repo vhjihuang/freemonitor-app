@@ -18,6 +18,46 @@
 
 #### 提交活动
 
+- 12553f3 vhjihuang 2025-10-01 fix: resolve infinite automation loop in changelog updates
+- 20cc8fd vhjihuang 2025-10-01 Merge remote-tracking branch 'origin/main'
+- 4a068db vhjihuang 2025-10-01 docs: update frontend authentication system optimization status to completed
+- 6ea1d8d vhjihuang 2025-10-01 feat(auth): enhance frontend authentication system
+- bcaf329 vhjihuang 2025-10-01 自动更新Changelog
+- ab153ee vhjihuang 2025-10-01 feat(auth): enhance user seeding with multiple test users and password encryption
+- caf1f21 vhjihuang 2025-09-30 自动更新Changelog
+- a7fa58a vhjihuang 2025-10-01 Merge remote-tracking branch 'origin/main'
+- 6fb4411 vhjihuang 2025-10-01 feat: 更新项目进度状态和任务文档
+- 9c44189 vhjihuang 2025-09-30 自动更新Changelog
+- 7bbc7db vhjihuang 2025-10-01 Merge branch 'main' of github.com:vhjihuang/freemonitor-app
+- cfbe739 vhjihuang 2025-09-30 docs: 更新项目文档和类型定义
+- 07d93c9 vhjihuang 2025-09-30 fix: 修复图表组件无限请求问题
+- 859e54e vhjihuang 2025-09-30 自动更新Changelog
+- 43364c9 vhjihuang 2025-09-30 feat(auth): 优化认证系统错误处理和安全性验证
+- b3221a3 vhjihuang 2025-09-30 feat: 添加UI图表和数据表格组件
+- 3dd0465 vhjihuang 2025-09-30 docs: 更新项目文档内容
+- 51d9cbb vhjihuang 2025-09-30 feat: 实现文档自动化生成与同步机制
+- 782da5c vhjihuang 2025-09-30 fix: 调整图表布局，将设备和指标选择器移到图表外部
+- d146978 vhjihuang 2025-09-30 fix: 修复告警页面数据渲染问题
+
+#### 项目状态
+
+- 整体进度: 71.5%
+  - frontend: 🟢 85%
+  - backend: 🟢 85%
+  - sharedTypes: ✅ 100%
+  - uiLibrary: 🟡 40%
+  - deployment: 🟡 50%
+  - knowledgeBase: 🟡 40%
+
+#### 最近修改的重要文件
+
+
+---
+
+### 2025-10-01
+
+#### 提交活动
+
 - ab153ee vhjihuang 2025-10-01 feat(auth): enhance user seeding with multiple test users and password encryption
 - caf1f21 vhjihuang 2025-09-30 自动更新Changelog
 - a7fa58a vhjihuang 2025-10-01 Merge remote-tracking branch 'origin/main'
