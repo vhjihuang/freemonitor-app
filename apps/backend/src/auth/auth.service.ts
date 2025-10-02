@@ -143,49 +143,97 @@ export class AuthService {
 
     this.logger.debug("开始生成刷新令牌", { userId, ipAddress, userAgent });
 
-    try {
-      // 生成随机刷新令牌
-      const refreshToken = this.jwtService.sign(
-        {},
-        {
-          expiresIn: "7d", // 刷新令牌有效期7天
-          secret: this.configService.get("JWT_REFRESH_SECRET") || "default-refresh-secret",
-        }
-      );
+    // 最大重试次数
+    const maxRetries = 3;
+    let retryCount = 0;
 
-      // 计算过期时间（7天）
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    while (retryCount < maxRetries) {
+      try {
+        // 生成随机刷新令牌，包含足够随机性避免唯一性约束冲突
+        const refreshToken = this.jwtService.sign(
+          {
+            // 添加随机性和时间戳确保唯一性
+            jti: Math.random().toString(36).substring(2) + Date.now().toString(36),
+            sub: userId,
+            iat: Math.floor(Date.now() / 1000),
+          },
+          {
+            expiresIn: "7d", // 刷新令牌有效期7天
+            secret: this.configService.get("JWT_REFRESH_SECRET") || "default-refresh-secret",
+          }
+        );
 
-      // 存储刷新令牌到数据库
-      await this.prisma.refreshToken.create({
-        data: {
-          token: refreshToken,
+        // 计算过期时间（7天）
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        // 存储刷新令牌到数据库
+        await this.prisma.refreshToken.create({
+          data: {
+            token: refreshToken,
+            userId,
+            expiresAt,
+            ipAddress,
+            userAgent,
+          },
+        });
+
+        const executionTime = Date.now() - startTime;
+        this.logger.debug("刷新令牌生成并存储成功", undefined, {
           userId,
-          expiresAt,
+          executionTime,
+          retryCount,
+        });
+
+        return refreshToken;
+      } catch (error) {
+        retryCount++;
+        
+        // 检查是否是唯一性约束错误
+        if (error.code === 'P2002' && error.meta?.target?.includes('token')) {
+          this.logger.warn("刷新令牌唯一性约束冲突，尝试重试", {
+            userId,
+            retryCount,
+            maxRetries,
+            errorMessage: error.message,
+          });
+          
+          // 如果是最后一次重试，抛出错误
+          if (retryCount >= maxRetries) {
+            const executionTime = Date.now() - startTime;
+            this.logger.error("生成刷新令牌失败，达到最大重试次数", error.stack, undefined, {
+              userId,
+              ipAddress,
+              userAgent,
+              errorType: error.constructor.name,
+              errorMessage: error.message,
+              executionTime,
+              retryCount,
+            });
+            throw new InternalServerErrorException("生成刷新令牌失败，请稍后重试");
+          }
+          
+          // 等待一小段时间后重试
+          await new Promise(resolve => setTimeout(resolve, 100));
+          continue;
+        }
+        
+        // 如果是其他错误，直接抛出
+        const executionTime = Date.now() - startTime;
+        this.logger.error("生成刷新令牌过程中发生错误", error.stack, undefined, {
+          userId,
           ipAddress,
           userAgent,
-        },
-      });
-
-      const executionTime = Date.now() - startTime;
-      this.logger.debug("刷新令牌生成并存储成功", undefined, {
-        userId,
-        executionTime,
-      });
-
-      return refreshToken;
-    } catch (error) {
-      const executionTime = Date.now() - startTime;
-      this.logger.error("生成刷新令牌过程中发生错误", error.stack, undefined, {
-        userId,
-        ipAddress,
-        userAgent,
-        errorType: error.constructor.name,
-        errorMessage: error.message,
-        executionTime,
-      });
-      throw error;
+          errorType: error.constructor.name,
+          errorMessage: error.message,
+          executionTime,
+          retryCount,
+        });
+        throw error;
+      }
     }
+    
+    // 理论上不会执行到这里，但为了类型安全
+    throw new InternalServerErrorException("生成刷新令牌失败");
   }
 
   /**
