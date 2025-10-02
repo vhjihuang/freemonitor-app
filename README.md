@@ -96,6 +96,19 @@ A NestJS API that serves as the backend for the application.
 - Framework: NestJS
 - Language: TypeScript
 
+#### Redis-based Rate Limiting
+
+The backend now implements Redis-based rate limiting using:
+- `@nestjs/throttler` - NestJS rate limiting module
+- `@tirke/node-cache-manager-ioredis` - Redis store for throttler
+- `ioredis` - Redis client
+
+Configuration is done through environment variables:
+- `REDIS_HOST` - Redis server host (default: localhost)
+- `REDIS_PORT` - Redis server port (default: 6379)
+- `REDIS_PASSWORD` - Redis password (default: undefined)
+- `REDIS_DB` - Redis database number (default: 0)
+
 ### Shared Packages
 
 #### Types (packages/types)
