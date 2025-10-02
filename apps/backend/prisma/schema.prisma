@@ -225,5 +225,6 @@ enum AlertType {
 enum UserRole {
   ADMIN
   USER
+  OPERATOR
   VIEWER
 }

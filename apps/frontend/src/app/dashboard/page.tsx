@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const alerts = data?.data || [];
 
   return (
-    <PageTemplate currentPage="仪表盘" currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.VIEWER]}>
+    <PageTemplate currentPage="仪表盘" currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.OPERATOR, Role.VIEWER]}>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">仪表盘</h1>

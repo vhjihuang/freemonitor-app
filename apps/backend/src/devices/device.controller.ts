@@ -7,6 +7,9 @@ import { DeviceService } from "./device.service";
 import { User } from "@prisma/client";
 import { ApiCommonResponses } from "../common/decorators/api-common-responses.decorator";
 import { DevAuthGuard } from "../auth/guards/dev-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../auth/decorators/roles.decorator";
+import { Role } from "@freemonitor/types";
 import { CreateMetricDto } from './dto/create-metric.dto';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { QueryAlertDto } from './dto/query-alert.dto';
@@ -20,7 +23,7 @@ interface RequestWithUser extends Request {
 @ApiTags("devices")
 @ApiBearerAuth()
 @Controller("devices")
-@UseGuards(DevAuthGuard)
+@UseGuards(DevAuthGuard, RolesGuard)
 export class DeviceController {
   private readonly logger = new Logger(DeviceController.name);
 
@@ -30,6 +33,7 @@ export class DeviceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "创建设备" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以创建设备
   async create(@Body() createDeviceDto: CreateDeviceDto, @Req() req: RequestWithUser) {
     this.logger.log(`用户 ${req.user?.id} 正在创建设备`, {
       userId: req.user?.id,
@@ -49,6 +53,7 @@ export class DeviceController {
   @Get()
   @ApiOperation({ summary: "获取设备列表" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备列表
   async findAll(
     @Req() req: RequestWithUser,
     @Query('search') search?: string,
@@ -67,6 +72,7 @@ export class DeviceController {
   @Get(":id")
   @ApiOperation({ summary: "获取设备详情" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备详情
   async findOne(@Param("id") id: string, @Req() req: RequestWithUser) {
     return this.deviceService.findOne(id, req.user?.id || "dev-user-id");
   }
@@ -74,6 +80,7 @@ export class DeviceController {
   @Patch(":id")
   @ApiOperation({ summary: "更新设备" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以更新设备
   async update(
     @Param("id") id: string,
     @Body() updateDeviceDto: UpdateDeviceDto,
@@ -101,6 +108,7 @@ export class DeviceController {
   @Delete(":id")
   @ApiOperation({ summary: "删除设备" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN) // 只有管理员可以删除设备
   async remove(@Param("id") id: string, @Req() req: RequestWithUser) {
     this.logger.log(`用户 ${req.user?.id} 正在删除设备 ${id}`, {
       userId: req.user?.id,
@@ -121,6 +129,7 @@ export class DeviceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "上报设备指标" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以上报设备指标
   async createMetric(
     @Param("id") id: string,
     @Body() dto: CreateMetricDto,
@@ -143,6 +152,7 @@ export class DeviceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "上报设备告警" })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以上报告警
   async createAlert(
     @Param("id") id: string,
     @Body() dto: CreateAlertDto,
@@ -164,6 +174,7 @@ export class DeviceController {
   @Get('alerts/list')
   @ApiOperation({ summary: '查询告警列表' })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查询告警列表
   async queryAlerts(
     @Query() query: QueryAlertDto,
     @Req() req: RequestWithUser
@@ -185,6 +196,7 @@ export class DeviceController {
   @Get('alerts/recent')
   @ApiOperation({ summary: '获取最近告警' })
   @ApiCommonResponses()
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以获取最近告警
   async getRecentAlerts(
     @Query('limit') limit: number = 10,
     @Req() req: RequestWithUser

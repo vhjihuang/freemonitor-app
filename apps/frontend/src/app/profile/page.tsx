@@ -43,6 +43,13 @@ export default function ProfilePage() {
               </div>
             )}
             
+            {user?.role === Role.OPERATOR && (
+              <div className="p-4 bg-green-100 rounded">
+                <h3 className="font-bold">Operator Content</h3>
+                <p>You can see this because you are an operator.</p>
+              </div>
+            )}
+            
             {!user?.role && (
               <div className="p-4 bg-yellow-100 rounded">
                 <h3 className="font-bold">No Role Assigned</h3>

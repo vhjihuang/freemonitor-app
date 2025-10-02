@@ -102,7 +102,7 @@ export default function DevicesPage() {
     <PageTemplate 
       currentPage="设备管理"
       currentPath="/devices"
-      roles={[Role.USER, Role.ADMIN]}
+      roles={[Role.USER, Role.ADMIN, Role.OPERATOR]}
     >
       <div className="space-y-6">
         <DeviceSearchFilter

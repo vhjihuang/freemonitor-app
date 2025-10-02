@@ -144,7 +144,7 @@ export default function AlertsPage() {
     <PageTemplate 
       currentPage="告警管理" 
       currentPath="/alerts" 
-      roles={[Role.USER, Role.ADMIN]}
+      roles={[Role.USER, Role.ADMIN, Role.OPERATOR]}
     >
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

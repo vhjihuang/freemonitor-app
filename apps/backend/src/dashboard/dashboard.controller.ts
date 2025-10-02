@@ -1,5 +1,8 @@
 import { Controller, Get, UseGuards, Query, Logger, Req } from '@nestjs/common';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from "@freemonitor/types";
 import { DashboardService } from './dashboard.service';
 import { User } from "@prisma/client";
 
@@ -8,13 +11,14 @@ interface RequestWithUser extends Request {
 }
 
 @Controller('dashboard')
-@UseGuards(DevAuthGuard)
+@UseGuards(DevAuthGuard, RolesGuard)
 export class DashboardController {
   private readonly logger = new Logger(DashboardController.name);
 
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看仪表盘统计
   async getDashboardStats(@Req() req: RequestWithUser) {
     this.logger.log('Dashboard stats endpoint accessed');
     
@@ -25,6 +29,7 @@ export class DashboardController {
   }
 
   @Get('trend')
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备状态趋势
   async getDeviceStatusTrend(
     @Query('timeRange') timeRange: '1h' | '6h' | '24h' | '7d' | '30d' = '24h'
   ) {
@@ -36,6 +41,7 @@ export class DashboardController {
   }
 
   @Get('health')
+  @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以查看系统健康状态
   async getSystemHealth() {
     this.logger.log('System health endpoint accessed');
     
