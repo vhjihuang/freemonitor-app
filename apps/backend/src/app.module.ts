@@ -13,6 +13,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { jwtConfig, devUserConfig, devConfig } from "./config/jwt.config";
 import { CommonModule } from './common/common.module';
 import { NotificationModule } from './notification/notification.module';
+import { CustomThrottlerModule } from './throttler/throttler.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationModule } from './notification/notification.module';
     AuthModule,
     DashboardModule,
     NotificationModule,
+    CustomThrottlerModule,
     ConfigModule.forRoot({
       load: [jwtConfig, devUserConfig, devConfig],
       isGlobal: true,

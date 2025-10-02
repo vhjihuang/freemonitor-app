@@ -10,6 +10,8 @@ import {
   Request,
   Patch,
   Param,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ValidationException } from '../common/exceptions/app.exception';
 import { AuthService } from './auth.service';
@@ -17,6 +19,7 @@ import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { DevAuthGuard } from './guards/dev-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { ThrottlerAuthGuard } from './guards/throttler-auth.guard';
 import { Role } from '@freemonitor/types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -30,6 +33,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @UseGuards(ThrottlerAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
@@ -45,6 +49,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerAuthGuard)
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
@@ -53,6 +58,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerAuthGuard)
   @Post('refresh')
   async refresh(@Body('refreshToken') refreshToken: string, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
@@ -65,6 +71,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerAuthGuard)
   @Post('forgot-password')
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.generatePasswordResetToken(forgotPasswordDto.email);
@@ -73,6 +80,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerAuthGuard)
   @Patch('reset-password/:token')
   async resetPassword(
     @Param('token') token: string,
