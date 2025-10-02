@@ -16,13 +16,6 @@ export interface DevUserConfig {
   isActive: boolean;
 }
 
-export interface DevConfig {
-  enabled: boolean;
-  skipAuth: boolean;
-  detailedLogs: boolean;
-  mockExternalServices: boolean;
-}
-
 export const jwtConfig = registerAs(
   "jwt",
   (): JwtConfig => ({
@@ -54,10 +47,3 @@ export const devUserConfig = registerAs("devUser", (): DevUserConfig => {
     isActive: true,
   };
 });
-
-export const devConfig = registerAs("dev", (): DevConfig => ({
-  enabled: process.env.NODE_ENV === 'development',
-  skipAuth: process.env.DEV_SKIP_AUTH === 'true',
-  detailedLogs: process.env.DEV_DETAILED_LOGS === 'true' || process.env.NODE_ENV === 'development',
-  mockExternalServices: process.env.DEV_MOCK_EXTERNAL_SERVICES === 'true',
-}));
