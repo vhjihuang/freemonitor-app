@@ -12,12 +12,27 @@ async function bootstrap() {
   // 创建应用实例
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    logger: ['error', 'warn', 'log'], // 初始日志级别
+  });
+
+  // 获取配置服务和日志服务
+  const configService = app.get(ConfigService);
+  const logger = app.get(AppLoggerService).createLogger("Bootstrap");
+
+  // 设置应用使用自定义日志服务
+  app.useLogger(logger);
+
+  // 记录应用启动信息
+  logger.log("🚀 开始启动应用...", undefined, {
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT,
+    timestamp: new Date().toISOString(),
   });
 
   // 在生产环境启动时运行数据库迁移
   if (process.env.NODE_ENV === "production") {
     try {
-      console.log("🔧 运行数据库迁移...");
+      logger.log("🔧 运行数据库迁移...");
 
       // 使用Prisma的安全迁移命令
       const { execSync } = require("child_process");
@@ -26,20 +41,16 @@ async function bootstrap() {
         cwd: process.cwd(),
       });
 
-      console.log("✅ 数据库迁移完成");
+      logger.log("✅ 数据库迁移完成");
     } catch (error) {
-      console.error("❌ 数据库迁移失败:", error.message);
-      console.log("⚠️ 应用将继续启动，但某些功能可能不可用");
+      logger.error("❌ 数据库迁移失败:", error.stack, undefined, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+      });
+      logger.warn("⚠️ 应用将继续启动，但某些功能可能不可用");
       // 不阻止应用启动，让应用在降级模式下运行
     }
   }
-
-  // 获取配置服务和日志服务
-  const configService = app.get(ConfigService);
-  const logger = app.get(AppLoggerService).createLogger("Bootstrap");
-
-  // 设置应用使用自定义日志服务
-  app.useLogger(logger);
 
   // ✅ 1. 安全增强 - 使用helmet设置HTTP安全头
   app.use(
@@ -112,7 +123,18 @@ async function bootstrap() {
     url: appUrl,
     environment: process.env.NODE_ENV,
     corsOrigins: corsOrigins,
+    frontendUrl: process.env.FRONTEND_URL,
+    timestamp: new Date().toISOString(),
   });
+
+  // 记录开发环境信息
+  if (process.env.NODE_ENV === 'development') {
+    logger.debug("🔧 开发环境已启用", undefined, {
+      skipAuth: process.env.DEV_SKIP_AUTH,
+      detailedLogs: process.env.DEV_DETAILED_LOGS,
+      debugEnabled: process.env.DEBUG_ENABLED,
+    });
+  }
 
   // 记录安全配置信息
   if (process.env.NODE_ENV === "development") {
