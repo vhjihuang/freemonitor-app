@@ -1,32 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
-import { Redis } from 'ioredis';
 
 @Module({
   imports: [
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => {
-        // 创建 Redis 客户端
-        const redisClient = new Redis({
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-          password: config.get<string>('REDIS_PASSWORD', undefined),
-          db: config.get<number>('REDIS_DB', 0),
-        });
-
-        // 添加错误处理
-        redisClient.on('error', (err) => {
-          console.error('Redis连接错误:', err);
-        });
-
-        // 添加连接成功日志
-        redisClient.on('connect', () => {
-          console.log('✅ Redis连接成功');
-        });
-
-
+        // 使用内存存储替代Redis
+        const memoryStorage = new Map<string, { value: number; expiresAt: number }>();
 
         return {
           throttlers: [
@@ -37,18 +19,35 @@ import { Redis } from 'ioredis';
           ],
           storage: {
             get: async (key: string) => {
-              const value = await redisClient.get(key);
-              return value ? parseInt(value, 10) : null;
+              const record = memoryStorage.get(key);
+              if (!record) return null;
+              
+              // 检查是否过期
+              if (Date.now() > record.expiresAt) {
+                memoryStorage.delete(key);
+                return null;
+              }
+              
+              return record.value;
             },
             set: async (key: string, value: number, ttl: number) => {
-              await redisClient.setex(key, Math.ceil(ttl / 1000), value.toString());
+              memoryStorage.set(key, {
+                value,
+                expiresAt: Date.now() + ttl
+              });
             },
             increment: async (key: string, ttl: number) => {
-              const value = await redisClient.incr(key);
-              // 如果是新键，设置过期时间
-              if (value === 1) {
-                await redisClient.expire(key, Math.ceil(ttl / 1000));
+              const record = memoryStorage.get(key);
+              let value = 1;
+              
+              if (record && Date.now() <= record.expiresAt) {
+                value = record.value + 1;
               }
+              
+              memoryStorage.set(key, {
+                value,
+                expiresAt: Date.now() + ttl
+              });
               
               // 返回符合ThrottlerStorageRecord接口的对象
               return {

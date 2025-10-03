@@ -30,11 +30,7 @@
     "postinstall": "pnpm prisma:generate",
     "g": "nest generate",
     "generate": "nest generate",
-    "test:redis-connection": "ts-node test-redis-connection.ts",
-    "test:redis-throttling": "./test-redis-throttling.sh",
-    "test:enhanced-redis-throttling": "./enhanced-redis-throttling-test.sh",
-    "check:throttler-records": "ts-node check-throttler-records.ts",
-    "check:comprehensive-redis": "ts-node comprehensive-redis-check.ts"
+    "test:memory-throttling": "echo '使用内存存储的限流器，无需Redis依赖'"
   },
   "dependencies": {
     "@freemonitor/types": "workspace:*",
