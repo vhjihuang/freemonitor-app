@@ -3,7 +3,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**", "out/**"]
+      "outputs": [".next/**", "dist/**", "out/**"],
+      "exclude": ["apps/frontend/.next/standalone/**"]
     },
     "dev": {
       "cache": false,
@@ -14,7 +15,8 @@
     },
     "start": {
       "dependsOn": ["^build"],
-      "cache": false
+      "cache": false,
+      "exclude": ["apps/frontend/.next/standalone/**"]
     }
   }
 }
