@@ -11,8 +11,6 @@
     "postbuild": "echo 'Build completed. Run migrations manually in production.'",
     "start": "node dist/src/main",
     "start:prod": "pnpm prisma:migrate && node dist/src/main",
-    "render:build": "pnpm install && pnpm prisma generate && pnpm run build",
-    "render:start": "pnpm prisma migrate deploy && node dist/src/main",
     "start:dev": "nodemon",
     "dev": "pnpm start:dev",
     "lint": "eslint 'src/**/*.{ts}' --max-warnings 0",
@@ -29,8 +27,7 @@
     "prisma:studio": "pnpm prisma studio",
     "postinstall": "pnpm prisma:generate",
     "g": "nest generate",
-    "generate": "nest generate",
-    "test:memory-throttling": "echo '使用内存存储的限流器，无需Redis依赖'"
+    "generate": "nest generate"
   },
   "dependencies": {
     "@freemonitor/types": "workspace:*",
