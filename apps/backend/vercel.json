@@ -8,7 +8,15 @@
   ],
   "routes": [
     {
+      "src": "/api/health/(.*)",
+      "dest": "/dist/src/main.js"
+    },
+    {
       "src": "/api/(.*)",
+      "dest": "/dist/src/main.js"
+    },
+    {
+      "src": "/health/(.*)",
       "dest": "/dist/src/main.js"
     },
     {
