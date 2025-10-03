@@ -1,13 +1,13 @@
 {
-
-  "routes": [
+  "version": 2,
+  "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/dist/src/main.js"
+      "destination": "/api/index.js" 
     },
     {
       "source": "/(.*)",
-      "destination": "/dist/src/main.js"
+      "destination": "/api/index.js"
     }
   ]
 }
