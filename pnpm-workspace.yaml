@@ -1,3 +1,5 @@
 packages:
   - 'apps/**'
   - 'packages/**'
+  - '!apps/frontend/.next/**'  # 排除 frontend standalone
+  - '!apps/backend/dist/**'    # 排除 backend 输出（可选，预防）
