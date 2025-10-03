@@ -1,7 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { TokenResponse } from '@freemonitor/types';
 
@@ -60,25 +58,7 @@ export async function registerAction(formData: FormData): Promise<RegisterRespon
       };
     }
 
-    // 设置认证 cookies
-    const cookieStore = cookies();
-    cookieStore.set('accessToken', data.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24, // 24 hours
-      path: '/',
-    });
-
-    // refreshToken 可能不存在，需要检查
-    if (data.refreshToken) {
-      cookieStore.set('refreshToken', data.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/',
-      });
-    }
-
+    // 返回认证数据，由客户端处理存储和重定向
     return {
       success: true,
       data: {
@@ -107,6 +87,15 @@ export async function registerAction(formData: FormData): Promise<RegisterRespon
  */
 export async function loginAction(formData: FormData): Promise<{
   success: boolean;
+  data?: {
+    accessToken: string;
+    refreshToken?: string;
+    user: {
+      id: string;
+      email: string;
+      name?: string;
+    };
+  };
   error?: string;
 }> {
   try {
@@ -130,26 +119,19 @@ export async function loginAction(formData: FormData): Promise<{
       };
     }
 
-    // 设置认证 cookies
-    const cookieStore = cookies();
-    cookieStore.set('accessToken', data.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24, // 24 hours
-      path: '/',
-    });
-
-    if (data.refreshToken) {
-      cookieStore.set('refreshToken', data.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/',
-      });
-    }
-
-    // 重定向到仪表板
-    redirect('/dashboard');
+    // 返回认证数据，由客户端处理存储和重定向
+    return {
+      success: true,
+      data: {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name
+        }
+      }
+    };
 
   } catch (error: any) {
     console.error('登录错误:', error);

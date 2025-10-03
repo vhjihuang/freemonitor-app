@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    appDir: true,
-  },
   output: process.env.RENDER_STATIC ? 'export' : 'standalone', // Render静态部署时使用export
   poweredByHeader: false, // 安全加固
   images: {
