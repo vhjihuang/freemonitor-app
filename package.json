@@ -11,7 +11,8 @@
     "preinstall": "npx only-allow pnpm",
     "dev": "kill-port 3001 && turbo run dev",
     "build": "turbo run build",
-    "start": "turbo run start",
+    "start": "node scripts/start-production.js",
+    "start:legacy": "turbo run start",
     "lint": "turbo run lint",
     "clean": "rimraf node_modules pnpm-lock.yaml && pnpm -r exec -- rimraf node_modules || true"
   },
