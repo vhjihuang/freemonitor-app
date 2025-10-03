@@ -1,9 +1,5 @@
 {
-  "functions": {
-    "dist/src/main.js": {
-      "runtime": "nodejs22.x"
-    }
-  },
+
   "rewrites": [
     {
       "source": "/api/(.*)",
