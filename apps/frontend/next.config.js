@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: process.env.RENDER_STATIC ? 'export' : 'standalone', // Render静态部署时使用export
+  output: process.env.RENDER_STATIC ? 'export' : 'undefined', // Render静态部署时使用export
   poweredByHeader: false, // 安全加固
   images: {
     domains: ['localhost'], // 根据实际需求扩展
