@@ -15,16 +15,51 @@ interface DashboardStats {
 /**
  * 获取仪表盘统计数据的API路由
  * 主要功能：
- * 1. 验证请求中的认证token
- * 2. 转发请求到后端API
+ * 1. 在构建时返回静态数据，避免动态服务器错误
+ * 2. 在运行时动态获取数据
  * 3. 在开发环境提供模拟数据
  */
 export async function GET(request: NextRequest) {
   try {
-    // 从请求头获取token
+    // 检查是否是构建时（静态生成）
+    const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build';
+    
+    if (isBuildTime) {
+      // 构建时返回静态数据，避免动态服务器错误
+      const staticStats: DashboardStats = {
+        onlineDevices: 0,
+        offlineDevices: 0,
+        totalDevices: 0,
+        activeAlerts: 0,
+        lastUpdated: new Date().toISOString(),
+      };
+      
+      return NextResponse.json({
+        success: true,
+        data: staticStats,
+      });
+    }
+
+    // 运行时：从请求头获取token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
     if (!token) {
+      // 如果没有token，返回开发环境的模拟数据
+      if (process.env.NODE_ENV === 'development') {
+        const mockStats: DashboardStats = {
+          onlineDevices: 15,
+          offlineDevices: 3,
+          totalDevices: 18,
+          activeAlerts: 2,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        return NextResponse.json({
+          success: true,
+          data: mockStats,
+        });
+      }
+      
       return NextResponse.json(
         { success: false, message: '未提供认证token' },
         { status: 401 }
@@ -45,6 +80,23 @@ export async function GET(request: NextRequest) {
       });
     } catch (apiError) {
       console.error('API client error:', apiError);
+      
+      // API错误时返回开发环境的模拟数据
+      if (process.env.NODE_ENV === 'development') {
+        const mockStats: DashboardStats = {
+          onlineDevices: 15,
+          offlineDevices: 3,
+          totalDevices: 18,
+          activeAlerts: 2,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        return NextResponse.json({
+          success: true,
+          data: mockStats,
+        });
+      }
+      
       throw apiError;
     }
 
