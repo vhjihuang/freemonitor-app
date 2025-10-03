@@ -1,6 +1,6 @@
 {
 
-  "rewrites": [
+  "routes": [
     {
       "source": "/api/(.*)",
       "destination": "/dist/src/main.js"
