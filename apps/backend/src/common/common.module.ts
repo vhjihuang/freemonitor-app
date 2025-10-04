@@ -3,6 +3,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppLoggerService } from './services/logger.service';
 import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-exception.filter';
 import { ResponseInterceptor } from './interceptors/response.interceptor';
+import { CsrfController } from './csrf.controller';
 
 /**
  * 公共模块
@@ -10,6 +11,7 @@ import { ResponseInterceptor } from './interceptors/response.interceptor';
  */
 @Global()
 @Module({
+  controllers: [CsrfController],
   providers: [
     AppLoggerService,
     ResponseInterceptor,

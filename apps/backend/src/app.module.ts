@@ -17,6 +17,7 @@ import { CustomThrottlerModule } from './throttler/throttler.module';
 import { DevelopmentModule } from './development/development.module';
 import { developmentConfig } from './config/development.config';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { CsrfModule } from './common/csrf.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     NotificationModule,
     CustomThrottlerModule,
     DevelopmentModule,
+    CsrfModule,
     ConfigModule.forRoot({
       load: [jwtConfig, devUserConfig, developmentConfig],
       isGlobal: true,
