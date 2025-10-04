@@ -11,7 +11,7 @@ const nextConfig = {
   distDir: process.env.RENDER_STATIC ? 'out' : '.next',
   // 明确禁用standalone模式以避免Turbo工作区冲突
   experimental: {
-    outputStandalone: false,
+    standalone: false,
   },
 };
 

@@ -113,5 +113,9 @@ export async function refreshCsrfToken(): Promise<string> {
   clearCsrfToken();
   
   // 获取新令牌
-  return getCsrfToken();
+  const token = await getCsrfToken();
+  if (!token) {
+    throw new Error('无法获取CSRF令牌');
+  }
+  return token;
 }
