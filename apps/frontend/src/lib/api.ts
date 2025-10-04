@@ -1,6 +1,7 @@
 // src/lib/api.ts
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import { getAccessToken, refreshTokens, logout } from "./auth";
+import { getCsrfToken, refreshCsrfToken } from "./csrf";
 import { extractResponseData, isErrorResponse } from "@freemonitor/types";
 
 /**
@@ -22,13 +23,27 @@ export class ApiClient {
       },
     });
 
-    // 请求拦截器 - 添加认证头
+    // 请求拦截器 - 添加认证头和CSRF令牌
     this.axiosInstance.interceptors.request.use(
-      (config) => {
+      async (config) => {
+        // 添加认证头
         const token = getAccessToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // 为需要保护的请求方法添加CSRF令牌
+        if (config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
+          try {
+            const csrfToken = await getCsrfToken();
+            if (csrfToken) {
+              config.headers['X-CSRF-Token'] = csrfToken;
+            }
+          } catch (error) {
+            console.warn('获取CSRF令牌失败:', error);
+          }
+        }
+        
         return config;
       },
       (error) => {
@@ -58,6 +73,30 @@ export class ApiClient {
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+
+        // 处理403 CSRF错误 - 刷新CSRF令牌并重试
+        if (error.response?.status === 403 && 
+            (error.response?.data as any)?.error === 'CSRF token invalid' && 
+            !originalRequest._retry) {
+          originalRequest._retry = true;
+          
+          try {
+            // 刷新CSRF令牌
+            await refreshCsrfToken();
+            
+            // 重新获取CSRF令牌并添加到请求头
+            const newCsrfToken = await getCsrfToken();
+            if (newCsrfToken && originalRequest.headers) {
+              originalRequest.headers['X-CSRF-Token'] = newCsrfToken;
+            }
+            
+            // 重新发送请求
+            return this.axiosInstance(originalRequest);
+          } catch (refreshError) {
+            console.error('刷新CSRF令牌失败:', refreshError);
+            return Promise.reject(new Error("CSRF令牌刷新失败，请重新登录"));
+          }
+        }
 
         // 处理401错误 - 尝试自动刷新令牌
         if (error.response?.status === 401 && !originalRequest._retry) {

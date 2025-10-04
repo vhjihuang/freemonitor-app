@@ -1,6 +1,7 @@
 import { Controller, Get, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import Tokens from 'csrf';
+import { createSuccessResponse } from '@freemonitor/types';
 
 // 创建CSRF令牌生成器实例
 const tokens = new Tokens();
@@ -27,9 +28,8 @@ export class CsrfController {
       maxAge: 3600000, // 1小时
     });
     
-    return res.json({ 
-      success: true,
-      csrfToken: token 
-    });
+    // 返回符合统一响应格式的数据
+    const response = createSuccessResponse({ csrfToken: token });
+    return res.json(response);
   }
 }
