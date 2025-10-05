@@ -1,6 +1,7 @@
 // src/lib/api/alertApi.ts
 import { apiClient } from '../api';
 import { Alert, AlertQueryDto } from '@freemonitor/types';
+import { handleResponse } from './apiUtils';
 
 // 定义 AlertStats 和 AlertListResponse
 export interface AlertStats {
@@ -25,15 +26,6 @@ export interface AlertResponse {
   timestamp: string;
   path: string;
 }
-
-const handleResponse = <T>(response: { data: T } | T): T => {
-  // 如果响应是对象且包含data字段，返回data字段
-  if (response && typeof response === 'object' && 'data' in response) {
-    return (response as { data: T }).data;
-  }
-  // 否则直接返回响应
-  return response as T;
-};
 
 
 export const getAlerts = async (params?: AlertQueryDto) => {

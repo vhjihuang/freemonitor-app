@@ -1,13 +1,7 @@
 // src/lib/api/deviceApi.ts
 import { apiClient } from '../api';
 import { Device, CreateDeviceDto, UpdateDeviceDto, Metric } from '@freemonitor/types';
-
-// 提取响应数据的统一工具函数
-const handleResponse = <T>(response: { data: T } | T): T => {
-  return (response as { data: T }).data !== undefined 
-    ? (response as { data: T }).data 
-    : (response as T);
-};
+import { handleResponse } from './apiUtils';
 
 /**
  * 获取所有设备
