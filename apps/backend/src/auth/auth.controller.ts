@@ -13,6 +13,7 @@ import {
   UsePipes,
   ValidationPipe,
   Delete,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ApiCommonResponses } from '../common/decorators/api-common-responses.decorator';
@@ -78,8 +79,12 @@ export class AuthController {
   @ApiOperation({ summary: '获取用户会话列表' })
   @ApiResponse({ status: 200, description: '成功获取会话列表', type: [SessionResponseDto] })
   @ApiCommonResponses()
-  async getSessions(@Request() req: RequestWithUser): Promise<SessionResponseDto[]> {
-    return this.authService.getSessions(req.user.id, req.headers['user-agent'] || '');
+  async getSessions(
+    @Request() req: RequestWithUser,
+    @Headers('authorization') authHeader?: string
+  ): Promise<SessionResponseDto[]> {
+    const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : '';
+    return this.authService.getSessions(req.user.id, req.headers['user-agent'] || '', accessToken);
   }
 
   @Delete('sessions/:id')
