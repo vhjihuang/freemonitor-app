@@ -69,7 +69,9 @@ export default function SessionsPage() {
 
   // 当前会话标识（基于后端返回的isCurrent字段）
   const isCurrentSession = (session: Session) => {
-    return session.isCurrent;
+    const result = session.isCurrent;
+    console.log('Checking session:', session.id, 'isCurrent:', result, 'UserAgent:', session.userAgent);
+    return result;
   };
 
   return (
@@ -162,21 +164,14 @@ export default function SessionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {!isCurrentSession(session) && (
-                          <Dialog open={isRevokeDialogOpen && selectedSession?.id === session.id} onOpenChange={(open) => {
-                            if (!open) {
-                              setIsRevokeDialogOpen(false);
-                              setSelectedSession(null);
-                            }
-                          }}>
+                        {isCurrentSession(session) ? (
+                          <span className="text-sm text-muted-foreground">当前设备</span>
+                        ) : (
+                          <Dialog>
                             <DialogTrigger asChild>
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => {
-                                  setSelectedSession(session);
-                                  setIsRevokeDialogOpen(true);
-                                }}
                               >
                                 撤销
                               </Button>
@@ -192,15 +187,16 @@ export default function SessionsPage() {
                                 <Button 
                                   variant="outline" 
                                   onClick={() => {
-                                    setIsRevokeDialogOpen(false);
-                                    setSelectedSession(null);
+                                    // 关闭对话框的逻辑由Dialog组件自动处理
                                   }}
                                 >
                                   取消
                                 </Button>
                                 <Button 
                                   variant="destructive" 
-                                  onClick={handleRevokeConfirm}
+                                  onClick={async () => {
+                                    await handleRevokeSession(session.id);
+                                  }}
                                 >
                                   确认撤销
                                 </Button>
