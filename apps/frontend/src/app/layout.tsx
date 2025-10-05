@@ -10,7 +10,6 @@ import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 const inter = Inter({ subsets: ['latin'] });
-
 export const metadata: Metadata = {
   title: 'FreeMonitor - 免费设备监控平台',
   description: '专业的设备监控解决方案，实时监控您的设备状态',
@@ -35,32 +34,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <head>
-        {/* 添加 PWA 支持 */}
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="format-detection" content="telephone=no" />
-      </head>
       <body className={inter.className}>
         <ErrorBoundary>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <QueryProvider>
-              <ToastProvider>
-                <div className="flex flex-col min-h-screen">
-                  <main className="flex-grow">
-                    {children}
-                  </main>
-                </div>
+          <QueryProvider>
+            <ToastProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                {children}
                 <Toaster />
-              </ToastProvider>
-            </QueryProvider>
-          </ThemeProvider>
+                <ToastContainer />
+              </ThemeProvider>
+            </ToastProvider>
+          </QueryProvider>
         </ErrorBoundary>
       </body>
     </html>

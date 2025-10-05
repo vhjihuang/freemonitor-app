@@ -20,6 +20,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Alert } from '@freemonitor/types';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -52,7 +53,7 @@ export default function DashboardPage() {
             <CardContent>
               {isLoading ? (
                 <div className="flex items-center justify-center h-64">
-                  <div>加载中...</div>
+                  <LoadingSpinner text="加载中..." />
                 </div>
               ) : error ? (
                 <div className="flex items-center justify-center h-64">

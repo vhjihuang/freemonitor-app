@@ -18,7 +18,6 @@
 - 错误处理
 
 ### 导航组件
-- **NavigationHeader**: 顶部导航栏，包含菜单和退出按钮
 - **Sidebar**: 侧边栏导航，支持折叠/展开
 
 ## 数据流
@@ -47,7 +46,6 @@ export default function Dashboard() {
 ### 带导航的完整页面
 ```tsx
 import { Sidebar } from '@/components/layout/Sidebar';
-import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { StatsOverview } from '@/components/dashboard';
 
 export default function Dashboard() {
@@ -58,9 +56,6 @@ export default function Dashboard() {
       
       {/* 主内容区 */}
       <div className="flex-1 flex flex-col">
-        {/* 顶部导航 */}
-        <NavigationHeader currentPage="仪表盘" />
-        
         {/* 内容 */}
         <main className="flex-1 p-6">
           <StatsOverview />
@@ -72,11 +67,6 @@ export default function Dashboard() {
 ```
 
 ## 导航功能
-
-### NavigationHeader
-- 顶部横向导航栏
-- 包含：Logo、主导航菜单、用户下拉菜单、退出按钮
-- 响应式设计：移动端适配
 
 ### Sidebar
 - 左侧垂直导航栏

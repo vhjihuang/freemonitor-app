@@ -54,6 +54,6 @@ export default function AdminPage() {
 
 ## 注意事项
 
-1. 使用此模板后，无需再手动引入 AuthGuard、Sidebar 和 NavigationHeader 组件
+1. 使用此模板后，无需再手动引入 AuthGuard 和 Sidebar 组件
 2. 页面内容应作为 children 传递给模板组件
 3. 确保正确设置 currentPage 和 currentPath 属性以保证导航的正确显示

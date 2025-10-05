@@ -15,10 +15,6 @@ import { logout } from '@/lib/auth';
 export function Navbar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  
-  // 所有非认证页面都需要固定导航栏
-  const isAuthPage = pathname.startsWith('/auth') || pathname === '/login' || pathname === '/register';
-  const shouldSticky = !isAuthPage;
 
   const handleLogout = () => {
     logout();
@@ -33,16 +29,12 @@ export function Navbar() {
     { name: '会话管理', href: '/sessions' },
   ];
 
-  // 品牌标识的链接地址
-  // 未登录用户链接到首页（营销页面），已登录用户链接到仪表板
-  const brandLink = user ? '/dashboard' : '/';
-
   return (
-    <nav className={`${shouldSticky ? 'sticky top-0 z-50' : 'relative'} border-b bg-background`}>
+    <nav className="border-b bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
-            <Link href={brandLink} className="text-xl font-bold">
+            <Link href="/" className="text-xl font-bold">
               FreeMonitor
             </Link>
             {user && (
