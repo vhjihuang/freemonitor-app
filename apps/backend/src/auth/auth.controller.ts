@@ -74,6 +74,7 @@ export class AuthController {
   }
 
   @Get('sessions')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: '获取用户会话列表' })
   @ApiResponse({ status: 200, description: '成功获取会话列表', type: [SessionResponseDto] })
   @ApiCommonResponses()
@@ -82,6 +83,7 @@ export class AuthController {
   }
 
   @Delete('sessions/:id')
+  @UseGuards(DevAuthGuard)
   @ApiOperation({ summary: '按设备ID撤销会话' })
   @ApiResponse({ status: 200, description: '成功撤销会话' })
   @ApiCommonResponses()
@@ -89,6 +91,7 @@ export class AuthController {
     return this.authService.revokeSession(id, req.user.id);
   }
 
+  @UseGuards(DevAuthGuard)
   @Delete('sessions')
   @ApiOperation({ summary: '登出其他设备' })
   @ApiResponse({ status: 200, description: '成功登出其他设备' })
