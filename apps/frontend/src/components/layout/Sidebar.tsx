@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -17,12 +17,20 @@ import {
 
 interface SidebarProps {
   currentPath?: string;
+  onCollapseChange?: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ currentPath = '/dashboard' }: SidebarProps) {
+export function Sidebar({ currentPath = '/dashboard', onCollapseChange }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
+
+  // 通知父组件侧边栏折叠状态变化
+  useEffect(() => {
+    if (onCollapseChange) {
+      onCollapseChange(isCollapsed);
+    }
+  }, [isCollapsed, onCollapseChange]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -46,15 +54,21 @@ export function Sidebar({ currentPath = '/dashboard' }: SidebarProps) {
     { name: '个人资料', href: '/profile', icon: User },
   ];
 
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
     <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-900 text-white h-screen transition-all duration-300 ease-in-out flex flex-col`}>
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
         {!isCollapsed && (
-          <h1 className="text-lg font-bold">FreeMonitor</h1>
+          <a href="/dashboard" className="text-lg font-bold text-white hover:text-gray-200 transition-colors">
+            FreeMonitor
+          </a>
         )}
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={toggleCollapse}
           className="p-2 rounded-md hover:bg-gray-800"
         >
           {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}

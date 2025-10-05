@@ -1,13 +1,31 @@
 // apps/frontend/src/app/layout.tsx
 import type { Metadata } from 'next';
 import './globals.css';
-import { QueryProvider } from '../components/providers/query-provider';
-import { ToastProvider } from '../components/providers/toast-provider';
-import { ToastContainer } from '../components/ui/toast-container';
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
+import { QueryProvider } from '@/components/providers/query-provider';
+import { ToastProvider } from '@/components/providers/toast-provider';
+import { ToastContainer } from '@/components/ui/toast-container';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'FreeMonitor - Device Monitoring Platform',
-  description: 'Modern device monitoring platform built with Next.js and Nest.js',
+  title: 'FreeMonitor - 免费设备监控平台',
+  description: '专业的设备监控解决方案，实时监控您的设备状态',
+  viewport: 'width=device-width, initial-scale=1',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' }
+  ],
+  keywords: '设备监控,监控平台,实时监控,设备管理',
+  authors: [{ name: 'FreeMonitor Team' }],
+  openGraph: {
+    title: 'FreeMonitor - 免费设备监控平台',
+    description: '专业的设备监控解决方案，实时监控您的设备状态',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({
@@ -16,16 +34,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
-        <QueryProvider>
-          <ToastProvider>
-            <div className="min-h-screen bg-background">
-              {children}
-            </div>
-            <ToastContainer />
-          </ToastProvider>
-        </QueryProvider>
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        {/* 添加 PWA 支持 */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="format-detection" content="telephone=no" />
+      </head>
+      <body className={inter.className}>
+        <ErrorBoundary>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              <ToastProvider>
+                <div className="flex flex-col min-h-screen">
+                  <main className="flex-grow">
+                    {children}
+                  </main>
+                </div>
+                <Toaster />
+              </ToastProvider>
+            </QueryProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );
