@@ -10,7 +10,8 @@ export * from './error-codes.constants';
 export * from './roles';
 export * from './database/database.filters';
 export * from './dashboard.types';
+export * from './session';
 
 // Auth DTOs
-export type { UserResponseDto } from './auth/user.response.dto';
+export type { UserResponseDto, RequestWithUser } from './auth/user.response.dto';
 export type { TokenResponse } from './auth/token.response.dto';

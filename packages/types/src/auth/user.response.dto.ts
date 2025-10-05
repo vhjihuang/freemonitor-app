@@ -6,3 +6,8 @@ export interface UserResponseDto {
   name?: string;
   role?: Role;
 }
+
+// 扩展的请求接口，包含用户信息
+export interface RequestWithUser extends Request {
+  user: UserResponseDto;
+}

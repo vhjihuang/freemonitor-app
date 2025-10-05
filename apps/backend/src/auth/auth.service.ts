@@ -11,6 +11,7 @@ import { AppLoggerService } from "../common/services/logger.service";
 import { TokenBlacklistService } from "./token-blacklist.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { SessionResponseDto } from "./dto/session.response.dto";
 
 @Injectable()
 export class AuthService {
@@ -831,6 +832,181 @@ export class AuthService {
         executionTime: executionTime,
       });
       throw new InternalServerErrorException("更新密码失败，请稍后再试");
+    }
+  }
+
+  /**
+   * 获取用户的会话列表
+   * @param userId 用户ID
+   * @param currentUserAgent 当前请求的User-Agent
+   * @returns 会话列表
+   */
+  async getSessions(userId: string, currentUserAgent: string): Promise<SessionResponseDto[]> {
+    const startTime = Date.now();
+
+    this.logger.debug("开始获取用户会话列表", { userId });
+
+    try {
+      // 获取用户的所有刷新令牌记录
+      const refreshTokens = await this.prisma.refreshToken.findMany({
+        where: {
+          userId,
+          ...DatabaseFilters.validRefreshToken(),
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      // 转换为会话响应DTO
+      const sessions: SessionResponseDto[] = refreshTokens.map(token => ({
+        id: token.id,
+        userAgent: token.userAgent,
+        ipAddress: token.ipAddress,
+        createdAt: token.createdAt,
+        expiresAt: token.expiresAt,
+        revoked: token.revoked,
+        lastActivityAt: null, // TODO: 需要实现最后活动时间记录
+        isCurrent: token.userAgent === currentUserAgent, // 简单匹配User-Agent判断是否为当前会话
+      }));
+
+      const executionTime = Date.now() - startTime;
+      this.logger.debug("用户会话列表获取成功", { userId, sessionCount: sessions.length, executionTime });
+
+      return sessions;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+
+      this.logger.error("获取用户会话列表失败", error.stack, undefined, {
+        userId,
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        executionTime,
+      });
+      throw new InternalServerErrorException("获取会话列表失败，请稍后重试");
+    }
+  }
+
+  /**
+   * 按设备ID撤销会话
+   * @param tokenId 令牌ID
+   * @param userId 用户ID
+   */
+  async revokeSession(tokenId: string, userId: string): Promise<void> {
+    const startTime = Date.now();
+
+    this.logger.debug("开始撤销用户会话", { userId, tokenId });
+
+    try {
+      // 查找并验证令牌是否存在且属于该用户
+      const tokenRecord = await this.prisma.refreshToken.findFirst({
+        where: {
+          id: tokenId,
+          userId,
+          ...DatabaseFilters.validRefreshToken(),
+        },
+      });
+
+      if (!tokenRecord) {
+        this.logger.warn("撤销会话失败: 会话不存在或不属于当前用户", { userId, tokenId });
+        throw new BadRequestException("会话不存在或不属于当前用户");
+      }
+
+      // 标记刷新令牌为已撤销
+      await this.prisma.refreshToken.update({
+        where: { id: tokenId },
+        data: { revoked: true },
+      });
+
+      const executionTime = Date.now() - startTime;
+      this.logger.log("用户会话撤销成功", { userId, tokenId, executionTime });
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      this.logger.error("撤销用户会话失败", error.stack, undefined, {
+        userId,
+        tokenId,
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        executionTime,
+      });
+      throw new InternalServerErrorException("撤销会话失败，请稍后重试");
+    }
+  }
+
+  /**
+   * 登出其他设备（撤销除当前令牌外的所有令牌）
+   * @param userId 用户ID
+   * @param currentAccessToken 当前访问令牌
+   */
+  async revokeOtherSessions(userId: string, currentAccessToken: string): Promise<void> {
+    const startTime = Date.now();
+
+    this.logger.debug("开始登出其他设备", { userId });
+
+    try {
+      // 验证当前访问令牌
+      if (!currentAccessToken) {
+        this.logger.warn("登出其他设备失败: 当前访问令牌为空", { userId });
+        throw new BadRequestException("当前访问令牌不能为空");
+      }
+
+      // 验证当前访问令牌并获取对应的刷新令牌
+      let currentRefreshToken: string | undefined;
+      try {
+        const decoded = this.jwtService.verify(currentAccessToken, {
+          secret: this.configService.get("JWT_SECRET") || "default-secret",
+        });
+        // 从数据库中查找与当前访问令牌对应的刷新令牌
+        const refreshTokenRecord = await this.prisma.refreshToken.findFirst({
+          where: {
+            userId,
+            ...DatabaseFilters.validRefreshToken(),
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+        currentRefreshToken = refreshTokenRecord?.token;
+      } catch (error) {
+        this.logger.warn("登出其他设备失败: 当前访问令牌无效", { userId, errorType: error.constructor.name });
+        throw new UnauthorizedException("当前访问令牌无效");
+      }
+
+      // 撤销除当前令牌外的所有刷新令牌
+      const result = await this.prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          ...DatabaseFilters.validRefreshToken(),
+          token: {
+            not: currentRefreshToken,
+          },
+        },
+        data: {
+          revoked: true,
+        },
+      });
+
+      const executionTime = Date.now() - startTime;
+      this.logger.log("登出其他设备成功", { userId, revokedCount: result.count, executionTime });
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      this.logger.error("登出其他设备失败", error.stack, undefined, {
+        userId,
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        executionTime,
+      });
+      throw new InternalServerErrorException("登出其他设备失败，请稍后重试");
     }
   }
 }
