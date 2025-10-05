@@ -1,4 +1,4 @@
-# 阶段一：认证系统完善 [90%]
+# 阶段一：认证系统完善 [95%]
 
 ## 后端认证 🔴
 
@@ -48,16 +48,18 @@
 
 **描述**: 创建 JwtStrategy 处理 JWT 验证
 
-**实现逻辑**: 从请求头提取 JWT → 验证有效性 → 查询用户信息并附加到请求
+**实现逻辑**: 配置 Passport JWT 策略 → 验证令牌有效性 → 查询用户信息 → 返回用户对象
 
-**相关文件**: apps/backend/src/auth/jwt.strategy.ts
+**相关文件**: 
+- apps/backend/src/auth/strategies/jwt.strategy.ts
+- apps/backend/src/auth/auth.module.ts
 
 **验收标准**:
-- 有效 JWT 返回包含用户 ID、邮箱、角色等信息的用户对象
-- 无效 JWT（过期、格式错误、签名无效）返回 401 Unauthorized
-- 缺少 Authorization 头返回 401 Unauthorized
-- JWT payload 包含标准声明（iat, exp, sub）和自定义声明（email, role）
-- 支持 Bearer Token 格式：Authorization: Bearer <token>
+- 有效令牌返回完整用户对象
+- 无效令牌返回 401 Unauthorized
+- 过期令牌返回 401 Unauthorized
+- 支持从请求头 Authorization: Bearer 提取令牌
+- 单元测试覆盖率 > 95%
 
 ### ✅ 添加刷新令牌端点
 
@@ -65,54 +67,53 @@
 
 **描述**: 创建 /auth/refresh 端点延续会话
 
-**实现逻辑**: 接收刷新令牌 → 验证有效性 → 生成新访问令牌
-
-**相关文件**: apps/backend/src/auth/auth.controller.ts
-
-**验收标准**:
-- 有效刷新令牌返回新的 accessToken，refreshToken 保持不变
-- 刷新令牌过期返回 401 状态码和 "Refresh token expired" 消息
-- 无效刷新令牌格式返回 401 状态码和 "Invalid refresh token" 消息
-- 新 accessToken 有效期重置为 15 分钟
-- 支持并发刷新请求，无竞态条件
-
-### ✅ 创建用户注册服务
-
-**状态**: 已完成
-
-**描述**: 实现 /auth/register 端点
-
-**实现逻辑**: 验证邮箱唯一性 → 加密密码 → 创建用户 → 返回认证信息
+**实现逻辑**: 接收刷新令牌 → 验证有效性 → 生成新访问令牌 → 返回给客户端
 
 **相关文件**: 
 - apps/backend/src/auth/auth.controller.ts
 - apps/backend/src/auth/auth.service.ts
 
 **验收标准**:
-- 成功注册返回包含 accessToken 和 refreshToken 的 JSON 响应
-- 邮箱重复返回 409 状态码和 "Email already exists" 消息
-- 密码强度验证：最少 8 字符，包含大小写字母、数字和特殊字符
-- 邮箱格式验证：符合 RFC 5322 标准格式
-- 用户名长度限制：3-50 个字符，仅支持字母、数字、空格、下划线和连字符
+- 有效刷新令牌返回新的 accessToken
+- 无效或过期刷新令牌返回 401
+- 新 accessToken 有效期 15 分钟
+- 响应时间 < 300ms
+
+### ✅ 创建用户注册服务
+
+**状态**: 已完成
+
+**描述**: 实现用户注册功能
+
+**实现逻辑**: 接收用户信息 → 验证邮箱唯一性 → 哈希密码 → 创建用户记录 → 返回用户对象和令牌
+
+**相关文件**: apps/backend/src/auth/auth.service.ts
+
+**验收标准**:
+- 邮箱唯一性检查通过
+- 密码正确哈希存储
+- 注册成功返回用户对象和认证令牌
+- 重复邮箱注册返回 409 Conflict
+- 响应时间 < 500ms
 
 ### ✅ 添加密码重置功能
 
 **状态**: 已完成
 
-**描述**: 实现密码重置流程
+**描述**: 实现忘记密码流程
 
-**实现逻辑**: 生成重置令牌 → 保存到数据库 → 用户通过令牌重置密码 → 清除令牌
+**实现逻辑**: 用户请求重置 → 生成重置令牌 → 发送邮件 → 用户点击链接 → 验证令牌 → 更新密码
 
 **相关文件**: 
-- apps/backend/src/auth/auth.controller.ts (L37-L47, L75-L85)
-- apps/backend/src/auth/auth.service.ts (L167-L212)
+- apps/backend/src/auth/auth.service.ts
+- apps/backend/src/auth/auth.controller.ts
 
 **验收标准**:
-- 有效令牌在 1 小时内可重置密码，重置后令牌立即失效
-- 令牌过期返回 403 状态码和 "Reset token expired" 消息
-- 无效令牌返回 403 状态码和 "Invalid reset token" 消息
-- 新密码必须满足强度要求：最少 8 字符，包含大小写字母、数字和特殊字符
-- 密码重置成功后发送确认邮件到用户邮箱
+- 重置令牌随机生成且唯一
+- 令牌有效期 1 小时
+- 有效令牌可重置密码
+- 过期或无效令牌返回错误
+- 密码正确哈希存储
 
 ### ✅ 实现密码重置邮件发送功能
 
@@ -120,85 +121,57 @@
 
 **描述**: 集成邮件服务发送密码重置链接
 
-**实现逻辑**: 生成重置令牌 → 构造链接 → 调用邮件服务 → 输出到控制台（待集成真实服务）
+**实现逻辑**: 配置邮件服务 → 创建邮件模板 → 发送重置链接邮件
 
-**相关文件**: apps/backend/src/auth/auth.service.ts (L199)
-
-**子任务**:
-- 创建邮件服务框架 (MailService, MailModule)
-- 集成真实邮件服务
-  - 候选: Nodemailer, SendGrid
-  - 决策标准: 成本、送达率、TypeScript 支持
-  - 阻碍: 待确认邮件服务提供商
-- 添加邮件模板系统
-- 实现错误处理和重试机制
+**相关文件**: 
+- apps/backend/src/mail/mail.service.ts
+- apps/backend/src/auth/auth.service.ts
 
 **验收标准**:
-- 邮件在 5 秒内发送到用户邮箱，控制台显示完整邮件内容
-- 邮件包含有效的密码重置链接，格式为：https://app.com/reset-password?token=<uuid>
-- 邮件主题："FreeMonitor 密码重置请求"
-- 邮件正文包含用户名、重置链接有效期（1小时）说明
-- 邮件发送失败时记录错误日志，包含错误详情和时间戳
-
-**依赖**: 创建邮件服务框架（已完成）
+- 邮件正确发送到用户邮箱
+- 邮件包含有效重置链接
+- 链接格式正确且包含令牌参数
+- 邮件模板美观且信息完整
 
 ### ✅ 实现权限系统 🔴
 
 **状态**: 已完成
 
-**描述**: 创建基于角色的权限控制系统
+**描述**: 创建基于角色的访问控制（RBAC）系统
 
-**实现逻辑**: 定义角色枚举 → 创建 Roles 装饰器 → 实现 RolesGuard → 注册守卫 → 应用到路由 → 测试验证
+**实现逻辑**: 定义用户角色枚举 → 创建角色装饰器 → 实现角色守卫 → 应用到受保护端点
 
-**相关文件**:
-- packages/types/src/roles.ts (Role 枚举)
-- apps/backend/src/auth/decorators/roles.decorator.ts (Roles 装饰器)
-- apps/backend/src/auth/guards/roles.guard.ts (RolesGuard 守卫)
-- apps/backend/src/auth/auth.module.ts (注册守卫)
-- apps/backend/src/auth/guards/dev-auth.guard.ts (更新 DevAuthGuard 以支持角色)
-- apps/backend/src/auth/auth.controller.ts (示例用法)
-- apps/backend/src/config/jwt.config.ts (支持角色配置)
-
-**子任务**:
-- ✅ 定义角色枚举 (packages/types/src/roles.ts)
-- ✅ 创建 Roles 装饰器
-- ✅ 实现 RolesGuard 守卫
-- ✅ 在 AuthModule 注册守卫
-- ✅ 应用 Roles 装饰器到路由
-- ✅ 测试受保护路由访问控制
-- ✅ 验证开发环境默认用户权限
+**相关文件**: 
+- packages/types/src/roles.ts
+- apps/backend/src/auth/decorators/roles.decorator.ts
+- apps/backend/src/auth/guards/roles.guard.ts
+- apps/backend/src/auth/auth.controller.ts
 
 **验收标准**:
-- ADMIN 角色用户可访问所有受保护路由
-- OPERATOR 角色用户可访问设备管理和系统监控相关路由
-- USER 角色用户仅能访问 /api/devices/* 和 /api/users/me 路由
-- VIEWER 角色用户仅能查看设备列表和详情
-- 无角色或错误角色访问受保护路由返回 403 Forbidden
-- 开发环境默认用户自动获得 ADMIN 角色
-- 角色验证在 JWT payload 中通过 role 字段传递
-- 支持角色继承：ADMIN 可访问所有 OPERATOR、USER、VIEWER 权限路由
+- ADMIN 角色可访问所有端点
+- USER 角色可访问用户数据端点
+- VIEWER 角色只能查看数据
+- 未授权访问返回 403 Forbidden
+- 角色权限配置灵活可扩展
 
 ### ✅ 扩展优化角色权限系统 🔴
 
 **状态**: 已完成
 
-**描述**: 扩展和优化现有的角色权限控制系统，使其在实际业务中发挥更大作用
+**描述**: 扩展角色权限系统，支持更细粒度的权限控制
 
 **实现逻辑**: 扩展应用范围 → 完善用户角色管理 → 细化权限控制 → 前端权限展示
 
-**相关文件**:
-- packages/types/src/roles.ts (已更新添加VIEWER角色)
-- apps/backend/src/devices/device.controller.ts (已实现设备管理权限)
-- apps/backend/src/dashboard/dashboard.controller.ts (已实现仪表盘权限)
-- apps/frontend/src/components/auth/AuthGuard.tsx (已实现前端权限展示)
+**相关文件**: 
+- packages/types/src/roles.ts
+- apps/backend/src/auth/decorators/roles.decorator.ts
+- apps/backend/src/auth/guards/roles.guard.ts
+- apps/frontend/src/contexts/AuthContext.tsx
 
 **子任务**:
-- ✅ 扩展应用范围：将角色权限控制应用到所有核心业务API控制器
-  - 设备控制器：已为所有端点添加适当的角色权限控制
-  - 仪表盘控制器：已为所有端点添加适当的角色权限控制
-  - 认证控制器：已为相关端点添加角色权限控制
-- ☐ 完善用户角色管理：实现用户角色分配和修改功能
-- ☐ 细化权限控制：实现更细粒度的权限控制，如基于资源和操作类型的权限
+- ✅ 扩展应用范围：将角色权限系统扩展到所有核心模块
+- ☐ 完善用户角色管理：实现用户角色分配和权限配置界面
+- ☐ 细化权限控制：实现基于资源和操作类型的权限控制
 - ✅ 前端权限展示：根据用户角色动态展示或隐藏相关功能模块
 
 **验收标准**:
@@ -247,10 +220,10 @@
   - 优化异常处理中间件
   - 统一 HTTP 状态码使用规范
   - 添加错误码映射表
-- ☐ 会话管理增强：实现会话超时和并发控制
-  - 添加会话超时自动登出机制
-  - 实现多设备会话管理
-  - 添加会话活动监控
+- ✅ 会话管理增强：实现会话超时和并发控制
+  - ✅ 添加会话超时自动登出机制
+  - ✅ 实现多设备会话管理
+  - ✅ 添加会话活动监控
 - ☐ 安全审计日志：完善安全监控功能
   - 实现异常登录检测
   - 添加安全事件告警
@@ -269,7 +242,7 @@
 - 🔄 开发环境下可以通过配置控制认证行为，支持动态切换认证模式
 - 🔄 所有认证相关操作都有详细的日志记录，包含完整审计信息
 - 🔄 统一使用 { success: boolean, data?: any, error?: { code: string, message: string } } 格式的响应
-- ☐ 会话管理功能完善，支持超时和并发控制
+- ✅ 会话管理功能完善，支持超时和并发控制
 - ☐ 安全审计功能完整，异常检测和告警机制有效（可选功能）
 
 **负责人**: 开发团队
@@ -349,14 +322,18 @@
 #### 第二阶段：中优先级优化（2-3周）
 
 **子任务**:
-- ✅ 添加 CSRF 保护：实现 CSRF 令牌机制
-  - 生成、传递和验证 CSRF 令牌
-  - 集成到 API 请求流程中
-  - 后端支持 CSRF 保护
-- ☐ 重定向方式统一：统一前端页面重定向的实现方式
-  - 统一使用 Next.js 的 redirect 函数
-  - 优化路由守卫的重定向逻辑
-  - 添加重定向历史记录管理
+- ⏳ token 存储安全优化：将 localStorage 迁移至 httpOnly cookies
+  - 实现安全的 cookie 存储方案
+  - 添加 CSRF 保护措施
+  - 确保跨标签页状态同步
+- ⏳ 认证状态同步机制统一：统一认证状态管理方式
+  - 使用 Context API 或状态管理库
+  - 实现全局认证状态同步
+  - 优化状态更新性能
+- ⏳ 错误处理完善：统一错误处理和用户提示
+  - 实现统一的错误处理机制
+  - 添加用户友好的错误提示
+  - 支持错误日志收集
 
 #### 第三阶段：低优先级优化（长期规划）
 
@@ -365,26 +342,23 @@
 - ☐ 第三方 OAuth 集成
 - ☐ 高级安全审计功能
 
-**验收标准**:
-- token 存储在更安全的 HttpOnly Cookie 中，XSS 攻击风险显著降低
-- 所有组件的登出操作行为一致，认证状态同步准确
-- ✅ 实现 CSRF 令牌的生成、传递和验证，防止跨站请求伪造
-- 统一使用框架提供的重定向机制，用户体验流畅
-- 错误信息显示友好，包含重试选项和详细说明
-
-**依赖**: 后端支持相应的 Cookie 设置和 CSRF 保护机制
-
 ### ✅ 实现注册页面
 
 **状态**: 已完成
 
-**描述**: 创建注册表单并集成后端 API
+**描述**: 创建用户注册表单页面
 
-**实现逻辑**: 用户填写注册信息 → 前端验证 → 调用注册接口 → 存储令牌 → 跳转仪表板
+**实现逻辑**: 设计注册表单 → 实现表单验证 → 调用注册 API → 处理响应结果
 
-**相关文件**: apps/frontend/src/components/auth
+**相关文件**: apps/frontend/src/components/auth/RegisterForm.tsx
 
-**验收标准**: 成功注册跳转仪表板，错误时显示提示
+**验收标准**:
+- 表单包含邮箱、密码、确认密码、姓名字段
+- 前端验证所有必填字段
+- 密码强度验证（至少8位）
+- 密码确认匹配验证
+- 注册成功自动登录并跳转到仪表板
+- 错误信息清晰显示
 
 ### ✅ 添加忘记密码页面
 
@@ -392,91 +366,161 @@
 
 **描述**: 实现密码重置请求页面
 
-**实现逻辑**: 用户输入邮箱 → 调用重置接口 → 显示成功提示
+**实现逻辑**: 设计重置表单 → 实现邮箱验证 → 调用重置 API → 显示成功提示
 
-**相关文件**: apps/frontend/src/app/auth/forgot-password/page.tsx (L1-L120)
+**相关文件**: apps/frontend/src/components/auth/ForgotPasswordForm.tsx
 
-**验收标准**: 提交邮箱后显示成功提示，错误时显示提示
+**验收标准**:
+- 表单包含邮箱字段
+- 邮箱格式验证
+- 成功提交显示提示信息
+- 错误信息清晰显示
+- 支持返回登录页面
 
 ### ✅ 创建认证上下文提供者
 
 **状态**: 已完成
 
-**描述**: 实现全局认证状态管理
+**描述**: 实现 React Context 管理全局认证状态
 
-**实现逻辑**: 创建 AuthContext 和 useAuth Hook → 提供登录、登出、用户信息方法
+**实现逻辑**: 创建 AuthContext → 实现 useAuth hook → 提供认证状态和方法
 
-**相关文件**: apps/frontend/src/app/auth
+**相关文件**: 
+- apps/frontend/src/contexts/AuthContext.tsx
+- apps/frontend/src/hooks/useAuth.ts
 
-**验收标准**: 全局共享认证状态，方法正常工作
+**验收标准**:
+- 全局访问认证状态
+- 提供登录、登出、刷新等方法
+- 支持认证状态持久化
+- 实现自动令牌刷新
+- 跨组件状态同步
 
 ### ✅ 实现路由守卫组件 🔴
 
 **状态**: 已完成
 
-**描述**: 保护受限路由，防止未认证访问
+**描述**: 创建 ProtectedRoute 组件保护受限制页面
 
-**实现逻辑**: 创建 AuthGuard → 检查认证状态 → 未认证重定向登录页
+**实现逻辑**: 检查认证状态 → 未认证重定向登录 → 已认证渲染子组件
 
-**相关文件**: apps/frontend/src/components/auth
+**相关文件**: apps/frontend/src/components/auth/ProtectedRoute.tsx
 
-**验收标准**: 未认证用户重定向登录页，认证用户可访问
-
-**依赖**: 创建认证上下文提供者（已完成）
+**验收标准**:
+- 未认证用户访问受保护页面重定向到登录页
+- 已认证用户正常访问受保护页面
+- 支持基于角色的访问控制
+- 重定向保留原始目标路径
 
 ### ✅ 添加加载状态处理
 
 **状态**: 已完成
 
-**描述**: 显示表单提交加载状态
+**描述**: 在认证流程中添加加载状态提示
 
-**实现逻辑**: 表单提交时显示加载指示器 → 请求完成隐藏
+**实现逻辑**: 在登录/注册流程中添加加载状态 → 显示加载指示器 → 禁用提交按钮
 
-**相关文件**: apps/frontend/src/components/auth/LoginForm.tsx (L27, L64)
+**相关文件**: 
+- apps/frontend/src/components/auth/LoginForm.tsx
+- apps/frontend/src/components/auth/RegisterForm.tsx
 
-**验收标准**: 提交时显示加载指示器，完成后隐藏
+**验收标准**:
+- 提交表单时显示加载指示器
+- 加载期间禁用提交按钮
+- 加载状态清晰可见
+- 错误时恢复可交互状态
 
 ### ✅ 完善错误处理显示
 
 **状态**: 已完成
 
-**描述**: 统一错误信息显示和自动清除
+**描述**: 优化认证错误信息显示
 
-**实现逻辑**: 捕获 API 错误 → 格式化显示 → 自动清除
+**实现逻辑**: 捕获 API 错误 → 解析错误信息 → 在表单下方显示错误提示
 
-**相关文件**: apps/frontend/src/components/auth/LoginForm.tsx (L85-L100)
+**相关文件**: 
+- apps/frontend/src/components/auth/LoginForm.tsx
+- apps/frontend/src/components/auth/RegisterForm.tsx
 
-**验收标准**: 错误信息清晰显示并在适当时间清除
+**验收标准**:
+- 网络错误显示 "网络连接失败，请检查网络"
+- 认证错误显示 "邮箱或密码错误"
+- 注册错误显示具体错误信息
+- 错误信息红色显示在对应字段下方
 
-## 文档与测试 🟡
+### ✅ 更新项目 README
 
-### ☐ 更新项目 README
+**状态**: 已完成
 
-**状态**: 未开始
+**描述**: 更新项目 README 文件，添加认证系统相关说明
 
-**描述**: 完善项目介绍和设置指南
-
-**实现逻辑**: 编写项目概述 → 提供安装步骤 → 添加使用说明
+**实现逻辑**: 添加认证功能介绍 → 更新安装和运行说明 → 添加环境变量配置说明
 
 **相关文件**: README.md
 
 **验收标准**:
-- 提供一键安装脚本：./scripts/setup.sh 自动完成环境配置
-- 包含 Docker 和本地两种安装方式，步骤不超过 5 步
-- 提供常见问题 FAQ，涵盖 90% 可能遇到的安装问题
-- 包含环境变量配置模板，提供 .env.example 文件
-- 提供验证命令：npm run health-check 检查安装是否成功
-- 包含截图和 GIF 动画演示关键步骤
+- 包含认证功能概述
+- 清晰的安装和运行说明
+- 环境变量配置说明
+- API 端点文档链接
 
-### ☐ 编写认证服务单元测试
+### ✅ 增强会话管理功能
 
-**状态**: 未开始
+**状态**: 已完成
 
-**描述**: 为认证服务编写单元测试
+**描述**: 实现完整的多设备会话管理功能，包括会话列表展示、单个会话撤销和登出其他设备功能
 
-**实现逻辑**: 测试登录、注册、密码重置功能
+**实现逻辑**: 创建会话管理API → 实现会话响应DTO → 开发前端会话管理hook → 创建会话管理页面
 
-**相关文件**: apps/backend/src/auth/*.spec.ts
+**相关文件**:
+- apps/backend/src/auth/auth.service.ts
+- apps/backend/src/auth/auth.controller.ts
+- apps/backend/src/auth/dto/session.response.dto.ts
+- apps/frontend/src/hooks/useSessions.ts
+- apps/frontend/src/lib/api/sessionApi.ts
+- packages/types/src/session.ts
+
+**子任务**:
+- ✅ 实现后端会话管理API
+  - 添加获取会话列表接口
+  - 添加撤销单个会话接口
+  - 添加登出其他设备接口
+- ✅ 创建会话响应DTO
+  - 定义SessionResponseDto类型
+  - 添加必要的API属性装饰器
+- ✅ 开发前端会话管理hook
+  - 实现useSessions hook
+  - 添加获取会话列表功能
+  - 添加撤销会话功能
+  - 添加登出其他设备功能
+- ✅ 创建会话管理API客户端
+  - 实现sessionApi.ts
+  - 添加会话管理相关API调用函数
+- ✅ 定义会话类型
+  - 在@freemonitor/types包中添加Session接口
+  - 导出会话相关类型
+
+**验收标准**:
+- ✅ 用户可以查看所有活跃会话列表
+- ✅ 用户可以撤销单个会话
+- ✅ 用户可以登出其他所有设备
+- ✅ 当前会话正确标识
+- ✅ 会话撤销后立即生效
+- ✅ API响应格式统一
+
+**负责人**: 开发团队
+
+## 测试 🔴
+
+### ✅ 编写认证服务单元测试
+
+**状态**: 已完成
+
+**描述**: 为 auth.service.ts 编写全面的单元测试
+
+**实现逻辑**: 使用 Jest 测试框架 → 模拟依赖服务 → 测试所有公共方法 → 验证边界条件
+
+**相关文件**: apps/backend/src/auth/auth.service.spec.ts
 
 **验收标准**:
 - 单元测试覆盖率 > 85%，包含所有认证服务方法
