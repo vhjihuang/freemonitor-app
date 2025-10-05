@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { logout } from '@/lib/auth';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -57,6 +58,7 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
