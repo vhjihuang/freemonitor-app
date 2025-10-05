@@ -839,9 +839,10 @@ export class AuthService {
    * 获取用户的会话列表
    * @param userId 用户ID
    * @param currentUserAgent 当前请求的User-Agent
+   * @param currentAccessToken 当前访问令牌
    * @returns 会话列表
    */
-  async getSessions(userId: string, currentUserAgent: string): Promise<SessionResponseDto[]> {
+  async getSessions(userId: string, currentUserAgent: string, currentAccessToken: string): Promise<SessionResponseDto[]> {
     const startTime = Date.now();
 
     this.logger.debug("开始获取用户会话列表", { userId });
@@ -859,15 +860,46 @@ export class AuthService {
       });
 
       // 转换为会话响应DTO
+      // 首先查找当前访问令牌对应的刷新令牌ID
+      let currentRefreshTokenId = '';
+      try {
+        const decoded = this.jwtService.verify(currentAccessToken, {
+          secret: this.configService.get('JWT_SECRET') || 'default-secret',
+        });
+        
+        // 根据用户ID和访问令牌载荷查找对应的刷新令牌
+        const refreshTokenRecord = await this.prisma.refreshToken.findFirst({
+          where: {
+            userId: decoded.sub,
+            revoked: false,
+            expiresAt: {
+              gt: new Date(),
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+        
+        if (refreshTokenRecord) {
+          currentRefreshTokenId = refreshTokenRecord.id;
+        }
+      } catch (error) {
+        this.logger.warn('获取当前刷新令牌ID失败', undefined, {
+          userId,
+          error: error.message,
+        });
+      }
+      
       const sessions: SessionResponseDto[] = refreshTokens.map(token => ({
         id: token.id,
-        userAgent: token.userAgent,
-        ipAddress: token.ipAddress,
+        userAgent: token.userAgent || '',
+        ipAddress: token.ipAddress || '',
         createdAt: token.createdAt,
         expiresAt: token.expiresAt,
         revoked: token.revoked,
         lastActivityAt: null, // TODO: 需要实现最后活动时间记录
-        isCurrent: token.userAgent === currentUserAgent, // 简单匹配User-Agent判断是否为当前会话
+        isCurrent: token.id === currentRefreshTokenId, // 使用刷新令牌ID精确匹配当前会话
       }));
 
       const executionTime = Date.now() - startTime;
