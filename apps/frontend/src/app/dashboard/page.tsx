@@ -5,7 +5,7 @@ import { Role } from '@freemonitor/types';
 import { StatsOverview } from '@/components/dashboard/StatsOverview';
 import { RealtimeDataChart } from '@/components/dashboard/RealtimeDataChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageTemplate } from '@/components/layout/PageTemplate';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRecentAlerts } from '@/hooks/useAlerts';
 import { AlertSeverityBadge } from '@/components/alerts/AlertSeverityBadge';
 import { format } from 'date-fns';
@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const alerts = data?.data || [];
 
   return (
-    <PageTemplate currentPage="仪表盘" currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.OPERATOR, Role.VIEWER]}>
+    <DashboardLayout currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.OPERATOR, Role.VIEWER]}>
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">仪表盘</h1>
@@ -111,6 +111,6 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
-    </PageTemplate>
+    </DashboardLayout>
   );
 }

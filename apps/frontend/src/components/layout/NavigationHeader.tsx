@@ -85,6 +85,15 @@ export function NavigationHeader({ currentPage = '仪表盘' }: NavigationHeader
                   </a>
                   
                   <a
+                    href="/sessions"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Settings className="w-4 h-4 mr-3" />
+                    会话管理
+                  </a>
+                  
+                  <a
                     href="/settings"
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setIsMenuOpen(false)}

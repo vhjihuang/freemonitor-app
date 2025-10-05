@@ -6,59 +6,83 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { PageTemplate } from '@/components/layout/PageTemplate';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Role } from '@freemonitor/types';
 
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth();
 
   return (
-    <PageTemplate currentPage="个人资料" currentPath="/profile">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">User Profile</h1>
-        {user && (
-          <div className="bg-gray-100 p-4 rounded">
-            <p><strong>ID:</strong> {user.id}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Name:</strong> {user.name || 'N/A'}</p>
-            <p><strong>Role:</strong> {user.role || 'N/A'}</p>
-            <p><strong>Is Authenticated:</strong> {isAuthenticated ? 'Yes' : 'No'}</p>
-          </div>
-        )}
+    <DashboardLayout currentPath="/profile">
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">个人资料</h1>
+          <p className="text-muted-foreground">
+            查看和管理您的账户信息
+          </p>
+        </div>
         
-        <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">Role-based Content</h2>
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h2 className="text-2xl font-bold mb-4">用户信息</h2>
+          {user && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">用户ID</p>
+                <p className="font-medium">{user.id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">邮箱</p>
+                <p className="font-medium">{user.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">姓名</p>
+                <p className="font-medium">{user.name || '未设置'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">角色</p>
+                <p className="font-medium">{user.role || '未分配'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">认证状态</p>
+                <p className="font-medium">{isAuthenticated ? '已认证' : '未认证'}</p>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h2 className="text-2xl font-bold mb-4">角色相关内容</h2>
           <div className="space-y-4">
             {user?.role === Role.ADMIN && (
               <div className="p-4 bg-red-100 rounded">
-                <h3 className="font-bold">Admin Content</h3>
-                <p>You can see this because you are an administrator.</p>
+                <h3 className="font-bold">管理员内容</h3>
+                <p>您可以看到此内容，因为您是管理员。</p>
               </div>
             )}
             
             {user?.role === Role.USER && (
               <div className="p-4 bg-blue-100 rounded">
-                <h3 className="font-bold">User Content</h3>
-                <p>You can see this because you are a regular user.</p>
+                <h3 className="font-bold">用户内容</h3>
+                <p>您可以看到此内容，因为您是普通用户。</p>
               </div>
             )}
             
             {user?.role === Role.OPERATOR && (
               <div className="p-4 bg-green-100 rounded">
-                <h3 className="font-bold">Operator Content</h3>
-                <p>You can see this because you are an operator.</p>
+                <h3 className="font-bold">操作员内容</h3>
+                <p>您可以看到此内容，因为您是操作员。</p>
               </div>
             )}
             
             {!user?.role && (
               <div className="p-4 bg-yellow-100 rounded">
-                <h3 className="font-bold">No Role Assigned</h3>
-                <p>You don't have a role assigned to your account.</p>
+                <h3 className="font-bold">未分配角色</h3>
+                <p>您的账户未分配角色。</p>
               </div>
             )}
           </div>
         </div>
       </div>
-    </PageTemplate>
+    </DashboardLayout>
   );
 }

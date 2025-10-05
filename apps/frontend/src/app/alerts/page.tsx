@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PageTemplate } from '@/components/layout/PageTemplate';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Role } from '@freemonitor/types';
 import { useAlerts } from '@/hooks/useAlerts';
 import { Alert } from '@freemonitor/types';
@@ -141,8 +141,7 @@ export default function AlertsPage() {
   }, [data]);
 
   return (
-    <PageTemplate 
-      currentPage="告警管理" 
+    <DashboardLayout 
       currentPath="/alerts" 
       roles={[Role.USER, Role.ADMIN, Role.OPERATOR]}
     >
@@ -511,6 +510,6 @@ export default function AlertsPage() {
           }}
         />
       )}
-    </PageTemplate>
+    </DashboardLayout>
   );
 }

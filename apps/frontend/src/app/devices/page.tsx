@@ -7,7 +7,7 @@ import { DeviceList } from '@/components/devices/DeviceList';
 import { DeviceSearchFilter } from '@/components/devices/DeviceSearchFilter';
 import { Device } from '@freemonitor/types';
 import { Role } from '@freemonitor/types';
-import { PageTemplate } from '@/components/layout/PageTemplate';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useDevices } from '@/hooks/useDevices';
 import { AddDeviceDialog } from '@/components/devices/AddDeviceDialog';
 import { EditDeviceDialog } from '@/components/devices/EditDeviceDialog';
@@ -99,12 +99,18 @@ export default function DevicesPage() {
   };
 
   return (
-    <PageTemplate 
-      currentPage="设备管理"
+    <DashboardLayout 
       currentPath="/devices"
       roles={[Role.USER, Role.ADMIN, Role.OPERATOR]}
     >
       <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">设备管理</h1>
+          <p className="text-muted-foreground">
+            管理和监控您的所有设备
+          </p>
+        </div>
+        
         <DeviceSearchFilter
           onSearchChange={setSearch}
           onStatusChange={setStatus}
@@ -177,6 +183,6 @@ export default function DevicesPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </PageTemplate>
+    </DashboardLayout>
   );
 }
