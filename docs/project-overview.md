@@ -14,10 +14,10 @@
 开发中
 
 ## 总体进度
-70%
+72%
 
 ## 最后更新
-2025-09-24
+2025-10-05
 
 ## 结构化数据
 为了方便大模型更快更准确地识别项目计划的内容和进度，我们提供了 [结构化JSON数据](./project-plan-structured.json) 版本的项目计划。
@@ -65,6 +65,7 @@
 - [auth-architecture.md](./development/architecture/auth-architecture.md) - 认证系统详细设计
 - [dashboard-ui.md](./development/architecture/dashboard-ui.md) - 仪表盘图表实现细节
 - [state-management.md](./development/architecture/state-management.md) - useMetrics 缓存策略
+- [ui-components.md](./development/architecture/ui-components.md) - UI 组件架构说明
 - [deployment.md](./deployment/deployment.md) - Docker 多阶段构建配置
 - [database-schema.md](./development/architecture/database-schema.md) - 数据库 erDiagram 和模式说明
 - [changelog.md](./development/changelog.md) - 自动生成的变更日志

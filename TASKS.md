@@ -2,9 +2,9 @@
 
 ## 项目状态
 - **项目名称**: FreeMonitor
-- **整体进度**: 90%
+- **整体进度**: 92%
 - **状态**: 开发中
-- **最后更新**: 2025-10-04
+- **最后更新**: 2025-10-05
 - **代码同步状态**: 已根据实际代码实现更新任务进度
 - **功能调整**: 登录日志审计已调整为可选功能，现有日志系统已足够满足需求
 
@@ -102,7 +102,7 @@
 - [x] [添加告警确认功能](./docs/04-phase-3-data-processing.md#添加告警确认功能) ✅ 已完成
 - [x] [创建告警解决流程](./docs/04-phase-3-data-processing.md#创建告警解决流程) ✅ 已完成
 
-### 阶段四：用户体验优化 [85%] 🟡 中优先级
+### 阶段四：用户体验优化 [90%] 🟡 中优先级
 - [x] [创建基础 UI 组件](./docs/05-phase-4-ux-optimization.md#创建基础-ui-组件) ✅ 已完成
 - [x] [优化数据表格组件](./docs/05-phase-4-ux-optimization.md#优化数据表格组件) ✅ 已完成
 - [x] [完善图表组件](./docs/05-phase-4-ux-optimization.md#完善图表组件) ✅ 已完成
@@ -110,8 +110,8 @@
 - [x] [实现通知 Toast 组件](./docs/05-phase-4-ux-optimization.md#实现通知-toast-组件) ✅ 已完成
 - [x] [优化设备列表页面](./docs/05-phase-4-ux-optimization.md#优化设备列表页面) ✅ 已完成
 - [x] [添加页面加载状态](./docs/05-phase-4-ux-optimization.md#添加页面加载状态) ✅ 已完成
-- [ ] [实现错误边界处理](./docs/05-phase-4-ux-optimization.md#实现错误边界处理) ☐ 未开始
-- [ ] [优化导航用户体验](./docs/05-phase-4-ux-optimization.md#优化导航用户体验) ☐ 未开始
+- [~] [实现错误边界处理](./docs/05-phase-4-ux-optimization.md#实现错误边界处理) ☐ 未开始
+- [~] [优化导航用户体验](./docs/05-phase-4-ux-optimization.md#优化导航用户体验) ☐ 未开始
 
 ### 阶段五：API 与数据流 [100%] 🟢 低优先级
 - [x] [完善 API 请求封装](./docs/06-phase-5-api-dataflow.md#完善-api-请求封装) ✅ 已完成
