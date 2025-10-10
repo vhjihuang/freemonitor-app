@@ -57,7 +57,7 @@ export default function DashboardPage() {
                 </div>
               ) : error ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="text-red-500">加载失败: {error.message}</div>
+                  <div className="text-red-500">加载失败: {(error as any).message || '未知错误'}</div>
                 </div>
               ) : alerts.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
@@ -103,13 +103,6 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-        
-        {/* 添加测试数据提示 */}
-        <div className="text-center text-sm text-muted-foreground">
-          <p>
-            如果图表中没有数据显示，请访问 <a href="/test-data" className="text-blue-500 hover:underline">测试数据页面</a> 生成一些示例数据。
-          </p>
         </div>
       </div>
     </DashboardLayout>

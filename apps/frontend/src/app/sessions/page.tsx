@@ -70,7 +70,7 @@ export default function SessionsPage() {
   // 当前会话标识（基于后端返回的isCurrent字段）
   const isCurrentSession = (session: Session) => {
     const result = session.isCurrent;
-    console.log('Checking session:', session.id, 'isCurrent:', result, 'UserAgent:', session.userAgent);
+    // console.log('Checking session:', session.id, 'isCurrent:', result, 'UserAgent:', session.userAgent);
     return result;
   };
 
