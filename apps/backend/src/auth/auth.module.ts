@@ -8,7 +8,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { HashingModule } from '../hashing/hashing.module';
 import { DevAuthGuard } from './guards/dev-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { ThrottlerAuthGuard } from './guards/throttler-auth.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
 import { TokenBlacklistService } from './token-blacklist.service';
@@ -33,8 +32,7 @@ import { TokenBlacklistService } from './token-blacklist.service';
     DevAuthGuard,
     RolesGuard,
     TokenBlacklistService,
-    ThrottlerAuthGuard,
   ],
-  exports: [AuthService, DevAuthGuard, RolesGuard, ThrottlerAuthGuard],
+  exports: [AuthService, DevAuthGuard, RolesGuard],
 })
 export class AuthModule {}

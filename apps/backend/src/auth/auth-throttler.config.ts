@@ -10,3 +10,6 @@ export const authThrottlerConfig: ThrottlerModuleOptions = {
     },
   ],
 };
+
+// 此文件已不再使用，限流配置已直接在控制器中定义
+// 保留此文件以避免破坏现有导入，但内容已清空

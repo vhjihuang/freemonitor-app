@@ -15,6 +15,7 @@ import {
   Delete,
   Headers,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ApiCommonResponses } from '../common/decorators/api-common-responses.decorator';
 import { ValidationException } from '../common/exceptions/app.exception';
@@ -23,7 +24,6 @@ import { Public } from './decorators/public.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { DevAuthGuard } from './guards/dev-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { ThrottlerAuthGuard } from './guards/throttler-auth.guard';
 import { Role } from '@freemonitor/types';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -37,9 +37,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @UseGuards(ThrottlerAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || '';
@@ -53,8 +53,8 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(ThrottlerAuthGuard)
   @Post('register')
+  @Throttle({ auth: { limit: 3, ttl: 3600000 } })
   async register(@Body() registerDto: RegisterDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || '';
@@ -62,8 +62,8 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(ThrottlerAuthGuard)
   @Post('refresh')
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
   async refresh(@Body('refreshToken') refreshToken: string, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'] || '';
@@ -79,6 +79,7 @@ export class AuthController {
   @ApiOperation({ summary: '获取用户会话列表' })
   @ApiResponse({ status: 200, description: '成功获取会话列表', type: [SessionResponseDto] })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   async getSessions(
     @Request() req: RequestWithUser,
     @Headers('authorization') authHeader?: string
@@ -92,6 +93,7 @@ export class AuthController {
   @ApiOperation({ summary: '按设备ID撤销会话' })
   @ApiResponse({ status: 200, description: '成功撤销会话' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   async revokeSession(@Param('id') id: string, @Request() req: RequestWithUser): Promise<void> {
     return this.authService.revokeSession(id, req.user.id);
   }
@@ -101,13 +103,14 @@ export class AuthController {
   @ApiOperation({ summary: '登出其他设备' })
   @ApiResponse({ status: 200, description: '成功登出其他设备' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   async revokeOtherSessions(@Request() req: RequestWithUser): Promise<void> {
     return this.authService.revokeOtherSessions(req.user.id, req.headers['authorization']?.split(' ')[1] || '');
   }
 
   @Public()
-  @UseGuards(ThrottlerAuthGuard)
   @Post('forgot-password')
+  @Throttle({ auth: { limit: 3, ttl: 3600000 } })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     await this.authService.generatePasswordResetToken(forgotPasswordDto.email);
     // 返回简单数据，拦截器会自动包装为统一格式
@@ -115,8 +118,8 @@ export class AuthController {
   }
 
   @Public()
-  @UseGuards(ThrottlerAuthGuard)
   @Patch('reset-password/:token')
+  @Throttle({ auth: { limit: 5, ttl: 3600000 } })
   async resetPassword(
     @Param('token') token: string,
     @Body() resetPasswordDto: ResetPasswordDto,
@@ -128,6 +131,7 @@ export class AuthController {
 
   @UseGuards(DevAuthGuard)
   @Get('profile')
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   getProfile(@Request() req) {
     return req.user;
   }
@@ -136,6 +140,7 @@ export class AuthController {
   @UseGuards(DevAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @Get('admin')
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   getAdminData(@Request() req) {
     return {
       message: 'This is admin-only data',
@@ -147,6 +152,7 @@ export class AuthController {
   @UseGuards(DevAuthGuard, RolesGuard)
   @Roles(Role.USER, Role.ADMIN)
   @Get('user')
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   getUserData(@Request() req) {
     return {
       message: 'This is user data',
@@ -156,6 +162,7 @@ export class AuthController {
 
   @Public()
   @Post('logout')
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   async logout(@Body('refreshToken') refreshToken: string) {
     await this.authService.logout(refreshToken);
     // 返回简单数据，拦截器会自动包装为统一格式
