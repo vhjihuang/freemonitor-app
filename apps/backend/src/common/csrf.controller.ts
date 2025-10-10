@@ -2,6 +2,7 @@ import { Controller, Get, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import Tokens from 'csrf';
 import { createSuccessResponse } from '@freemonitor/types';
+import { Throttle } from '@nestjs/throttler';
 
 // 创建CSRF令牌生成器实例
 const tokens = new Tokens();
@@ -16,6 +17,7 @@ export class CsrfController {
    * @returns 包含CSRF令牌的响应
    */
   @Get('token')
+  @Throttle({ default: { limit: 100, ttl: 60000 } })
   getCsrfToken(@Req() req: Request, @Res() res: Response) {
     // 生成新的CSRF令牌
     const token = tokens.create(secret);
