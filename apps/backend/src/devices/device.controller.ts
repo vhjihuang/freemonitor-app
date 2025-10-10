@@ -1,5 +1,5 @@
 // apps/backend/src/device/device.controller.ts
-import { Controller, Post, Body, Delete, UseGuards, Req, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query } from "@nestjs/common";
+import { Controller, Post, Body, Delete, UseGuards, Req, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query, UseInterceptors } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from './dto/update-device.dto'
@@ -15,6 +15,7 @@ import { CreateAlertDto } from './dto/create-alert.dto';
 import { QueryAlertDto } from './dto/query-alert.dto';
 import { QueryMetricDto } from './dto/query-metric.dto';
 import { AcknowledgeAlertDto, BulkAcknowledgeAlertDto, ResolveAlertDto, BulkResolveAlertDto } from './dto/acknowledge-alert.dto';
+import { Throttle } from "@nestjs/throttler";
 
 interface RequestWithUser extends Request {
   user?: User;
@@ -34,6 +35,7 @@ export class DeviceController {
   @ApiOperation({ summary: "创建设备" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以创建设备
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 限制创建设备频率: 10次/分钟
   async create(@Body() createDeviceDto: CreateDeviceDto, @Req() req: RequestWithUser) {
     this.logger.log(`用户 ${req.user?.id} 正在创建设备`, {
       userId: req.user?.id,
@@ -54,6 +56,7 @@ export class DeviceController {
   @ApiOperation({ summary: "获取设备列表" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备列表
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制获取设备列表频率: 100次/分钟
   async findAll(
     @Req() req: RequestWithUser,
     @Query('search') search?: string,
@@ -73,6 +76,7 @@ export class DeviceController {
   @ApiOperation({ summary: "获取设备详情" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备详情
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制获取设备详情频率: 100次/分钟
   async findOne(@Param("id") id: string, @Req() req: RequestWithUser) {
     return this.deviceService.findOne(id, req.user?.id || "dev-user-id");
   }
@@ -81,6 +85,7 @@ export class DeviceController {
   @ApiOperation({ summary: "更新设备" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以更新设备
+  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 限制更新设备频率: 50次/分钟
   async update(
     @Param("id") id: string,
     @Body() updateDeviceDto: UpdateDeviceDto,
@@ -109,6 +114,7 @@ export class DeviceController {
   @ApiOperation({ summary: "删除设备" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN) // 只有管理员可以删除设备
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 限制删除设备频率: 10次/分钟
   async remove(@Param("id") id: string, @Req() req: RequestWithUser) {
     this.logger.log(`用户 ${req.user?.id} 正在删除设备 ${id}`, {
       userId: req.user?.id,
@@ -130,6 +136,7 @@ export class DeviceController {
   @ApiOperation({ summary: "上报设备指标" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以上报设备指标
+  @Throttle({ short: { limit: 1000, ttl: 60000 }, long: { limit: 10000, ttl: 3600000 } }) // 设备指标上报限流: 1000次/分钟 或 10000次/小时
   async createMetric(
     @Param("id") id: string,
     @Body() dto: CreateMetricDto,
@@ -153,6 +160,7 @@ export class DeviceController {
   @ApiOperation({ summary: "上报设备告警" })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以上报告警
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制告警上报频率: 100次/分钟
   async createAlert(
     @Param("id") id: string,
     @Body() dto: CreateAlertDto,
@@ -175,6 +183,7 @@ export class DeviceController {
   @ApiOperation({ summary: '查询告警列表' })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查询告警列表
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制查询告警列表频率: 100次/分钟
   async queryAlerts(
     @Query() query: QueryAlertDto,
     @Req() req: RequestWithUser
@@ -197,6 +206,7 @@ export class DeviceController {
   @ApiOperation({ summary: '获取最近告警' })
   @ApiCommonResponses()
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以获取最近告警
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制获取最近告警频率: 100次/分钟
   async getRecentAlerts(
     @Query('limit') limit: number = 10,
     @Req() req: RequestWithUser
@@ -225,6 +235,7 @@ export class DeviceController {
   @Post('alerts/:alertId/acknowledge')
   @ApiOperation({ summary: '确认告警' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制确认告警频率: 100次/分钟
   async acknowledgeAlert(
     @Param('alertId') alertId: string,
     @Body() dto: AcknowledgeAlertDto,
@@ -245,6 +256,7 @@ export class DeviceController {
   @Post('alerts/acknowledge/bulk')
   @ApiOperation({ summary: '批量确认告警' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 限制批量确认告警频率: 50次/分钟
   async bulkAcknowledgeAlerts(
     @Body() dto: BulkAcknowledgeAlertDto,
     @Req() req: RequestWithUser,
@@ -267,6 +279,7 @@ export class DeviceController {
   @Post('alerts/:alertId/resolve')
   @ApiOperation({ summary: '解决告警' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制解决告警频率: 100次/分钟
   async resolveAlert(
     @Param('alertId') alertId: string,
     @Body() dto: ResolveAlertDto,
@@ -287,6 +300,7 @@ export class DeviceController {
   @Post('alerts/resolve/bulk')
   @ApiOperation({ summary: '批量解决告警' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 50, ttl: 60000 } }) // 限制批量解决告警频率: 50次/分钟
   async bulkResolveAlerts(
     @Body() dto: BulkResolveAlertDto,
     @Req() req: RequestWithUser,
@@ -309,6 +323,7 @@ export class DeviceController {
   @Get('metrics/list')
   @ApiOperation({ summary: '查询指标列表' })
   @ApiCommonResponses()
+  @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制查询指标列表频率: 100次/分钟
   async queryMetrics(
     @Query() query: QueryMetricDto,
     @Req() req: RequestWithUser
