@@ -3,12 +3,12 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://freemonitor-app-frontend-nvyi.vercel.app.vercel.app/api/$1",
+      "dest": "https://freemonitor-app.onrender.com/api/$1",
       "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-CSRF-Token"
       }
     }
   ]

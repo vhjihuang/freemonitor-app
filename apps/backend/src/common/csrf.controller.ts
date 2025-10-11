@@ -26,7 +26,7 @@ export class CsrfController {
     res.cookie('XSRF-TOKEN', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax', // 改为lax以支持跨域请求
       maxAge: 3600000, // 1小时
     });
     

@@ -6,6 +6,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { AppLoggerService } from "./common/services/logger.service";
 
 async function bootstrap() {
@@ -67,6 +68,9 @@ async function bootstrap() {
       crossOriginResourcePolicy: { policy: "cross-origin" },
     })
   );
+
+  // ✅ 1.1 启用cookie解析中间件
+  app.use(cookieParser());
 
   // ✅ 2. 启用全局 DTO 验证
   app.useGlobalPipes(

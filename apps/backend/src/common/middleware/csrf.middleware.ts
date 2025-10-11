@@ -11,19 +11,25 @@ const secret = process.env.CSRF_SECRET || tokens.secretSync();
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
-    // 为每个请求生成新的CSRF令牌
-    const token = tokens.create(secret);
+    // 从Cookie中获取现有的CSRF令牌
+    const existingToken = req.cookies?.['XSRF-TOKEN'];
+    
+    // 如果Cookie中没有令牌或令牌无效，则生成新的令牌
+    let token = existingToken;
+    if (!existingToken || !tokens.verify(secret, existingToken)) {
+      token = tokens.create(secret);
+      
+      // 设置CSRF令牌Cookie
+      res.cookie('XSRF-TOKEN', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax', // 改为lax以支持跨域请求
+        maxAge: 3600000, // 1小时
+      });
+    }
     
     // 将令牌存储在请求对象中供后续使用
     (req as any).csrfToken = token;
-    
-    // 设置CSRF令牌Cookie
-    res.cookie('XSRF-TOKEN', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 3600000, // 1小时
-    });
     
     // 从请求头或body中获取CSRF令牌进行验证
     const providedToken = 
