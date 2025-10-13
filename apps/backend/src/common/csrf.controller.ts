@@ -4,9 +4,11 @@ import Tokens from 'csrf';
 import { createSuccessResponse } from '@freemonitor/types';
 import { Throttle } from '@nestjs/throttler';
 
-// 创建CSRF令牌生成器实例
+// 从环境变量获取CSRF密钥（与中间件使用相同的密钥）
+const secret = process.env.CSRF_SECRET || 'freemonitor-development-csrf-secret-key-fixed-value';
+
+// 创建CSRF令牌生成器实例（单例模式）
 const tokens = new Tokens();
-const secret = process.env.CSRF_SECRET || tokens.secretSync();
 
 @Controller('csrf')
 export class CsrfController {
@@ -19,16 +21,26 @@ export class CsrfController {
   @Get('token')
   @Throttle({ default: { limit: 100, ttl: 60000 } })
   getCsrfToken(@Req() req: Request, @Res() res: Response) {
-    // 生成新的CSRF令牌
-    const token = tokens.create(secret);
+    // 从请求中获取已生成的令牌
+    const token = (req as any).csrfToken;
     
-    // 设置CSRF令牌Cookie
-    res.cookie('XSRF-TOKEN', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // 改为lax以支持跨域请求
-      maxAge: 3600000, // 1小时
-    });
+    // 如果没有令牌，则生成一个新的
+    if (!token) {
+      console.warn('未找到预生成的CSRF令牌，生成新的令牌');
+      const newToken = tokens.create(secret);
+      
+      // 设置CSRF令牌Cookie - 改为非HttpOnly，允许前端JavaScript读取
+      res.cookie('XSRF-TOKEN', newToken, {
+        httpOnly: false, // 允许前端JavaScript读取
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 3600000, // 1小时
+      });
+      
+      // 返回符合统一响应格式的数据
+      const response = createSuccessResponse({ csrfToken: newToken });
+      return res.json(response);
+    }
     
     // 返回符合统一响应格式的数据
     const response = createSuccessResponse({ csrfToken: token });
