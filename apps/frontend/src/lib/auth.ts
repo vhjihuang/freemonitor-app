@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { refreshCsrfToken } from './csrf';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 
 // 认证相关类型
@@ -40,8 +41,18 @@ export async function login(email: string, password: string): Promise<AuthTokens
     };
     
     saveAuthData(tokens);
+    
+    // 登录成功后获取CSRF令牌
+    try {
+      await refreshCsrfToken();
+      console.log('登录后CSRF令牌刷新成功');
+    } catch (error) {
+      console.warn('登录后获取CSRF令牌失败:', error);
+    }
+    
     return tokens;
   } catch (error: any) {
+    console.error('登录错误:', error);
     if (error.message) {
       throw new Error(error.message);
     }
@@ -79,6 +90,14 @@ export async function register(email: string, password: string, name: string): P
     };
     
     saveAuthData(tokens);
+    
+    // 注册成功后获取CSRF令牌
+    try {
+      await refreshCsrfToken();
+    } catch (error) {
+      console.warn('获取CSRF令牌失败:', error);
+    }
+    
     return tokens;
   } catch (error: any) {
     if (error.message) {

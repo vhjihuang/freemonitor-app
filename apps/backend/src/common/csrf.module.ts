@@ -4,9 +4,12 @@ import { CsrfMiddleware } from './middleware/csrf.middleware';
 @Module({})
 export class CsrfModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    // 应用CSRF中间件到所有POST、PUT、PATCH、DELETE请求
+    // 应用CSRF中间件到所有POST、PUT、PATCH、DELETE请求，但排除获取CSRF令牌的路由
     consumer
       .apply(CsrfMiddleware)
+      .exclude(
+        { path: 'csrf/token', method: RequestMethod.GET }
+      )
       .forRoutes(
         { path: 'auth/login', method: RequestMethod.POST },
         { path: 'auth/register', method: RequestMethod.POST },
