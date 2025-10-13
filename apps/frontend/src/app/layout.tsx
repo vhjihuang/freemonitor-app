@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { ToastProvider } from '@/components/providers/toast-provider';
+import { CsrfProvider } from '@/components/providers/csrf-provider';
 import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
@@ -36,20 +37,22 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={inter.className}>
         <ErrorBoundary>
-          <QueryProvider>
-            <ToastProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                {children}
-                <Toaster />
-                <ToastContainer />
-              </ThemeProvider>
-            </ToastProvider>
-          </QueryProvider>
+          <CsrfProvider>
+            <QueryProvider>
+              <ToastProvider>
+                <ThemeProvider
+                  attribute="class"
+                  defaultTheme="system"
+                  enableSystem
+                  disableTransitionOnChange
+                >
+                  {children}
+                  <Toaster />
+                  <ToastContainer />
+                </ThemeProvider>
+              </ToastProvider>
+            </QueryProvider>
+          </CsrfProvider>
         </ErrorBoundary>
       </body>
     </html>

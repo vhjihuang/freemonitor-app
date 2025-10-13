@@ -1,121 +1,77 @@
 import { apiClient } from './api';
 
-// CSRF令牌存储键名
-const CSRF_TOKEN_KEY = 'csrfToken';
-
 /**
- * 获取CSRF令牌
+ * 获取CSRF令牌 - 从Cookie中读取
  * @returns CSRF令牌或null
  */
-export async function getCsrfToken(): Promise<string | null> {
-  // 首先检查内存中是否有令牌
-  const token = getStoredCsrfToken();
-  if (token) {
-    return token;
-  }
-  
-  // 如果没有令牌或令牌已过期，从服务器获取新的令牌
-  return fetchNewCsrfToken();
-}
-
-/**
- * 从存储中获取CSRF令牌
- * @returns CSRF令牌或null
- */
-function getStoredCsrfToken(): string | null {
+export function getCsrfToken(): string | null {
+  // 在服务器端渲染时返回null
   if (typeof window === 'undefined') return null;
   
-  try {
-    const tokenData = localStorage.getItem(CSRF_TOKEN_KEY);
-    if (!tokenData) return null;
-    
-    const { token, expiry } = JSON.parse(tokenData);
-    
-    // 检查令牌是否过期（提前5分钟过期以确保安全）
-    const now = Date.now();
-    if (now > expiry - 5 * 60 * 1000) {
-      // 令牌即将过期，移除它
-      localStorage.removeItem(CSRF_TOKEN_KEY);
-      return null;
+  // 从Cookie中读取XSRF-TOKEN
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'XSRF-TOKEN') {
+      const decodedValue = decodeURIComponent(value);
+      console.log('从Cookie中读取到CSRF令牌:', decodedValue ? decodedValue.substring(0, 10) + '...' : 'null/undefined');
+      // 确保返回的令牌不是undefined或null
+      return decodedValue || null;
     }
-    
-    return token;
-  } catch (error) {
-    // 解析失败，移除无效数据
-    localStorage.removeItem(CSRF_TOKEN_KEY);
-    return null;
   }
-}
-
-/**
- * 从服务器获取新的CSRF令牌
- * @returns 新的CSRF令牌
- */
-async function fetchNewCsrfToken(): Promise<string> {
-  try {
-    const response: any = await apiClient.get('/csrf/token');
-    
-    if (!response) {
-      throw new Error('获取CSRF令牌失败');
-    }
-    
-    // API客户端已经处理了响应解析，直接从response.data获取数据
-    const tokenResponse = response.data;
-    
-    // 检查响应格式是否符合预期
-    if (!tokenResponse || !tokenResponse.csrfToken) {
-      console.error('CSRF令牌响应格式不正确:', tokenResponse);
-      throw new Error('响应中缺少CSRF令牌');
-    }
-    
-    const token = tokenResponse.csrfToken;
-    
-    // 存储令牌，设置1小时后过期
-    storeCsrfToken(token);
-    
-    return token;
-  } catch (error: any) {
-    console.error('获取CSRF令牌时发生错误:', error);
-    throw new Error(error.message || '获取CSRF令牌失败');
-  }
-}
-
-/**
- * 存储CSRF令牌到localStorage
- * @param token CSRF令牌
- */
-function storeCsrfToken(token: string): void {
-  if (typeof window === 'undefined') return;
   
-  try {
-    const expiry = Date.now() + 60 * 60 * 1000; // 1小时后过期
-    const tokenData = JSON.stringify({ token, expiry });
-    localStorage.setItem(CSRF_TOKEN_KEY, tokenData);
-  } catch (error) {
-    console.error('存储CSRF令牌时发生错误:', error);
-  }
+  console.log('未在Cookie中找到CSRF令牌');
+  return null;
 }
 
 /**
- * 清除存储的CSRF令牌
- */
-export function clearCsrfToken(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(CSRF_TOKEN_KEY);
-}
-
-/**
- * 刷新CSRF令牌
+ * 刷新CSRF令牌 - 从服务器获取新令牌
  * @returns 新的CSRF令牌
  */
 export async function refreshCsrfToken(): Promise<string> {
-  // 清除旧令牌
-  clearCsrfToken();
-  
-  // 获取新令牌
-  const token = await getCsrfToken();
-  if (!token) {
-    throw new Error('无法获取CSRF令牌');
+  try {
+    console.log('开始刷新CSRF令牌');
+    // 为了避免循环依赖，我们使用原生fetch来获取CSRF令牌
+    // 因为apiClient需要CSRF令牌，如果在这里使用apiClient会造成循环依赖
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/csrf/token`,
+      {
+        method: 'GET',
+        credentials: 'include', // 确保接收Cookie
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    
+    console.log('CSRF令牌刷新响应状态:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`获取CSRF令牌失败: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('CSRF令牌刷新响应数据:', data);
+    
+    if (!data || !data.data || !data.data.csrfToken) {
+      throw new Error('CSRF令牌响应格式错误');
+    }
+    
+    // 令牌已通过Cookie设置，直接返回响应中的令牌
+    console.log('CSRF令牌刷新成功:', data.data.csrfToken.substring(0, 10) + '...');
+    return data.data.csrfToken;
+  } catch (error: any) {
+    console.error('刷新CSRF令牌时发生错误:', error);
+    throw new Error(error.message || '刷新CSRF令牌失败');
   }
-  return token;
+}
+
+/**
+ * 清除CSRF令牌 - 通过使Cookie过期来清除
+ */
+export function clearCsrfToken(): void {
+  if (typeof window === 'undefined') return;
+  
+  // 通过设置过期时间为过去的时间来清除Cookie
+  document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
 }

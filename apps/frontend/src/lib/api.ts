@@ -21,11 +21,13 @@ export class ApiClient {
       headers: {
         "Content-Type": "application/json",
       },
+      withCredentials: true,
     });
 
     // 请求拦截器 - 添加认证头和CSRF令牌
     this.axiosInstance.interceptors.request.use(
       async (config) => {
+        config.withCredentials = true;
         // 添加认证头
         const token = getAccessToken();
         if (token) {
@@ -34,13 +36,25 @@ export class ApiClient {
         
         // 为需要保护的请求方法添加CSRF令牌
         if (config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
-          try {
-            const csrfToken = await getCsrfToken();
-            if (csrfToken) {
-              config.headers['X-CSRF-Token'] = csrfToken;
+          // 跳过获取CSRF令牌的请求，避免循环依赖
+          const isCsrfTokenRequest = config.url?.includes('/csrf/token');
+          
+          if (!isCsrfTokenRequest) {
+            try {
+              const csrfToken = getCsrfToken();
+              console.log('API客户端获取到CSRF令牌:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'null/undefined');
+              if (csrfToken) {
+                // 使用标准的CSRF令牌头部名称
+                config.headers['X-CSRF-Token'] = csrfToken;
+                console.log('已添加CSRF令牌到请求头');
+              } else {
+                console.warn('未找到CSRF令牌');
+              }
+            } catch (error) {
+              console.warn('获取CSRF令牌失败:', error);
             }
-          } catch (error) {
-            console.warn('获取CSRF令牌失败:', error);
+          } else {
+            console.log('跳过CSRF令牌添加，因为是获取CSRF令牌的请求');
           }
         }
         
@@ -76,20 +90,31 @@ export class ApiClient {
 
         // 处理403 CSRF错误 - 刷新CSRF令牌并重试
         if (error.response?.status === 403 && 
-            (error.response?.data as any)?.error === 'CSRF token invalid' && 
+            ((error.response?.data as any)?.error === 'CSRF token invalid' || 
+             (error.response?.data as any)?.error === 'CSRF token mismatch' ||
+             (error.response?.data as any)?.error === 'CSRF token missing in cookie' ||
+             (error.response?.data as any)?.error === 'CSRF token missing in header') && 
             !originalRequest._retry) {
           originalRequest._retry = true;
           
           try {
+            console.log('检测到CSRF错误，正在刷新令牌...', {
+              error: (error.response?.data as any)?.error,
+              status: error.response?.status,
+              headers: error.response?.headers
+            });
             // 刷新CSRF令牌
             await refreshCsrfToken();
             
             // 重新获取CSRF令牌并添加到请求头
-            const newCsrfToken = await getCsrfToken();
+            const newCsrfToken = getCsrfToken();
+            console.log('刷新后获取到新的CSRF令牌:', newCsrfToken ? newCsrfToken.substring(0, 10) + '...' : 'null/undefined');
             if (newCsrfToken && originalRequest.headers) {
               originalRequest.headers['X-CSRF-Token'] = newCsrfToken;
+              console.log('已将新的CSRF令牌添加到重试请求头中');
             }
             
+            console.log('CSRF令牌刷新成功，重新发送请求');
             // 重新发送请求
             return this.axiosInstance(originalRequest);
           } catch (refreshError) {
