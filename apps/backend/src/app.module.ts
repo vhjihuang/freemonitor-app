@@ -20,6 +20,7 @@ import { RequestLoggerMiddleware } from "./common/middleware/request-logger.midd
 import { CsrfModule } from "./common/csrf.module";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { ThrottlerGuard } from "@nestjs/throttler";
+import { WebSocketModule } from "./websocket/websocket.module";
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { ThrottlerGuard } from "@nestjs/throttler";
     NotificationModule,
     DevelopmentModule,
     CsrfModule,
+    WebSocketModule,
     ThrottlerModule.forRoot({
       throttlers: [
         {
