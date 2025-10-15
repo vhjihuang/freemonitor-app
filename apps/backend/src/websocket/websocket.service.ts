@@ -43,14 +43,29 @@ export class WebSocketService {
   }
 
   async handleDisconnection(client: Socket, user: any, deviceId: string) {
-    const connectionId = this.generateConnectionId(user.id, deviceId);
-    
-    this.connections.delete(connectionId);
-    
-    // 清理订阅关系
-    this.cleanupSubscriptions(user.id, deviceId);
+    try {
+      // 验证参数有效性
+      if (!user || !user.id) {
+        this.logger.warn(`断开连接时用户信息无效: ${JSON.stringify(user)}`);
+        return;
+      }
+      
+      if (!deviceId) {
+        this.logger.warn(`断开连接时设备ID无效: ${deviceId}`);
+        return;
+      }
+      
+      const connectionId = this.generateConnectionId(user.id, deviceId);
+      
+      this.connections.delete(connectionId);
+      
+      // 清理订阅关系
+      this.cleanupSubscriptions(user.id, deviceId);
 
-    this.logger.log(`用户 ${user.email} 的设备 ${deviceId} 已断开`);
+      this.logger.log(`用户 ${user.email} 的设备 ${deviceId} 已断开`);
+    } catch (error) {
+      this.logger.error(`处理断开连接时出错: ${error.message}`, error.stack);
+    }
   }
 
   async handleDeviceMetrics(client: Socket, user: any, deviceId: string, data: DeviceMetricsDto) {

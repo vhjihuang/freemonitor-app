@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { DevelopmentModule } from '../development/development.module';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { WebSocketGateway } from './websocket.gateway';
+import { AppWebSocketGateway } from './websocket.gateway';
 import { WebSocketService } from './websocket.service';
 
 @Module({
@@ -17,9 +17,9 @@ import { WebSocketService } from './websocket.service';
     PrismaModule,
   ],
   providers: [
-    WebSocketGateway,
+    AppWebSocketGateway,
     WebSocketService,
   ],
-  exports: [WebSocketGateway],
+  exports: [AppWebSocketGateway],
 })
 export class WebSocketModule {}

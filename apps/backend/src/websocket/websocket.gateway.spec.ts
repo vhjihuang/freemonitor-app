@@ -2,8 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Server } from 'socket.io';
-import { WebSocketGateway } from './websocket.gateway';
+import { AppWebSocketGateway } from './websocket.gateway';
 import { WebSocketService } from './websocket.service';
 import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
 import { AppLoggerService } from '../common/services/logger.service';
@@ -21,15 +22,18 @@ const mockWebSocketService = {
   sendToUser: jest.fn().mockResolvedValue(undefined),
 };
 
-describe('WebSocketGateway', () => {
+describe('AppWebSocketGateway', () => {
   let app: INestApplication;
-  let gateway: WebSocketGateway;
+  let gateway: AppWebSocketGateway;
   let io: Server;
 
   beforeEach(async () => {
+    // 设置测试环境为开发环境
+    process.env.NODE_ENV = 'development';
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        WebSocketGateway,
+        AppWebSocketGateway,
         { provide: WebSocketService, useValue: mockWebSocketService },
         {
           provide: AppLoggerService,
@@ -37,12 +41,34 @@ describe('WebSocketGateway', () => {
             log: jest.fn(),
             error: jest.fn(),
             warn: jest.fn(),
+            debug: jest.fn(),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            verify: jest.fn().mockImplementation((token: string) => {
+              if (token === 'valid-token') {
+                return {
+                  sub: 'dev-user-id',
+                  email: 'dev@example.com',
+                  name: 'Dev User',
+                  role: 'USER',
+                  isActive: true
+                };
+              }
+              throw new Error('Invalid token');
+            }),
+            sign: jest.fn().mockReturnValue('mock-jwt-token'),
           },
         },
         {
           provide: ConfigService,
           useValue: {
             get: jest.fn().mockImplementation((key: string) => {
+              if (key === 'JWT_SECRET') {
+                return 'test-secret';
+              }
               if (key === 'devUser') {
                 return {
                   id: 'dev-user-id',
@@ -62,7 +88,7 @@ describe('WebSocketGateway', () => {
     app = module.createNestApplication();
     app.useWebSocketAdapter(new IoAdapter(app));
     
-    gateway = module.get<WebSocketGateway>(WebSocketGateway);
+    gateway = module.get<AppWebSocketGateway>(AppWebSocketGateway);
     await app.init();
 
     // 获取Socket.IO服务器实例
@@ -98,14 +124,13 @@ describe('WebSocketGateway', () => {
         disconnect: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       await gateway.handleConnection(mockSocket);
@@ -136,14 +161,13 @@ describe('WebSocketGateway', () => {
         disconnect: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -172,14 +196,13 @@ describe('WebSocketGateway', () => {
         disconnect: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -215,14 +238,13 @@ describe('WebSocketGateway', () => {
         disconnect: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -259,14 +281,13 @@ describe('WebSocketGateway', () => {
         join: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -293,14 +314,13 @@ describe('WebSocketGateway', () => {
         leave: jest.fn(),
         connected: true,
         disconnected: false,
-        user: {
-          id: 'dev-user-id',
-          email: 'dev@example.com',
-          name: 'Dev User',
-          role: 'USER',
-          isActive: true
-        },
-        deviceId: 'device-123',
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -415,11 +435,6 @@ describe('WebSocketGateway', () => {
     it('应该处理高频消息而不崩溃', async () => {
       const mockSocket = {
         id: 'test-client-1',
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-        },
-        deviceId: 'device-123',
         emit: jest.fn(),
         on: jest.fn(),
         off: jest.fn(),
@@ -428,6 +443,13 @@ describe('WebSocketGateway', () => {
         disconnect: jest.fn(),
         connected: true,
         disconnected: false,
+        handshake: {
+          query: {
+            token: 'valid-token',
+            deviceId: 'device-123'
+          },
+          headers: {}
+        }
       } as any;
 
       // 先建立连接
@@ -456,11 +478,6 @@ describe('WebSocketGateway', () => {
       for (let i = 0; i < 100; i++) {
         const mockSocket = {
           id: `test-client-${i}`,
-          user: {
-            id: `user-${i}`,
-            email: `test${i}@example.com`,
-          },
-          deviceId: `device-${i}`,
           emit: jest.fn(),
           on: jest.fn(),
           off: jest.fn(),
@@ -469,6 +486,13 @@ describe('WebSocketGateway', () => {
           disconnect: jest.fn(),
           connected: true,
           disconnected: false,
+          handshake: {
+            query: {
+              token: 'valid-token',
+              deviceId: `device-${i}`
+            },
+            headers: {}
+          }
         } as any;
         
         await gateway.handleConnection(mockSocket);

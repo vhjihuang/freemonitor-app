@@ -1,16 +1,16 @@
-import { WebSocketGateway as NestWebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, ConnectedSocket, MessageBody } from '@nestjs/websockets';
+import { Injectable, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
+import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@freemonitor/types';
-import { DeviceMetricsDto, AlertNotificationDto, WebSocketEvent } from './websocket.dtos';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { AppLoggerService } from '../common/services/logger.service';
 import { WebSocketService } from './websocket.service';
+import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
 
-@NestWebSocketGateway({
+@WebSocketGateway({
   cors: {
     origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
     credentials: true,
@@ -24,10 +24,12 @@ import { WebSocketService } from './websocket.service';
   forbidNonWhitelisted: true,
 }))
 @UseGuards(DevAuthGuard, RolesGuard)
-export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly logger: AppLoggerService,
     private readonly webSocketService: WebSocketService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
   @WebSocketServer()
@@ -46,30 +48,46 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
   }
 
   async handleConnection(client: Socket) {
-    const clientInfo = {
-      connectedAt: new Date(),
-      lastActivity: new Date(),
-    };
-    
-    this.connectedClients.set(client.id, clientInfo);
-    this.logger.log(`Client connected: ${client.id}, current connections: ${this.connectedClients.size}`);
-    
-    // 使用WebSocketService处理连接逻辑
-    await this.webSocketService.handleConnection(client, (client as any).user, (client as any).deviceId);
-    
-    // 发送连接确认
-    client.emit('connection:established', { 
-      clientId: client.id,
-      timestamp: new Date().toISOString() 
-    });
+    try {
+      // 使用与HTTP API相同的认证逻辑
+      await this.authenticateWebSocketClient(client);
+
+      const clientInfo = {
+        connectedAt: new Date(),
+        lastActivity: new Date(),
+      };
+      
+      this.connectedClients.set(client.id, clientInfo);
+      this.logger.log(`Client connected: ${client.id}, current connections: ${this.connectedClients.size}`);
+      
+      // 使用WebSocketService处理连接逻辑
+      await this.webSocketService.handleConnection(client, (client as any).user, (client as any).deviceId);
+      
+      // 发送连接确认
+      client.emit('connection:established', { 
+        clientId: client.id,
+        timestamp: new Date().toISOString() 
+      });
+    } catch (error) {
+      this.logger.warn(`WebSocket认证失败: ${error.message}, 客户端: ${client.id}`);
+      client.disconnect(true);
+    }
   }
 
   async handleDisconnect(client: Socket) {
     this.connectedClients.delete(client.id);
     this.logger.log(`Client disconnected: ${client.id}, remaining connections: ${this.connectedClients.size}`);
     
-    // 使用WebSocketService处理断开连接逻辑
-    await this.webSocketService.handleDisconnection(client, (client as any).user, (client as any).deviceId);
+    // 获取用户和设备信息，处理可能的undefined情况
+    const user = (client as any).user;
+    const deviceId = (client as any).deviceId;
+    
+    // 只有在用户信息存在时才调用断开处理逻辑
+    if (user && deviceId) {
+      await this.webSocketService.handleDisconnection(client, user, deviceId);
+    } else {
+      this.logger.warn(`客户端 ${client.id} 断开连接时缺少用户或设备信息，跳过断开处理逻辑`);
+    }
   }
 
   private cleanupInactiveConnections(): void {
@@ -99,6 +117,129 @@ export class WebSocketGateway implements OnGatewayInit, OnGatewayConnection, OnG
     if (clientInfo) {
       clientInfo.lastActivity = new Date();
     }
+  }
+
+  /**
+   * WebSocket客户端认证方法
+   * 使用与HTTP API相同的认证逻辑，确保系统一致性
+   */
+  private async authenticateWebSocketClient(client: Socket): Promise<void> {
+    // 从查询参数或认证头中提取JWT令牌
+    const token = this.extractTokenFromSocket(client);
+    
+    if (!token) {
+      // 开发环境下允许匿名连接（使用模拟用户）
+      if (this.isDevelopment()) {
+        this.logger.debug('开发环境: 允许匿名WebSocket连接（使用模拟用户）');
+        this.attachDevUser(client);
+        return;
+      }
+      
+      throw new Error('认证令牌缺失');
+    }
+
+    try {
+      // 使用与HTTP API相同的JWT验证逻辑
+      const payload = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET') || 'default-secret',
+      });
+
+      // 验证用户信息（这里可以进一步集成您现有的用户服务）
+      const user = await this.validateUserFromPayload(payload);
+      
+      if (!user) {
+        throw new Error('用户验证失败');
+      }
+
+      // 将用户信息附加到socket对象
+      (client as any).user = {
+        id: user.id,
+        email: user.email,
+        role: user.role || 'USER',
+      };
+
+      // 从查询参数中获取设备ID
+      (client as any).deviceId = this.extractDeviceId(client);
+
+      this.logger.debug(`WebSocket认证成功: ${user.email} (真实用户)`);
+    } catch (error) {
+      // 开发环境下，认证失败时使用模拟用户
+      if (this.isDevelopment()) {
+        this.logger.debug(`开发环境: WebSocket认证失败，使用模拟用户 (错误: ${error.message})`);
+        this.attachDevUser(client);
+        return;
+      }
+      
+      throw new Error(`认证失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 从Socket连接中提取JWT令牌
+   */
+  private extractTokenFromSocket(client: Socket): string | null {
+    // 支持查询参数方式: ws://localhost?token=xxx
+    const queryToken = client.handshake.query?.token as string;
+    if (queryToken) {
+      return queryToken;
+    }
+
+    // 支持认证头方式
+    const authHeader = client.handshake.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+
+    return null;
+  }
+
+  /**
+   * 从JWT payload验证用户信息
+   * 这里可以进一步集成您现有的用户服务
+   */
+  private async validateUserFromPayload(payload: any): Promise<any> {
+    // 这里应该调用您现有的用户服务进行验证
+    // 目前简化实现，直接使用payload中的信息
+    if (!payload.sub || !payload.email) {
+      throw new Error('JWT载荷不完整');
+    }
+
+    return {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role || 'USER',
+    };
+  }
+
+  /**
+   * 从查询参数中提取设备ID
+   */
+  private extractDeviceId(client: Socket): string | undefined {
+    return client.handshake.query?.deviceId as string;
+  }
+
+  /**
+   * 检查是否为开发环境
+   */
+  private isDevelopment(): boolean {
+    return process.env.NODE_ENV === 'development';
+  }
+
+  /**
+   * 开发环境下附加模拟用户信息
+   */
+  private attachDevUser(client: Socket): void {
+    (client as any).user = {
+      id: 'dev-user-id',
+      email: 'dev@freemonitor.dev',
+      role: 'USER',
+      isDevUser: true, // 明确标记为开发环境模拟用户
+    };
+
+    // 开发环境默认设备ID
+    (client as any).deviceId = 'dev-device-id';
+
+    this.logger.debug('开发环境: 附加模拟用户和设备信息');
   }
 
   @Throttle({ default: { limit: 1000, ttl: 60000 } })

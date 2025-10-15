@@ -4,7 +4,7 @@ interface WebSocketConfig {
   token: string;
   deviceId?: string;
   onConnect?: () => void;
-  onDisconnect?: () => void;
+  onDisconnect?: (reason: string) => void;
   onError?: (error: any) => void;
   onMetricsUpdate?: (data: any) => void;
   onAlertNotification?: (data: any) => void;
@@ -15,7 +15,11 @@ export class WebSocketClient {
   private config: WebSocketConfig;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private reconnectInterval = 3000;
+  private baseReconnectInterval = 1000;
+  private maxReconnectInterval = 30000;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private isManualDisconnect = false;
+  private isReconnecting = false;
 
   constructor(config: WebSocketConfig) {
     this.config = config;
@@ -26,6 +30,12 @@ export class WebSocketClient {
       console.warn('WebSocket 已经连接');
       return;
     }
+
+    // 重置重连状态
+    this.isManualDisconnect = false;
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
+    this.clearReconnectTimeout();
 
     const queryParams: Record<string, string> = {
       token: this.config.token,
@@ -42,6 +52,8 @@ export class WebSocketClient {
       auth: {
         token: this.config.token,
       },
+      reconnection: false, // 禁用Socket.IO内置重连，使用自定义重连逻辑
+      timeout: 10000,
     });
 
     this.setupEventListeners();
@@ -53,23 +65,29 @@ export class WebSocketClient {
     this.socket.on('connect', () => {
       console.log('WebSocket 连接成功');
       this.reconnectAttempts = 0;
+      this.isReconnecting = false;
+      this.clearReconnectTimeout();
       this.config.onConnect?.();
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log('WebSocket 断开连接:', reason);
-      this.config.onDisconnect?.();
+      this.config.onDisconnect?.(reason);
       
-      if (reason === 'io server disconnect') {
-        // 服务器主动断开，需要重新连接
-        this.socket?.connect();
+      // 只有在非手动断开且不是服务器主动断开的情况下才重连
+      if (!this.isManualDisconnect && reason !== 'io server disconnect') {
+        this.handleReconnect();
       }
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('WebSocket 连接错误:', error);
       this.config.onError?.(error);
-      this.handleReconnect();
+      
+      // 只有在非手动断开的情况下才重连
+      if (!this.isManualDisconnect) {
+        this.handleReconnect();
+      }
     });
 
     this.socket.on('error', (error) => {
@@ -116,15 +134,39 @@ export class WebSocketClient {
   }
 
   private handleReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`尝试重新连接 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
-      setTimeout(() => {
-        this.socket?.connect();
-      }, this.reconnectInterval);
-    } else {
+    // 防止重复重连
+    if (this.isReconnecting || this.isManualDisconnect) {
+      return;
+    }
+
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('达到最大重连次数，停止重连');
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    // 指数退避策略：每次重连间隔加倍，但不超过最大值
+    const reconnectInterval = Math.min(
+      this.baseReconnectInterval * Math.pow(2, this.reconnectAttempts - 1),
+      this.maxReconnectInterval
+    );
+
+    console.log(`尝试重新连接 (${this.reconnectAttempts}/${this.maxReconnectAttempts})，等待 ${reconnectInterval}ms`);
+    
+    this.reconnectTimeout = setTimeout(() => {
+      this.isReconnecting = false;
+      if (this.socket && !this.isManualDisconnect) {
+        this.socket.connect();
+      }
+    }, reconnectInterval);
+  }
+
+  private clearReconnectTimeout(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 
@@ -155,6 +197,9 @@ export class WebSocketClient {
 
   // 断开连接
   disconnect(): void {
+    this.isManualDisconnect = true;
+    this.clearReconnectTimeout();
+    
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
