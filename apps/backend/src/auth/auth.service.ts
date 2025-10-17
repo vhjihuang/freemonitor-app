@@ -294,17 +294,13 @@ export class AuthService {
         throw new UnauthorizedException("账户已被锁定或不存在，请联系管理员");
       }
 
-      // 更新用户最后登录时间 - 使用安全的字段选择
+      // 更新用户最后登录时间
       try {
         await this.prisma.user.update({
           where: { id: user.id },
           data: {
             lastLoginAt: new Date(),
             updatedAt: new Date(),
-          },
-          select: {
-            id: true,
-            lastLoginAt: true,
           },
         });
       } catch (error) {

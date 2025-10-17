@@ -6,6 +6,7 @@ import { AuthModule } from "./auth.module";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ConfigModule } from "@nestjs/config";
 import { jwtConfig } from "../config/jwt.config"; // 确保路径正确
+import { CommonModule } from "../common/common.module";
 
 describe("Auth E2E", () => {
   let app: INestApplication;
@@ -18,6 +19,7 @@ describe("Auth E2E", () => {
           load: [jwtConfig], // ✅ 加载你的 JWT 配置
           isGlobal: true, // 可选：让 ConfigService 全局可用
         }),
+        CommonModule,
         AuthModule, // ✅ 现在它可以正确读取 ConfigService
       ],
     }).compile();
@@ -57,9 +59,9 @@ describe("Auth E2E", () => {
       .send({ email: "e2e@freemonitor.dev", password: "123456" })
       .expect(200)
       .expect((res) => {
-        expect(res.body).toHaveProperty("accessToken");
-        expect(res.body.accessToken).toBeTruthy();
-        expect(res.body.user.email).toBe("e2e@freemonitor.dev");
+        expect(res.body.data).toHaveProperty("accessToken");
+        expect(res.body.data.accessToken).toBeTruthy();
+        expect(res.body.data.user.email).toBe("e2e@freemonitor.dev");
       });
   });
 });
