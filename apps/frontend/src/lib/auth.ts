@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import { refreshCsrfToken } from './csrf';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
+import { ApiHandlers } from '@freemonitor/types';
 
 // 认证相关类型
 export interface User extends UserResponseDto {}
@@ -14,30 +15,22 @@ export interface AuthTokens {
 // 登录函数
 export async function login(email: string, password: string): Promise<AuthTokens> {
   try {
-    const response: any = await apiClient.post('/auth/login', { email, password });
+    const data = await ApiHandlers.object<TokenResponse>(
+      () => apiClient.post('/auth/login', { email, password })
+    );
     
-    if (!response) {
-      throw new Error('登录失败，请检查邮箱和密码');
-    }
-    
-    const tokenResponse = response.data || response;
-    
-    if (!tokenResponse) {
-      throw new Error('登录失败，请检查邮箱和密码');
-    }
-    
-    if (!tokenResponse.accessToken) {
+    if (!data.accessToken) {
       throw new Error('登录响应缺少访问令牌');
     }
     
-    if (!tokenResponse.user) {
+    if (!data.user) {
       throw new Error('登录响应缺少用户信息');
     }
     
     const tokens: AuthTokens = {
-      accessToken: tokenResponse.accessToken,
-      refreshToken: tokenResponse.refreshToken,
-      user: tokenResponse.user
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user
     };
     
     saveAuthData(tokens);
@@ -53,40 +46,29 @@ export async function login(email: string, password: string): Promise<AuthTokens
     return tokens;
   } catch (error: any) {
     console.error('登录错误:', error);
-    if (error.message) {
-      throw new Error(error.message);
-    }
-    throw new Error('登录失败，请检查邮箱和密码');
+    throw new Error(error.message || '登录失败，请检查邮箱和密码');
   }
 }
 
 // 注册函数
 export async function register(email: string, password: string, name: string): Promise<AuthTokens> {
   try {
-    const response: any = await apiClient.post('/auth/register', { email, password, name });
+    const data = await ApiHandlers.object<TokenResponse>(
+      () => apiClient.post('/auth/register', { email, password, name })
+    );
     
-    if (!response) {
-      throw new Error('注册失败');
-    }
-    
-    const tokenResponse = response.data || response;
-    
-    if (!tokenResponse) {
-      throw new Error('注册失败');
-    }
-    
-    if (!tokenResponse.accessToken) {
+    if (!data.accessToken) {
       throw new Error('注册响应缺少访问令牌');
     }
     
-    if (!tokenResponse.user) {
+    if (!data.user) {
       throw new Error('注册响应缺少用户信息');
     }
     
     const tokens: AuthTokens = {
-      accessToken: tokenResponse.accessToken,
-      refreshToken: tokenResponse.refreshToken,
-      user: tokenResponse.user
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user
     };
     
     saveAuthData(tokens);
@@ -100,10 +82,7 @@ export async function register(email: string, password: string, name: string): P
     
     return tokens;
   } catch (error: any) {
-    if (error.message) {
-      throw new Error(error.message);
-    }
-    throw new Error('注册失败');
+    throw new Error(error.message || '注册失败');
   }
 }
 
@@ -133,11 +112,17 @@ function saveAuthData(data: AuthTokens): void {
       localStorage.removeItem('user');
     }
     
-    const authChangeEvent = new CustomEvent('authStateChanged', { detail: { isAuthenticated: true } });
+    // 触发认证状态变化事件，包含用户信息
+    const authChangeEvent = new CustomEvent('authStateChanged', { 
+      detail: { 
+        isAuthenticated: true,
+        user: data.user
+      } 
+    });
     window.dispatchEvent(authChangeEvent);
   } catch (error) {
     console.error('Failed to save auth data to localStorage:', error);
-    throw error; // 重新抛出错误，让调用方处理
+    throw new Error('保存认证数据失败');
   }
 }
 
@@ -150,41 +135,31 @@ export async function refreshTokens(): Promise<AuthTokens | null> {
   }
   
   try {
-    const response: any = await apiClient.post('/auth/refresh', { refreshToken });
+    const data = await ApiHandlers.object<TokenResponse>(
+      () => apiClient.post('/auth/refresh', { refreshToken })
+    );
     
-    if (!response) {
-      logout();
-      return null;
+    if (!data.accessToken) {
+      throw new Error('刷新令牌响应缺少访问令牌');
     }
     
-    const tokenResponse = response.data || response;
-    
-    if (!tokenResponse) {
-      logout();
-      return null;
-    }
-    
-    if (!tokenResponse.accessToken) {
-      logout();
-      return null;
-    }
-    
-    if (!tokenResponse.user) {
-      logout();
-      return null;
+    if (!data.user) {
+      throw new Error('刷新令牌响应缺少用户信息');
     }
     
     const tokens: AuthTokens = {
-      accessToken: tokenResponse.accessToken,
-      refreshToken: tokenResponse.refreshToken,
-      user: tokenResponse.user
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      user: data.user
     };
     
     saveAuthData(tokens);
     return tokens;
-  } catch (error) {
-    logout();
-    return null;
+  } catch (error: any) {
+    console.error('刷新令牌失败:', error);
+    // 提供更详细的错误信息
+    const errorMessage = error.message || '刷新令牌失败';
+    throw new Error(errorMessage);
   }
 }
 
@@ -227,14 +202,25 @@ export function isAuthenticated(): boolean {
 
 // 登出
 export function logout(): void {
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  
-  const authChangeEvent = new CustomEvent('authStateChanged', { detail: { isAuthenticated: false } });
-  window.dispatchEvent(authChangeEvent);
-  
-  if (typeof window !== 'undefined') {
-    window.location.href = '/login';
+  try {
+    // 清除localStorage中的认证信息
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
+    // 触发认证状态变化事件，包含用户信息
+    const authChangeEvent = new CustomEvent('authStateChanged', { 
+      detail: { 
+        isAuthenticated: false,
+        user: null
+      } 
+    });
+    window.dispatchEvent(authChangeEvent);
+    
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  } catch (error) {
+    console.error('登出失败:', error);
   }
 }
