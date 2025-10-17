@@ -3,12 +3,13 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, AuthTokens } from '../lib/auth';
 import { getCurrentUser, getAccessToken, isAuthenticated } from '../lib/auth';
+import { LoadingState, LoadingStatus, createInitialLoadingStatus, createLoadingStatus, createSuccessStatus, createErrorStatus } from '../lib/loading-state';
 
 // 认证状态接口
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  loadingStatus: LoadingStatus<any>;
   error: string | null;
 }
 
@@ -27,7 +28,7 @@ export type AuthAction =
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  loadingStatus: createInitialLoadingStatus(),
   error: null,
 };
 
@@ -37,7 +38,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
     case 'AUTH_START':
       return {
         ...state,
-        isLoading: true,
+        loadingStatus: createLoadingStatus(0, '正在认证...'),
         error: null,
       };
     case 'AUTH_SUCCESS':
@@ -45,7 +46,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: action.payload.user,
         isAuthenticated: true,
-        isLoading: false,
+        loadingStatus: createSuccessStatus(action.payload.user, '认证成功'),
         error: null,
       };
     case 'AUTH_FAILURE':
@@ -53,7 +54,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: null,
         isAuthenticated: false,
-        isLoading: false,
+        loadingStatus: createErrorStatus(action.payload.error, '认证失败'),
         error: action.payload.error,
       };
     case 'LOGOUT':
@@ -61,7 +62,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: null,
         isAuthenticated: false,
-        isLoading: false,
+        loadingStatus: createInitialLoadingStatus(),
         error: null,
       };
     case 'CLEAR_ERROR':
@@ -82,7 +83,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
           ...state,
           user,
           isAuthenticated: authenticated,
-          isLoading: false,
+          loadingStatus: createSuccessStatus(null, '状态加载完成'),
           error: null,
         };
       } catch (error) {
@@ -90,7 +91,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
           ...state,
           user: null,
           isAuthenticated: false,
-          isLoading: false,
+          loadingStatus: createErrorStatus('加载认证状态失败', '状态加载失败'),
           error: '加载认证状态失败',
         };
       }
@@ -99,7 +100,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: action.payload.user,
         isAuthenticated: action.payload.isAuthenticated,
-        isLoading: false,
+        loadingStatus: createSuccessStatus(action.payload.user, '登录成功'),
         error: null,
       };
     default:
@@ -140,43 +141,59 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
     };
 
-    // 监听localStorage变化（当在同一域名下的不同标签页修改时）
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'accessToken' || e.key === 'refreshToken' || e.key === 'user' || e.key === null) {
-        // 如果令牌被清除，则登出
-        if (e.key === null || e.newValue === null) {
-          dispatch({ type: 'LOGOUT' });
-        } else {
-          // 否则，重新加载认证状态
-          dispatch({ type: 'INITIAL_LOAD' });
-        }
-      }
-    };
-
     // 注册事件监听器
     window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
-    window.addEventListener('storage', handleStorageChange);
 
     // 清理函数
     return () => {
       window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
   // 初始化认证状态
   useEffect(() => {
+    // 添加调试日志，追踪localStorage中的认证数据
+    console.log('[AuthContext] 页面加载时的localStorage状态:', {
+      accessToken: localStorage.getItem('accessToken'),
+      refreshToken: localStorage.getItem('refreshToken'),
+      user: localStorage.getItem('user')
+    });
+
+    // 检查localStorage中是否已有认证数据，避免不必要的初始化
+    const token = localStorage.getItem('accessToken');
+    const userStr = localStorage.getItem('user');
+    
+    // 如果已经有认证数据且状态是初始状态，则直接设置为已认证
+    if (token && userStr && state.loadingStatus.state === LoadingState.IDLE) {
+      try {
+        const user = JSON.parse(userStr);
+        if (user && token !== 'undefined' && token !== 'null') {
+          console.log('[AuthContext] 检测到已存在的认证数据，直接设置为已认证', { userId: user.id, email: user.email });
+          dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+          return;
+        }
+      } catch (error) {
+        console.error('[AuthContext] 解析已存在的用户数据失败:', error);
+      }
+    }
+
     const initAuth = () => {
       try {
+        console.log('[AuthContext] 开始初始化认证状态');
+        dispatch({ type: 'AUTH_START' });
         const user = getCurrentUser();
         const authenticated = isAuthenticated();
+        console.log('[AuthContext] 认证状态检查结果:', { user, authenticated, userStr: localStorage.getItem('user'), token: localStorage.getItem('accessToken') });
         
         if (authenticated && user) {
+          console.log('[AuthContext] 认证成功');
           dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
         } else {
+          console.log('[AuthContext] 认证失败');
           dispatch({ type: 'AUTH_FAILURE', payload: { error: '未登录' } });
         }
       } catch (error) {
+        console.error('[AuthContext] 认证状态初始化失败:', error);
         dispatch({ type: 'AUTH_FAILURE', payload: { error: '认证状态初始化失败' } });
       }
     };
