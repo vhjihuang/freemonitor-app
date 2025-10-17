@@ -10,6 +10,7 @@ import { CsrfProvider } from '@/components/providers/csrf-provider';
 import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { WebSocketProvider } from '@/components/websocket/websocket-provider';
+import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
@@ -43,24 +44,26 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={inter.className}>
         <ErrorBoundary>
-          <CsrfProvider>
-            <QueryProvider>
-              <ToastProvider>
-                <WebSocketProvider>
-                  <ThemeProvider
-                    attribute="class"
-                    defaultTheme="system"
-                    enableSystem
-                    disableTransitionOnChange
-                  >
-                    {children}
-                    <Toaster />
-                    <ToastContainer />
-                  </ThemeProvider>
-                </WebSocketProvider>
-              </ToastProvider>
-            </QueryProvider>
-          </CsrfProvider>
+          <AuthProviderWrapper>
+            <CsrfProvider>
+              <QueryProvider>
+                <ToastProvider>
+                  <WebSocketProvider>
+                    <ThemeProvider
+                      attribute="class"
+                      defaultTheme="system"
+                      enableSystem
+                      disableTransitionOnChange
+                    >
+                      {children}
+                      <Toaster />
+                      <ToastContainer />
+                    </ThemeProvider>
+                  </WebSocketProvider>
+                </ToastProvider>
+              </QueryProvider>
+            </CsrfProvider>
+          </AuthProviderWrapper>
         </ErrorBoundary>
       </body>
     </html>

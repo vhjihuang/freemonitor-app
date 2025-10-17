@@ -10,9 +10,10 @@ const nextConfig = {
   trailingSlash: true, // 静态导出推荐
   distDir: process.env.RENDER_STATIC ? 'out' : '.next',
   // 明确禁用standalone模式以避免Turbo工作区冲突
-  experimental: {
-    standalone: false,
-  },
+  // 注意：Next.js 14.0.0中standalone配置已移除
+  // experimental: {
+  //   standalone: false,
+  // },
 };
 
 module.exports = nextConfig;
