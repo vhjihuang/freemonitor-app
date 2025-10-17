@@ -3,6 +3,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } f
 import { getAccessToken, refreshTokens, logout } from "./auth";
 import { getCsrfToken, refreshCsrfToken } from "./csrf";
 import { processResponse, isErrorResponse } from "@freemonitor/types";
+import { standardizeError } from "./error-handler";
 
 /**
  * API客户端类
@@ -41,14 +42,26 @@ export class ApiClient {
           
           if (!isCsrfTokenRequest) {
             try {
-              const csrfToken = getCsrfToken();
-              console.log('API客户端获取到CSRF令牌:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'null/undefined');
+              // 确保CSRF令牌可用
+              let csrfToken = getCsrfToken();
+              
+              // 如果没有缓存的CSRF令牌，尝试刷新获取
+              if (!csrfToken) {
+                console.log('未找到缓存的CSRF令牌，尝试刷新获取');
+                try {
+                  csrfToken = await refreshCsrfToken();
+                  console.log('成功获取CSRF令牌:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'null/undefined');
+                } catch (refreshError) {
+                  console.warn('刷新CSRF令牌失败:', refreshError);
+                }
+              }
+              
               if (csrfToken) {
                 // 使用标准的CSRF令牌头部名称
                 config.headers['X-CSRF-Token'] = csrfToken;
                 console.log('已添加CSRF令牌到请求头');
               } else {
-                console.warn('未找到CSRF令牌');
+                console.warn('无法获取CSRF令牌');
               }
             } catch (error) {
               console.warn('获取CSRF令牌失败:', error);
@@ -128,10 +141,10 @@ export class ApiClient {
           originalRequest._retry = true;
 
           // 检查当前请求是否是刷新令牌请求本身
-          // 如果是，不应该再次尝试刷新，直接退出登录
+          // 如果是，不应该再次尝试刷新，通知用户重新登录
           const isRefreshRequest = originalRequest.url?.includes("/auth/refresh");
           if (isRefreshRequest) {
-            logout();
+            // 不直接调用logout()，而是返回错误让上层处理
             return Promise.reject(new Error("认证已过期，请重新登录"));
           }
 
@@ -145,35 +158,15 @@ export class ApiClient {
               // 重新发送请求
               return this.axiosInstance(originalRequest);
             } else {
-              // 刷新失败，退出登录并触发认证状态变更事件
-              logout();
-              
-              // 触发认证状态变更事件，让认证上下文处理
-              const authChangeEvent = new CustomEvent('authStateChanged', { 
-                detail: { 
-                  isAuthenticated: false,
-                  user: null
-                } 
-              });
-              window.dispatchEvent(authChangeEvent);
-              
+              // 刷新失败，返回错误让上层处理
               return Promise.reject(new Error("认证已过期，请重新登录"));
             }
           } catch (refreshError: any) {
             // 刷新过程出错，提供更详细的错误信息
             console.error('令牌刷新失败:', refreshError);
-            logout();
             
-            // 触发认证状态变更事件，让认证上下文处理
-            const authChangeEvent = new CustomEvent('authStateChanged', { 
-              detail: { 
-                isAuthenticated: false,
-                user: null
-              } 
-            });
-            window.dispatchEvent(authChangeEvent);
-            
-            return Promise.reject(refreshError.message || "认证已过期，请重新登录");
+            const standardizedError = standardizeError(refreshError);
+            return Promise.reject(new Error(standardizedError.userMessage || "认证已过期，请重新登录"));
           }
         }
 
@@ -191,7 +184,8 @@ export class ApiClient {
         }
 
         // 处理网络错误
-        return Promise.reject(new Error("网络错误，请检查连接"));
+        const standardizedError = standardizeError(error);
+        return Promise.reject(new Error(standardizedError.userMessage || "网络错误，请检查连接"));
       }
     );
   }
