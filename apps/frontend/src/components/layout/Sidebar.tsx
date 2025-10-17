@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { logout } from '@/lib/auth';
 import { 
   BarChart3, 
   Server, 
@@ -33,8 +34,7 @@ export function Sidebar({ currentPath = '/dashboard', onCollapseChange }: Sideba
   }, [isCollapsed, onCollapseChange]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     router.push('/login');
   };
 
