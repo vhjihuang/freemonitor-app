@@ -2,7 +2,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import { getAccessToken, refreshTokens, logout } from "./auth";
 import { getCsrfToken, refreshCsrfToken } from "./csrf";
-import { extractResponseData, isErrorResponse } from "@freemonitor/types";
+import { processResponse, isErrorResponse } from "@freemonitor/types";
 
 /**
  * API客户端类
@@ -77,7 +77,7 @@ export class ApiClient {
         }
         
         // 解析响应数据
-        const parsedData = extractResponseData(data);
+        const parsedData = processResponse(data);
         
         // 返回包含解析后数据的响应对象
         return {
@@ -145,14 +145,35 @@ export class ApiClient {
               // 重新发送请求
               return this.axiosInstance(originalRequest);
             } else {
-              // 刷新失败，退出登录
+              // 刷新失败，退出登录并触发认证状态变更事件
               logout();
+              
+              // 触发认证状态变更事件，让认证上下文处理
+              const authChangeEvent = new CustomEvent('authStateChanged', { 
+                detail: { 
+                  isAuthenticated: false,
+                  user: null
+                } 
+              });
+              window.dispatchEvent(authChangeEvent);
+              
               return Promise.reject(new Error("认证已过期，请重新登录"));
             }
-          } catch (refreshError) {
-            // 刷新过程出错，退出登录
+          } catch (refreshError: any) {
+            // 刷新过程出错，提供更详细的错误信息
+            console.error('令牌刷新失败:', refreshError);
             logout();
-            return Promise.reject(new Error("认证已过期，请重新登录"));
+            
+            // 触发认证状态变更事件，让认证上下文处理
+            const authChangeEvent = new CustomEvent('authStateChanged', { 
+              detail: { 
+                isAuthenticated: false,
+                user: null
+              } 
+            });
+            window.dispatchEvent(authChangeEvent);
+            
+            return Promise.reject(refreshError.message || "认证已过期，请重新登录");
           }
         }
 
