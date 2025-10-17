@@ -1,15 +1,14 @@
 // apps/frontend/src/lib/api/sessionApi.ts
 import { apiClient } from '../api';
 import { Session } from '@freemonitor/types';
-import { handleResponse } from './apiUtils';
+import { ApiHandlers } from '@freemonitor/types';
 
 /**
  * 获取用户会话列表
  * @returns Promise<Session[]> - 会话列表
  */
 export const getSessions = async (): Promise<Session[]> => {
-  const response = await apiClient.get<Session[]>('auth/sessions');
-  return handleResponse(response);
+  return ApiHandlers.array(() => apiClient.get<Session[]>('auth/sessions'));
 };
 
 /**
@@ -18,7 +17,7 @@ export const getSessions = async (): Promise<Session[]> => {
  * @returns Promise<void>
  */
 export const revokeSession = async (sessionId: string): Promise<void> => {
-  const response = await apiClient.delete(`auth/sessions/${sessionId}`);
+  return ApiHandlers.void(() => apiClient.delete(`auth/sessions/${sessionId}`));
 };
 
 /**
@@ -26,5 +25,5 @@ export const revokeSession = async (sessionId: string): Promise<void> => {
  * @returns Promise<void>
  */
 export const revokeOtherSessions = async (): Promise<void> => {
-  const response = await apiClient.delete('auth/sessions');
+  return ApiHandlers.void(() => apiClient.delete('auth/sessions'));
 };

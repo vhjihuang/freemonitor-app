@@ -1,7 +1,7 @@
 // src/lib/api/metricApi.ts
 import { apiClient } from '../api';
 import { Metric } from '@freemonitor/types';
-import { handleResponse } from './apiUtils';
+import { ApiHandlers } from '@freemonitor/types';
 
 // 定义 QueryMetricDto 类型
 export interface QueryMetricDto {
@@ -33,11 +33,9 @@ export interface MetricResponse {
 }
 
 export const getMetrics = async (params?: QueryMetricDto) => {
-  const response = await apiClient.get<MetricResponse>('devices/metrics/list', { params });
-  return handleResponse(response);
+  return ApiHandlers.generic(() => apiClient.get<MetricResponse>('devices/metrics/list', { params }));
 };
 
 export const getMetricsWithMeta = async (params?: QueryMetricDto): Promise<MetricListResponse> => {
-  const response = await apiClient.get<MetricResponse>('devices/metrics/list', { params });
-  return handleResponse<MetricListResponse>(response.data);
+  return ApiHandlers.object(() => apiClient.get<MetricResponse>('devices/metrics/list', { params }));
 };
