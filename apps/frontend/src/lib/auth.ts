@@ -27,7 +27,7 @@ export async function login(email: string, password: string): Promise<AuthTokens
     });
     window.dispatchEvent(authStartEvent);
     
-    const data = await ApiHandlers.object<TokenResponse>(
+    const data = await ApiHandlers.generic<TokenResponse>(
       () => apiClient.post('/auth/login', { email, password })
     );
     
@@ -91,9 +91,9 @@ export async function register(email: string, password: string, name: string): P
     });
     window.dispatchEvent(authStartEvent);
     
-    const data = await ApiHandlers.object<TokenResponse>(
-      () => apiClient.post('/auth/register', { email, password, name })
-    );
+    const data = await ApiHandlers.generic<TokenResponse>(
+        () => apiClient.post('/auth/register', { email, password, name })
+      );
     
     if (!data.accessToken) {
       throw new Error('注册响应缺少访问令牌');
@@ -205,7 +205,7 @@ export async function refreshTokens(maxRetries: number = 3): Promise<AuthTokens 
     try {
       console.log(`尝试刷新令牌 (第${attempt}/${maxRetries}次)`);
       
-      const data = await ApiHandlers.object<TokenResponse>(
+      const data = await ApiHandlers.generic<TokenResponse>(
         () => apiClient.post('/auth/refresh', { refreshToken })
       );
       
