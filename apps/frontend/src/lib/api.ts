@@ -18,7 +18,7 @@ export class ApiClient {
   constructor() {
     this.axiosInstance = axios.create({
       baseURL: (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api",
-      timeout: 10000,
+      timeout: 30000, // 将超时时间从10秒增加到30秒
       headers: {
         "Content-Type": "application/json",
       },
@@ -144,7 +144,8 @@ export class ApiClient {
           // 如果是，不应该再次尝试刷新，通知用户重新登录
           const isRefreshRequest = originalRequest.url?.includes("/auth/refresh");
           if (isRefreshRequest) {
-            // 不直接调用logout()，而是返回错误让上层处理
+            // 触发登出并跳转到登录页面
+            logout();
             return Promise.reject(new Error("认证已过期，请重新登录"));
           }
 
@@ -158,12 +159,14 @@ export class ApiClient {
               // 重新发送请求
               return this.axiosInstance(originalRequest);
             } else {
-              // 刷新失败，返回错误让上层处理
+              // 刷新失败，触发登出并跳转到登录页面
+              logout();
               return Promise.reject(new Error("认证已过期，请重新登录"));
             }
           } catch (refreshError: any) {
-            // 刷新过程出错，提供更详细的错误信息
+            // 刷新过程出错，触发登出并跳转到登录页面
             console.error('令牌刷新失败:', refreshError);
+            logout();
             
             const standardizedError = standardizeError(refreshError);
             return Promise.reject(new Error(standardizedError.userMessage || "认证已过期，请重新登录"));

@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data, isLoading, error } = useRecentAlerts(10);
 
-  const alerts = data?.data || [];
+  const alerts = data || [];
 
   return (
     <DashboardLayout currentPath="/dashboard" roles={[Role.USER, Role.ADMIN, Role.OPERATOR, Role.VIEWER]}>

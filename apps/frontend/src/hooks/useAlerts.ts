@@ -39,7 +39,7 @@ export const useRecentAlerts = (limit: number = 10) => {
   });
 
   return {
-    data: data,
+    data: data?.data, // 返回实际的告警数组
     error,
     isLoading,
     refetch,

@@ -36,8 +36,8 @@ export const getAlertsWithMeta = async (params?: AlertQueryDto): Promise<AlertLi
   return ApiHandlers.object(() => apiClient.get<AlertResponse>('devices/alerts/list', { params }));
 };
 
-export const getRecentAlerts = async (limit: number = 10) => {
-  return ApiHandlers.generic(() => apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } }));
+export const getRecentAlerts = async (limit: number = 10): Promise<AlertListResponse> => {
+  return ApiHandlers.object(() => apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } }));
 };
 
 export const acknowledgeAlert = async (alertId: string, comment: string): Promise<Alert> => {
