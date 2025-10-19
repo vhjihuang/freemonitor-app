@@ -53,7 +53,7 @@ export default function DevicesPage() {
     }, 30000); // 每30秒刷新一次
     
     return () => clearInterval(interval);
-  }, [refetch]);
+  }, []); // 使用空依赖数组，避免refetch变化时创建新定时器
 
   const deleteDevice = useDeleteDevice();
   
