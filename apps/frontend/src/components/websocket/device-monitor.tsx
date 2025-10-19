@@ -51,11 +51,11 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({
       if (data.deviceId === deviceId) {
         const metric: MetricData = {
           deviceId: data.deviceId,
-          cpu: data.cpu,
-          memory: data.memory,
-          disk: data.disk,
-          network: data.network,
-          timestamp: new Date().toISOString(),
+          cpu: data.metrics?.cpu,
+          memory: data.metrics?.memory,
+          disk: data.metrics?.disk,
+          network: data.metrics?.network ? (data.metrics.network.in + data.metrics.network.out) / 2 : undefined,
+          timestamp: data.timestamp,
         };
 
         setMetrics(prev => {
