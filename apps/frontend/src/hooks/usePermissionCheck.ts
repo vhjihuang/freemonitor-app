@@ -22,7 +22,7 @@ export function usePermissionCheck(
   requiredRoles?: Role[],
   redirectUnauthorized: boolean = true
 ): PermissionCheckResult {
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { user, isAuthLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
@@ -49,7 +49,7 @@ export function usePermissionCheck(
 
   useEffect(() => {
     // 认证信息加载期间不执行检查
-    if (authLoading) return;
+    if (isAuthLoading()) return;
 
     // 如果用户未认证，不需要检查角色
     if (!isAuthenticated) return;
@@ -66,7 +66,7 @@ export function usePermissionCheck(
       // 立即返回，防止继续执行后续逻辑
       return;
     }
-  }, [user, authLoading, isAuthenticated, requiredRoles, router, redirectUnauthorized]);
+  }, [user, isAuthLoading, isAuthenticated, requiredRoles, router, redirectUnauthorized]);
 
   // 返回权限检查结果
   const isAllowed = isAuthenticated && checkUserPermission();
@@ -76,13 +76,13 @@ export function usePermissionCheck(
     return {
       isAllowed: isAuthenticated,
       isRedirecting,
-      isLoading: authLoading,
+      isLoading: isAuthLoading(),
     };
   }
 
   return {
     isAllowed,
     isRedirecting,
-    isLoading: authLoading,
+    isLoading: isAuthLoading(),
   };
 }

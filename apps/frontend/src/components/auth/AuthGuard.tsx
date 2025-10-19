@@ -12,7 +12,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, roles }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
   const router = useRouter();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
   useEffect(() => {
     try {
       // 数据加载期间不执行检查
-      if (isLoading || permissionLoading) return;
+      if (isAuthLoading() || permissionLoading) return;
 
       // 未认证用户重定向到登录页
       if (!isAuthenticated) {
@@ -55,8 +55,8 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
   }, [isAuthenticated, isLoading, permissionLoading, isAllowed, roles, router]);
 
   // 在权限验证期间渲染 children（而不是 null），避免显示空白页面导致闪烁
-  // 添加isLoading、permissionLoading或仍在初始状态时的检查
-  if (isLoading || permissionLoading || isRedirecting || (!isAuthenticated && !isLoading && !permissionLoading)) {
+  // 添加isAuthLoading、permissionLoading或仍在初始状态时的检查
+  if (isAuthLoading() || permissionLoading || isRedirecting || (!isAuthenticated && !isAuthLoading() && !permissionLoading)) {
     return <>{children}</>;
   }
 
