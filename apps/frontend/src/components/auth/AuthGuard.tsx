@@ -52,7 +52,7 @@ export function AuthGuard({ children, roles }: AuthGuardProps) {
       // 发生错误时重定向到登录页
       router.replace('/login');
     }
-  }, [isAuthenticated, isLoading, permissionLoading, isAllowed, roles, router]);
+  }, [isAuthenticated, isAuthLoading, permissionLoading, isAllowed, roles, router]);
 
   // 在权限验证期间渲染 children（而不是 null），避免显示空白页面导致闪烁
   // 添加isAuthLoading、permissionLoading或仍在初始状态时的检查
