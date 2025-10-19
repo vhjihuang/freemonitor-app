@@ -163,13 +163,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const token = localStorage.getItem('accessToken');
     const userStr = localStorage.getItem('user');
     
-    // 如果已经有认证数据且状态是初始状态，则直接设置为已认证
+    // 如果已经有认证数据且状态是初始状态，则检查令牌有效性后再设置状态
     if (token && userStr && state.loadingStatus.state === LoadingState.IDLE) {
       try {
         const user = JSON.parse(userStr);
         if (user && token !== 'undefined' && token !== 'null') {
-          console.log('[AuthContext] 检测到已存在的认证数据，直接设置为已认证', { userId: user.id, email: user.email });
-          dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+          // 使用更新后的isAuthenticated函数检查令牌有效性
+          const authenticated = isAuthenticated();
+          if (authenticated) {
+            console.log('[AuthContext] 检测到有效的认证数据，设置为已认证', { userId: user.id, email: user.email });
+            dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+          } else {
+            console.log('[AuthContext] 检测到无效的认证数据，设置为未认证');
+            dispatch({ type: 'AUTH_FAILURE', payload: { error: '未登录' } });
+          }
           return;
         }
       } catch (error) {

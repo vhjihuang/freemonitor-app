@@ -283,10 +283,33 @@ export function getAccessToken(): string | null {
   return token;
 }
 
+// 检查JWT令牌是否过期
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    console.error('解析JWT令牌失败:', error);
+    return true; // 如果解析失败，认为令牌无效
+  }
+}
+
 // 检查是否已认证
 export function isAuthenticated(): boolean {
   const token = getAccessToken();
-  return !!token;
+  if (!token) return false;
+  
+  // 检查令牌是否过期
+  if (isTokenExpired(token)) {
+    // 令牌过期，清除认证数据
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    return false;
+  }
+  
+  return true;
 }
 
 // 登出

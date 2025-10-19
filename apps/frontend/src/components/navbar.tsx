@@ -15,7 +15,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -38,7 +38,7 @@ export function Navbar() {
             <Link href="/" className="text-xl font-bold">
               FreeMonitor
             </Link>
-            {user && (
+            {user && isAuthenticated && (
               <div className="ml-10 flex items-baseline space-x-4">
                 {navigation.map((item) => (
                   <Link
@@ -59,7 +59,7 @@ export function Navbar() {
 
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            {user ? (
+            {user && isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
