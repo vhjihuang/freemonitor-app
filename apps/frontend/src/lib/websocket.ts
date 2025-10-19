@@ -427,7 +427,7 @@ export class WebSocketClient {
   
   // 获取有效的访问令牌（包括刷新逻辑）
   private async getValidToken(): Promise<string | null> {
-    let token = this.getLatestToken();
+    let token: string | null = this.getLatestToken();
     
     // 如果令牌无效，尝试刷新
     if (!this.isTokenValid(token)) {
