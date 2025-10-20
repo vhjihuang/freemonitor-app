@@ -27,9 +27,9 @@ function getLayoutClass(layout: LayoutType): string {
   
   switch (layout) {
     case 'auth':
-      return `${baseClass} bg-gradient-to-br from-blue-50 to-indigo-100`;
+      return `${baseClass} bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`;
     case 'dashboard':
-      return `${baseClass} bg-gray-50`;
+      return `${baseClass} bg-gray-50 dark:bg-gray-900`;
     case 'fullscreen':
       return `${baseClass}`;
     default:

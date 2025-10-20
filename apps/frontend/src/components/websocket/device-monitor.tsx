@@ -95,21 +95,21 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({
 
   if (!isConnected) {
     return (
-      <div className={`p-4 border rounded-lg bg-gray-50 ${className}`}>
+      <div className={`p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 ${className}`}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700">{deviceName}</h3>
-          <span className="text-sm text-red-500">离线</span>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">{deviceName}</h3>
+          <span className="text-sm text-red-500 dark:text-red-400">离线</span>
         </div>
-        <p className="text-sm text-gray-500 mt-2">WebSocket 未连接，无法获取实时数据</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">WebSocket 未连接，无法获取实时数据</p>
       </div>
     );
   }
 
   return (
-    <div className={`p-4 border rounded-lg bg-white shadow-sm ${className}`}>
+    <div className={`p-4 border rounded-lg bg-white dark:bg-gray-800 shadow-sm ${className}`}>
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-gray-700">{deviceName}</h3>
-        <span className="text-sm text-green-500">实时监控中</span>
+        <h3 className="font-semibold text-gray-700 dark:text-gray-200">{deviceName}</h3>
+        <span className="text-sm text-green-500 dark:text-green-400">实时监控中</span>
       </div>
       
       {latestMetric && (

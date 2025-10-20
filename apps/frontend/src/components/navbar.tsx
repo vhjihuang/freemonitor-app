@@ -31,7 +31,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="border-b bg-background">
+    <nav className="border-b bg-background dark:bg-gray-900/90 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center">
@@ -47,7 +47,7 @@ export function Navbar() {
                     className={`px-3 py-2 text-sm font-medium rounded-md ${
                       pathname === item.href
                         ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-gray-800'
                     }`}
                   >
                     {item.name}

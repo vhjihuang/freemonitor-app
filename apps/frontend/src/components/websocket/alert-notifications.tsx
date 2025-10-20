@@ -98,13 +98,13 @@ export const AlertNotifications: React.FC<AlertNotificationsProps> = ({
   const getAlertColor = (type: 'critical' | 'warning' | 'info') => {
     switch (type) {
       case 'critical':
-        return 'bg-red-100 border-red-300 text-red-800';
+        return 'bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-800 text-red-800 dark:text-red-200';
       case 'warning':
-        return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+        return 'bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200';
       case 'info':
-        return 'bg-blue-100 border-blue-300 text-blue-800';
+        return 'bg-blue-100 dark:bg-blue-900/50 border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-200';
       default:
-        return 'bg-gray-100 border-gray-300 text-gray-800';
+        return 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200';
     }
   };
 
@@ -125,25 +125,25 @@ export const AlertNotifications: React.FC<AlertNotificationsProps> = ({
 
   if (!isConnected) {
     return (
-      <div className={`p-4 border rounded-lg bg-gray-50 ${className}`}>
+      <div className={`p-4 border rounded-lg bg-gray-50 dark:bg-gray-800 ${className}`}>
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700">告警通知</h3>
-          <span className="text-sm text-red-500">离线</span>
+          <h3 className="font-semibold text-gray-700 dark:text-gray-200">告警通知</h3>
+          <span className="text-sm text-red-500 dark:text-red-400">离线</span>
         </div>
-        <p className="text-sm text-gray-500 mt-2">WebSocket 未连接，无法接收实时告警</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">WebSocket 未连接，无法获取实时告警</p>
       </div>
     );
   }
 
   return (
-    <div className={`border rounded-lg bg-white shadow-sm ${className}`}>
+    <div className={`border rounded-lg bg-white dark:bg-gray-800 shadow-sm ${className}`}>
       <div 
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         onClick={() => setShowAlerts(!showAlerts)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <h3 className="font-semibold text-gray-700">实时告警</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-200">实时告警</h3>
             {unacknowledgedAlerts.length > 0 && (
               <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
                 {unacknowledgedAlerts.length}
@@ -151,7 +151,7 @@ export const AlertNotifications: React.FC<AlertNotificationsProps> = ({
             )}
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-green-500">实时</span>
+            <span className="text-sm text-green-500 dark:text-green-400">实时</span>
             <span className={`transform transition-transform ${showAlerts ? 'rotate-180' : ''}`}>
               ▼
             </span>

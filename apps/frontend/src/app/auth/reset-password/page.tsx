@@ -82,13 +82,13 @@ function ResetPasswordForm() {
           </CardHeader>
           
           <CardContent>
-            <div className="rounded-md bg-red-50 p-4">
+            <div className="rounded-md bg-red-50 dark:bg-red-900/30 p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <Icons.alertCircle className="h-5 w-5 text-red-400" />
+                  <Icons.alertCircle className="h-5 w-5 text-red-400 dark:text-red-300" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-red-800">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200">
                     无效的重置链接，请重新申请密码重置
                   </p>
                 </div>
@@ -131,13 +131,13 @@ function ResetPasswordForm() {
         <form onSubmit={onSubmit}>
           <CardContent className="grid gap-4">
             {message ? (
-              <div className="rounded-md bg-green-50 p-4">
+              <div className="rounded-md bg-green-50 dark:bg-green-900/30 p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <Icons.checkCircle className="h-5 w-5 text-green-400" />
+                    <Icons.checkCircle className="h-5 w-5 text-green-400 dark:text-green-300" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-green-800">
+                    <p className="text-sm font-medium text-green-800 dark:text-green-200">
                       {message}
                     </p>
                   </div>
@@ -149,10 +149,10 @@ function ResetPasswordForm() {
               <div className="rounded-md bg-red-50 p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <Icons.alertCircle className="h-5 w-5 text-red-400" />
+                    <Icons.alertCircle className="h-5 w-5 text-red-400 dark:text-red-300" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-red-800">
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
                       {error}
                     </p>
                   </div>

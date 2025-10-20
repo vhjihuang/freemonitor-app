@@ -129,7 +129,7 @@ export function DeviceSearchFilter({
               </SelectItem>
               <SelectItem value="UNKNOWN">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-gray-500 dark:bg-gray-400 rounded-full"></div>
                   未知
                 </div>
               </SelectItem>
