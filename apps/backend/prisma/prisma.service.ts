@@ -8,11 +8,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 10;
-  private readonly BASE_RECONNECT_DELAY = 2000; // 初始重试间隔：2秒
-  private readonly MAX_RECONNECT_DELAY = 30000; // 最大重试间隔：30秒
-  private readonly RECONNECT_BACKOFF_FACTOR = 2; // 指数退避因子
-  private readonly CONNECT_TIMEOUT = 5000; // 连接超时：5秒
+  // Demo项目优化配置
+  private readonly MAX_RECONNECT_ATTEMPTS = 20; // 增加重试次数，适应长时间停机
+  private readonly BASE_RECONNECT_DELAY = 5000; // 延长初始重试间隔：5秒
+  private readonly MAX_RECONNECT_DELAY = 60000; // 最大重试间隔：1分钟
+  private readonly RECONNECT_BACKOFF_FACTOR = 1.5; // 降低退避因子，减少重试间隔增长速度
+  private readonly CONNECT_TIMEOUT = 10000; // 延长连接超时：10秒
+  private readonly LONG_PAUSE_DELAY = 300000; // 长时间暂停：5分钟（适应长时间停机）
 
   // 连接状态变化事件
   public connectionStatusChange = new EventEmitter<boolean>();
@@ -94,9 +96,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
       this.scheduleReconnect();
     } else {
-      this.logger.warn(`⚠️ 已达到最大重试次数(${this.MAX_RECONNECT_ATTEMPTS})，将在1分钟后重新开始重试`);
+      this.logger.warn(`⚠️ 已达到最大重试次数(${this.MAX_RECONNECT_ATTEMPTS})，将在${this.LONG_PAUSE_DELAY / 1000 / 60}分钟后重新开始重试`);
       this.reconnectAttempts = 0;
-      this.scheduleReconnect(60000); // 1分钟后重新开始重试
+      this.scheduleReconnect(this.LONG_PAUSE_DELAY); // 5分钟后重新开始重试
     }
   }
 
