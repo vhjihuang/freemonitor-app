@@ -69,11 +69,12 @@ async function performTokenRefresh(): Promise<string> {
     console.log('开始刷新CSRF令牌');
     // 为了避免循环依赖，我们使用原生fetch来获取CSRF令牌
     // 因为apiClient需要CSRF令牌，如果在这里使用apiClient会造成循环依赖
+    // 同时，我们需要确保fetch请求的CORS配置与apiClient一致
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/csrf/token`,
       {
         method: 'GET',
-        credentials: 'include', // 确保接收Cookie
+        credentials: 'include', // 确保接收Cookie，与apiClient配置一致
         headers: {
           'Content-Type': 'application/json',
         },
@@ -89,7 +90,7 @@ async function performTokenRefresh(): Promise<string> {
     const data = await response.json();
     console.log('CSRF令牌刷新响应数据:', data);
     
-    if (!data || !data.data || !data.data.csrfToken) {
+    if (!data || !data.success || !data.data || !data.data.csrfToken) {
       throw new Error('CSRF令牌响应格式错误');
     }
     

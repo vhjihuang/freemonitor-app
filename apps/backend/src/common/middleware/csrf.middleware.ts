@@ -16,6 +16,11 @@ function getHeaderStringValue(value: string | string[] | undefined): string | un
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
+    // 对OPTIONS请求直接放行，不进行CSRF验证
+    if (req.method === 'OPTIONS') {
+      return next();
+    }
+    
     // 安全地获取CSRF令牌头的值
     const csrfTokenHeader = getHeaderStringValue(req.headers['x-csrf-token']);
     
