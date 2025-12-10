@@ -31,24 +31,60 @@ export function AddDeviceForm({ onSubmit, onCancel, loading = false }: AddDevice
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 处理标签
-    const tags = tagsInput
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(tag => tag.length > 0);
+    try {
+      // 1. 验证必填字段
+      if (!formData.name || formData.name.trim().length === 0) {
+        throw new Error('设备名称不能为空');
+      }
+      
+      if (!formData.ipAddress || formData.ipAddress.trim().length === 0) {
+        throw new Error('IP 地址不能为空');
+      }
+      
+      // 2. 验证 IP 地址格式
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipRegex.test(formData.ipAddress.trim())) {
+        throw new Error('IP 地址格式无效，请输入正确的 IPv4 地址（例如：192.168.1.1）');
+      }
+      
+      // 3. 验证 IP 地址范围（每段 0-255）
+      const ipParts = formData.ipAddress.trim().split('.').map(Number);
+      if (ipParts.some(part => isNaN(part) || part < 0 || part > 255)) {
+        throw new Error('IP 地址范围无效，每段必须在 0-255 之间');
+      }
+      
+      // 4. 验证设备名称长度
+      if (formData.name.trim().length > 100) {
+        throw new Error('设备名称长度不能超过 100 个字符');
+      }
+      
+      // 5. 处理标签
+      const tags = tagsInput && tagsInput.trim().length > 0
+        ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        : [];
 
-    const submitData = {
-      ...formData,
-      tags: tags.length > 0 ? tags : undefined
-    };
+      const submitData = {
+        ...formData,
+        name: formData.name.trim(),
+        ipAddress: formData.ipAddress.trim(),
+        hostname: formData.hostname?.trim() || undefined,
+        description: formData.description?.trim() || undefined,
+        location: formData.location?.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined
+      };
 
-    await onSubmit(submitData);
+      await onSubmit(submitData);
+    } catch (error) {
+      console.error('提交表单失败:', error);
+      // 错误会被父组件的 toast 处理
+      throw error;
+    }
   };
 
   const handleInputChange = (field: keyof CreateDeviceDto, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value || undefined
+      [field]: value
     }));
   };
 
