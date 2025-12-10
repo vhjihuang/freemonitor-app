@@ -1,7 +1,7 @@
 // apps/frontend/src/app/layout.tsx
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Inter } from 'next/font/google';
+
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { QueryProvider } from '@/components/providers/query-provider';
@@ -12,7 +12,7 @@ import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { WebSocketProvider } from '@/components/websocket/websocket-provider';
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper';
 
-const inter = Inter({ subsets: ['latin'] });
+
 export const metadata: Metadata = {
   title: 'FreeMonitor - 免费设备监控平台',
   description: '专业的设备监控解决方案，实时监控您的设备状态',
@@ -42,7 +42,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body>
         <ErrorBoundary>
           <AuthProviderWrapper>
             <CsrfProvider>
