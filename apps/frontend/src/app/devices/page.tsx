@@ -23,6 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 
 
@@ -37,6 +38,9 @@ export default function DevicesPage() {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
   const { addToast } = useToastContext();
+  
+  // 检查用户是否有权限创建设备
+  const { isAllowed: canAddDevice } = usePermissionCheck([Role.ADMIN, Role.OPERATOR, Role.USER], false);
   
   const { data: devicesResponse, isLoading, error, refetch } = useDevices({ 
     search: search || undefined,
@@ -137,6 +141,7 @@ export default function DevicesPage() {
           }}
           onAddDevice={() => setIsAddDialogOpen(true)}
           onRefresh={refetch}
+          canAddDevice={canAddDevice}
         />
 
         <AddDeviceDialog
