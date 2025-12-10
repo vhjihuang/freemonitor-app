@@ -1,6 +1,8 @@
 // apps/backend/src/prisma/prisma.service.ts
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, EventEmitter } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+// 使用Node.js内置的EventEmitter
+import { EventEmitter } from 'events';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -17,7 +19,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly LONG_PAUSE_DELAY = 300000; // 长时间暂停：5分钟（适应长时间停机）
 
   // 连接状态变化事件
-  public connectionStatusChange = new EventEmitter<boolean>();
+  public connectionStatusChange = new EventEmitter();
+  // 事件名称常量
+  private readonly CONNECTION_STATUS_CHANGE_EVENT = 'connection-change';
 
   constructor() {
     super({
@@ -65,7 +69,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.logger.log('✅ 数据库连接成功');
-      this.connectionStatusChange.emit(true);
+      this.connectionStatusChange.emit(this.CONNECTION_STATUS_CHANGE_EVENT, true);
     } catch (error) {
       this.isConnected = false;
       this.logger.error(`❌ 数据库连接失败: ${error.message}`);
@@ -82,7 +86,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         await this.$disconnect();
         this.isConnected = false;
         this.logger.log('📴 数据库连接已断开');
-        this.connectionStatusChange.emit(false);
+        this.connectionStatusChange.emit(this.CONNECTION_STATUS_CHANGE_EVENT, false);
       } catch (error) {
         this.logger.error('断开数据库连接失败:', error);
       }
@@ -107,7 +111,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    */
   private handleConnectionLost(): void {
     this.isConnected = false;
-    this.connectionStatusChange.emit(false);
+    this.connectionStatusChange.emit(this.CONNECTION_STATUS_CHANGE_EVENT, false);
     this.logger.warn('⚠️ 数据库连接丢失，正在尝试重新连接...');
     this.scheduleReconnect();
   }
