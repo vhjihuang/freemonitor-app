@@ -206,10 +206,13 @@ export class DeviceService {
     await this.validateDeviceGroup(createDeviceDto.deviceGroupId);
 
     try {
+      // 计算实际要使用的hostname（如果为空则使用设备名称）
+      const actualHostname = createDeviceDto.hostname || createDeviceDto.name;
+
       // 检查是否存在同名的活跃设备
       const existingActiveDevice = await this.prisma.device.findFirst({
         where: {
-          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: createDeviceDto.hostname }],
+          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: actualHostname }],
           userId: user.id,
           isActive: true,
         },
@@ -220,7 +223,7 @@ export class DeviceService {
         if (existingActiveDevice.ipAddress === createDeviceDto.ipAddress) {
           throw new BusinessException("设备 IP 地址已存在");
         }
-        if (existingActiveDevice.hostname === createDeviceDto.hostname) {
+        if (existingActiveDevice.hostname === actualHostname) {
           throw new BusinessException("设备主机名已存在");
         }
       }
@@ -228,7 +231,7 @@ export class DeviceService {
       // 检查是否存在同名的软删除设备
       const existingInactiveDevice = await this.prisma.device.findFirst({
         where: {
-          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: createDeviceDto.hostname }],
+          OR: [{ ipAddress: createDeviceDto.ipAddress }, { hostname: actualHostname }],
           userId: user.id,
           isActive: false,
         },
@@ -245,7 +248,7 @@ export class DeviceService {
         this.logger.log("已删除同名的软删除设备", {
           deletedDeviceId: existingInactiveDevice.id,
           userId: user.id,
-          hostname: createDeviceDto.hostname,
+          hostname: actualHostname,
           ipAddress: createDeviceDto.ipAddress,
         });
       }
