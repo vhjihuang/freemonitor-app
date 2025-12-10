@@ -312,15 +312,22 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   }
 
   @SubscribeMessage('ping')
-  handlePing(@ConnectedSocket() client: Socket, callback: Function) {
+  handlePing(@ConnectedSocket() client: Socket, @MessageBody() _data: any, callback: Function) {
     this.updateClientActivity(client.id);
-    // 使用callback响应，而不是直接emit pong事件
-    // 这样前端的timeout回调才能正常工作
-    if (callback) {
-      callback();
+    try {
+      // 1. 首先调用callback响应，这是前端socket.timeout机制依赖的
+      if (typeof callback === 'function') {
+        callback();
+      }
+      // 2. 同时发送pong事件，兼容可能的事件监听方式
+      client.emit('pong');
+    } catch (error) {
+      this.logger.error('处理ping请求失败:', error.stack);
+      // 确保callback被调用，避免前端超时
+      if (typeof callback === 'function') {
+        callback(error);
+      }
     }
-    // 同时发送pong事件，兼容可能的事件监听方式
-    client.emit('pong');
   }
 
   // 服务端主动推送方法
