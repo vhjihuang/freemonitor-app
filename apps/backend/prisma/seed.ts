@@ -85,8 +85,8 @@ async function main() {
     const devices = [];
     
     // 设备1 - 在线服务器
-    const existingDevice1 = await prisma.device.findUnique({
-      where: { ipAddress: '192.168.1.100' },
+    const existingDevice1 = await prisma.device.findFirst({
+      where: { ipAddress: '192.168.1.100', userId: user.id },
     });
     let device1;
     if (!existingDevice1) {
@@ -113,8 +113,8 @@ async function main() {
     }
 
     // 设备2 - 离线路由器
-    const existingDevice2 = await prisma.device.findUnique({
-      where: { ipAddress: '192.168.1.1' },
+    const existingDevice2 = await prisma.device.findFirst({
+      where: { ipAddress: '192.168.1.1', userId: user.id },
     });
     if (!existingDevice2) {
       const device2 = await prisma.device.create({
@@ -139,8 +139,8 @@ async function main() {
     }
 
     // 设备3 - 维护中的IoT设备
-    const existingDevice3 = await prisma.device.findUnique({
-      where: { ipAddress: '192.168.1.200' },
+    const existingDevice3 = await prisma.device.findFirst({
+      where: { ipAddress: '192.168.1.200', userId: user.id },
     });
     if (!existingDevice3) {
       const device3 = await prisma.device.create({
