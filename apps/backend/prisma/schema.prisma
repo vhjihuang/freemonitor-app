@@ -9,15 +9,15 @@ datasource db {
 }
 
 model Device {
-  id            String       @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String
-  hostname      String       @unique
-  ipAddress     String       @unique
-  isActive      Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  hostname      String
+  ipAddress     String
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   description   String?
-  status        DeviceStatus @default(UNKNOWN)
+  status        DeviceStatus    @default(UNKNOWN)
   location      String?
   tags          String[]
   lastSeen      DateTime?
@@ -25,11 +25,13 @@ model Device {
   deviceGroupId String?
   type          DeviceType?
   alerts        Alert[]
-  deviceGroup   DeviceGroup? @relation(fields: [deviceGroupId], references: [id])
-  user          User?        @relation(fields: [userId], references: [id])
-  metrics       Metric[]
+  deviceGroup   DeviceGroup?    @relation(fields: [deviceGroupId], references: [id])
+  user          User?           @relation(fields: [userId], references: [id])
   metricHistory MetricHistory[]
+  metrics       Metric[]
 
+  @@unique([userId, hostname])
+  @@unique([userId, ipAddress])
   @@index([isActive])
   @@index([status])
   @@index([lastSeen])
@@ -65,19 +67,19 @@ model Metric {
 }
 
 model MetricHistory {
-  id          String   @id @default(cuid())
-  deviceId    String
-  cpu         Float
-  memory      Float
-  disk        Float
-  timestamp   DateTime @db.Timestamptz(6)
-  networkIn   Float?
-  networkOut  Float?
-  uptime      Int?
-  temperature Float?
-  custom      Json?
-  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  aggregationLevel String? // 'raw' | 'minute' | 'hour' | 'day'
+  id               String   @id @default(cuid())
+  deviceId         String
+  cpu              Float
+  memory           Float
+  disk             Float
+  timestamp        DateTime @db.Timestamptz(6)
+  networkIn        Float?
+  networkOut       Float?
+  uptime           Int?
+  temperature      Float?
+  custom           Json?
+  aggregationLevel String?
+  device           Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
   @@index([deviceId])
   @@index([timestamp])
@@ -225,6 +227,6 @@ enum AlertType {
 enum UserRole {
   ADMIN
   USER
-  OPERATOR
   VIEWER
+  OPERATOR
 }
