@@ -1,0 +1,20 @@
+# 依赖
+node_modules/
+pnpm-lock.yaml
+
+# 构建产物
+dist/
+.next/
+out/
+build/
+
+# 缓存
+.turbo/
+.cache/
+
+# 日志
+*.log
+
+# 其他
+coverage/
+.DS_Store
