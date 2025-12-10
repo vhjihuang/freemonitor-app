@@ -43,10 +43,17 @@ export function DeviceSearchFilter({
   // 快捷键支持
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + K 聚焦搜索框
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        document.getElementById('search')?.focus();
+      try {
+        // Ctrl/Cmd + K 聚焦搜索框
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          const searchInput = document.getElementById('search');
+          if (searchInput) {
+            searchInput.focus();
+          }
+        }
+      } catch (error) {
+        console.error('快捷键处理失败:', error);
       }
     };
 
@@ -60,15 +67,23 @@ export function DeviceSearchFilter({
   }, [searchValue]);
 
   const handleReset = () => {
-    setLocalSearch('');
-    onSearchChange('');
-    onStatusChange('all');
-    onTypeChange('all');
+    try {
+      setLocalSearch('');
+      onSearchChange('');
+      onStatusChange('all');
+      onTypeChange('all');
+    } catch (error) {
+      console.error('重置筛选失败:', error);
+    }
   };
 
   const clearSearch = () => {
-    setLocalSearch('');
-    onSearchChange('');
+    try {
+      setLocalSearch('');
+      onSearchChange('');
+    } catch (error) {
+      console.error('清除搜索失败:', error);
+    }
   };
 
   const hasActiveFilters = searchValue || statusValue !== 'all' || typeValue !== 'all';
