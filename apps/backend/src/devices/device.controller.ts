@@ -1,5 +1,5 @@
 // apps/backend/src/device/device.controller.ts
-import { Controller, Post, Body, Delete, UseGuards, Req, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, Query, UseInterceptors } from "@nestjs/common";
+import { Controller, Post, Body, Delete, UseGuards, Req, Logger, Get, Param, Patch, HttpCode, HttpStatus, BadRequestException, InternalServerErrorException, Query, UseInterceptors } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { CreateDeviceDto } from "./dto/create-device.dto";
 import { UpdateDeviceDto } from './dto/update-device.dto'
@@ -34,22 +34,52 @@ export class DeviceController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "创建设备" })
   @ApiCommonResponses()
-  @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以创建设备
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 允许所有认证用户创建设备
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 限制创建设备频率: 10次/分钟
   async create(@Body() createDeviceDto: CreateDeviceDto, @Req() req: RequestWithUser) {
-    this.logger.log(`用户 ${req.user?.id} 正在创建设备`, {
-      userId: req.user?.id,
-      deviceName: createDeviceDto.name,
-    });
+    const startTime = Date.now();
+    
+    try {
+      this.logger.log(`用户 ${req.user?.id} 正在创建设备`, {
+        userId: req.user?.id,
+        deviceName: createDeviceDto.name,
+      });
 
-    const device = await this.deviceService.create(createDeviceDto, req.user || { id: "dev-user-id" } as User);
-    
-    this.logger.log(`设备 ${device.id} 创建成功`, {
-      deviceId: device.id,
-      userId: req.user?.id,
-    });
-    
-    return device;
+      const device = await this.deviceService.create(
+        createDeviceDto, 
+        req.user || { id: "dev-user-id" } as User
+      );
+      
+      const executionTime = Date.now() - startTime;
+      this.logger.log(`设备 ${device.id} 创建成功`, {
+        deviceId: device.id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      return device;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      // 区分已知异常和未知异常
+      if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, { 
+          userId: req.user?.id, 
+          executionTime 
+        });
+        throw error;
+      }
+      
+      // 未知异常
+      this.logger.error('创建设备失败', error.stack, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      throw new InternalServerErrorException('创建设备失败，请稍后重试');
+    }
   }
 
   @Get()
@@ -68,8 +98,65 @@ export class DeviceController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc'
   ) {
-    const devices = await this.deviceService.findAllByUser(req.user?.id || "dev-user-id", search, status, page, limit, deviceGroupId, type, sortBy, sortOrder);
-    return devices;
+    const startTime = Date.now();
+    
+    try {
+      // 验证分页参数
+      const validatedPage = page && page > 0 ? page : 1;
+      const validatedLimit = limit && limit > 0 && limit <= 100 ? limit : 10;
+      
+      this.logger.debug('获取设备列表', {
+        userId: req.user?.id,
+        page: validatedPage,
+        limit: validatedLimit,
+        search,
+        status,
+      });
+      
+      const devices = await this.deviceService.findAllByUser(
+        req.user?.id || "dev-user-id", 
+        search, 
+        status, 
+        validatedPage, 
+        validatedLimit, 
+        deviceGroupId, 
+        type, 
+        sortBy, 
+        sortOrder
+      );
+      
+      const executionTime = Date.now() - startTime;
+      
+      // 计算设备数量（安全处理）
+      let deviceCount = 0;
+      if (Array.isArray(devices)) {
+        deviceCount = devices.length;
+      } else if (devices && typeof devices === 'object') {
+        const devicesObj = devices as any;
+        if ('data' in devicesObj && Array.isArray(devicesObj.data)) {
+          deviceCount = devicesObj.data.length;
+        }
+      }
+      
+      this.logger.debug('设备列表获取成功', {
+        userId: req.user?.id,
+        count: deviceCount,
+        executionTime,
+      });
+      
+      return devices;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      this.logger.error('获取设备列表失败', error.stack, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      throw new InternalServerErrorException('获取设备列表失败，请稍后重试');
+    }
   }
 
   @Get(":id")
@@ -78,57 +165,165 @@ export class DeviceController {
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备详情
   @Throttle({ default: { limit: 100, ttl: 60000 } }) // 限制获取设备详情频率: 100次/分钟
   async findOne(@Param("id") id: string, @Req() req: RequestWithUser) {
-    return this.deviceService.findOne(id, req.user?.id || "dev-user-id");
+    const startTime = Date.now();
+    
+    try {
+      // 验证 ID 参数
+      if (!id || id.trim().length === 0) {
+        throw new BadRequestException('设备 ID 不能为空');
+      }
+      
+      this.logger.debug('获取设备详情', {
+        deviceId: id,
+        userId: req.user?.id,
+      });
+      
+      const device = await this.deviceService.findOne(id, req.user?.id || "dev-user-id");
+      
+      const executionTime = Date.now() - startTime;
+      this.logger.debug('设备详情获取成功', {
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      return device;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, { 
+          deviceId: id,
+          userId: req.user?.id, 
+          executionTime 
+        });
+        throw error;
+      }
+      
+      this.logger.error('获取设备详情失败', error.stack, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      throw new InternalServerErrorException('获取设备详情失败，请稍后重试');
+    }
   }
 
   @Patch(":id")
   @ApiOperation({ summary: "更新设备" })
   @ApiCommonResponses()
-  @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以更新设备
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 允许所有认证用户更新自己的设备
   @Throttle({ default: { limit: 50, ttl: 60000 } }) // 限制更新设备频率: 50次/分钟
   async update(
     @Param("id") id: string,
     @Body() updateDeviceDto: UpdateDeviceDto,
     @Req() req: RequestWithUser
   ) {
-    this.logger.log(`用户 ${req.user?.id} 正在更新设备 ${id}`, {
-      userId: req.user?.id,
-      deviceId: id,
-    });
+    const startTime = Date.now();
+    
+    try {
+      // 验证 ID 参数
+      if (!id || id.trim().length === 0) {
+        throw new BadRequestException('设备 ID 不能为空');
+      }
+      
+      this.logger.log(`用户 ${req.user?.id} 正在更新设备 ${id}`, {
+        userId: req.user?.id,
+        deviceId: id,
+      });
 
-    const device = await this.deviceService.update(
-      id,
-      updateDeviceDto,
-      req.user?.id || "dev-user-id"
-    );
-    
-    this.logger.log(`设备 ${id} 更新成功`, {
-      deviceId: id,
-      userId: req.user?.id,
-    });
-    
-    return device;
+      const device = await this.deviceService.update(
+        id,
+        updateDeviceDto,
+        req.user?.id || "dev-user-id"
+      );
+      
+      const executionTime = Date.now() - startTime;
+      this.logger.log(`设备 ${id} 更新成功`, {
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      return device;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, { 
+          deviceId: id,
+          userId: req.user?.id, 
+          executionTime 
+        });
+        throw error;
+      }
+      
+      this.logger.error('更新设备失败', error.stack, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      throw new InternalServerErrorException('更新设备失败，请稍后重试');
+    }
   }
 
   @Delete(":id")
   @ApiOperation({ summary: "删除设备" })
   @ApiCommonResponses()
-  @Roles(Role.ADMIN) // 只有管理员可以删除设备
+  @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 允许所有认证用户删除自己的设备
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 限制删除设备频率: 10次/分钟
   async remove(@Param("id") id: string, @Req() req: RequestWithUser) {
-    this.logger.log(`用户 ${req.user?.id} 正在删除设备 ${id}`, {
-      userId: req.user?.id,
-      deviceId: id,
-    });
+    const startTime = Date.now();
+    
+    try {
+      // 验证 ID 参数
+      if (!id || id.trim().length === 0) {
+        throw new BadRequestException('设备 ID 不能为空');
+      }
+      
+      this.logger.log(`用户 ${req.user?.id} 正在删除设备 ${id}`, {
+        userId: req.user?.id,
+        deviceId: id,
+      });
 
-    const result = await this.deviceService.softDelete(id, req.user?.id || "dev-user-id");
-    
-    this.logger.log(`设备 ${id} 删除成功`, {
-      deviceId: id,
-      userId: req.user?.id,
-    });
-    
-    return result;
+      const result = await this.deviceService.softDelete(id, req.user?.id || "dev-user-id");
+      
+      const executionTime = Date.now() - startTime;
+      this.logger.log(`设备 ${id} 删除成功`, {
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      return result;
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      if (error instanceof BadRequestException) {
+        this.logger.warn(error.message, { 
+          deviceId: id,
+          userId: req.user?.id, 
+          executionTime 
+        });
+        throw error;
+      }
+      
+      this.logger.error('删除设备失败', error.stack, {
+        errorType: error.constructor.name,
+        errorMessage: error.message,
+        deviceId: id,
+        userId: req.user?.id,
+        executionTime,
+      });
+      
+      throw new InternalServerErrorException('删除设备失败，请稍后重试');
+    }
   }
 
   @Post(":id/metrics")
