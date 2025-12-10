@@ -49,7 +49,7 @@ export class AuthService {
 
     try {
       // 查找用户
-      const user = await this.prisma.user.findUnique({
+      const user = await this.prisma.user.findFirst({
         where: {
           email,
           ...DatabaseFilters.activeUser(),
