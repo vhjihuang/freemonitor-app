@@ -53,7 +53,27 @@ async function bootstrap() {
     }
   }
 
-  // ✅ 1. 安全增强 - 使用helmet设置HTTP安全头
+  // ✅ 1. 首先启用 CORS，确保在所有中间件之前执行
+  const corsOrigins = process.env.CORS_ORIGIN?.split(",") || ["https://freemonitor-app-frontend.vercel.app", "http://localhost:3000", "http://localhost:3001"];
+
+  app.enableCors({
+    origin: corsOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "X-CSRF-Token", 
+      "XSRF-Token", 
+      "CSRF-Token",
+      "X-Requested-With",
+      "Accept",
+      "Origin"
+    ],
+    credentials: true,
+    maxAge: 3600,
+  });
+
+  // ✅ 2. 安全增强 - 使用helmet设置HTTP安全头
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -69,10 +89,10 @@ async function bootstrap() {
     })
   );
 
-  // ✅ 1.1 启用cookie解析中间件
+  // ✅ 3. 启用cookie解析中间件
   app.use(cookieParser());
 
-  // ✅ 2. 启用全局 DTO 验证
+  // ✅ 4. 启用全局 DTO 验证
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -94,31 +114,11 @@ async function bootstrap() {
     })
   );
 
-  // ✅ 3. 注册全局异常过滤器
+  // ✅ 5. 注册全局异常过滤器
   // HttpExceptionFilter已经在CommonModule中通过APP_FILTER提供，无需在此处手动注册
 
-  // ✅ 4. 注册全局响应拦截器
+  // ✅ 6. 注册全局响应拦截器
   // ResponseInterceptor将通过依赖注入自动注册
-
-  // ✅ 5. 启用 CORS
-  const corsOrigins = process.env.CORS_ORIGIN?.split(",") || ["https://freemonitor-app-frontend.vercel.app", "http://localhost:3000", "http://localhost:3001"];
-
-  app.enableCors({
-    origin: corsOrigins,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type", 
-      "Authorization", 
-      "X-CSRF-Token", 
-      "XSRF-Token", 
-      "CSRF-Token",
-      "X-Requested-With",
-      "Accept",
-      "Origin"
-    ],
-    credentials: true,
-    maxAge: 3600,
-  });
 
   // ✅ 6. 设置全局API前缀
   const globalPrefix = configService.get("API_PREFIX", "api");

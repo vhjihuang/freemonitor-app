@@ -311,6 +311,18 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     return { event: 'device:unsubscribe', data: 'success' };
   }
 
+  @SubscribeMessage('ping')
+  handlePing(@ConnectedSocket() client: Socket, callback: Function) {
+    this.updateClientActivity(client.id);
+    // 使用callback响应，而不是直接emit pong事件
+    // 这样前端的timeout回调才能正常工作
+    if (callback) {
+      callback();
+    }
+    // 同时发送pong事件，兼容可能的事件监听方式
+    client.emit('pong');
+  }
+
   // 服务端主动推送方法
   broadcastDeviceMetrics(deviceId: string, metrics: any) {
     try {
