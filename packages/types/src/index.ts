@@ -13,6 +13,7 @@ export * from './roles';
 export * from './database/database.filters';
 export * from './dashboard.types';
 export * from './session';
+export * from './validation';
 
 // Auth DTOs
 export type { UserResponseDto, RequestWithUser } from './auth/user.response.dto';

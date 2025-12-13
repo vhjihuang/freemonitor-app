@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { validatePassword } from '@freemonitor/types';
 
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => void;
@@ -14,9 +15,31 @@ export function LoginForm({ onSubmit, error }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const validateForm = (): boolean => {
+    if (!email || !password) {
+      return false;
+    }
+
+    // 使用共享的密码验证函数
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.errorMessage);
+      return false;
+    }
+
+    setPasswordError(null);
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
     await onSubmit(email, password);
     setIsLoading(false);
@@ -58,6 +81,9 @@ export function LoginForm({ onSubmit, error }: LoginFormProps) {
           className="mt-1"
           placeholder="请输入密码"
         />
+        {passwordError && (
+          <p className="mt-1 text-sm text-red-600">{passwordError}</p>
+        )}
       </div>
 
       <div className="flex items-center justify-between">

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Link from 'next/link';
+import { validatePassword } from '@freemonitor/types';
 
 interface RegisterFormProps {
   onSubmit: (email: string, password: string, name: string) => void;
@@ -22,8 +24,10 @@ export function RegisterForm({ onSubmit, error }: RegisterFormProps) {
       return false;
     }
 
-    if (password.length < 6) {
-      setPasswordError('密码长度至少6位');
+    // 使用共享的密码验证函数
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.errorMessage);
       return false;
     }
 
