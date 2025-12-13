@@ -185,9 +185,13 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     }
 
     // 支持认证头方式
-    const authHeader = client.handshake.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7);
+    // 添加安全检查，确保headers对象存在
+    const headers = client.handshake.headers;
+    if (headers && typeof headers === 'object' && headers.authorization) {
+      const authHeader = headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+      }
     }
 
     return null;
@@ -321,6 +325,8 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
       }
       // 2. 同时发送pong事件，兼容可能的事件监听方式
       client.emit('pong');
+      
+      this.logger.debug(`处理ping请求成功，客户端: ${client.id}`);
     } catch (error) {
       this.logger.error('处理ping请求失败:', error.stack);
       // 确保callback被调用，避免前端超时

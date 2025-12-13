@@ -192,6 +192,12 @@ export class WebSocketClient {
     this.socket.on('unsubscription:error', (data) => {
       console.error('取消订阅失败:', data);
     });
+
+    // 监听pong事件作为心跳响应
+    this.socket.on('pong', () => {
+      console.log('WebSocket: 收到pong响应');
+      // 更新最后活动时间，可以用于更精确的连接状态判断
+    });
   }
 
   private async handleReconnect(): Promise<void> {
@@ -326,6 +332,7 @@ export class WebSocketClient {
   // 执行健康检查
   private async performHealthCheck(): Promise<void> {
     if (!this.socket?.connected) {
+      console.log('WebSocket: 连接未建立，跳过健康检查');
       return;
     }
     
@@ -351,15 +358,43 @@ export class WebSocketClient {
       
       // 发送心跳包检查连接状态
       if (this.socket) {
-        this.socket.timeout(5000).emit('ping', (err: Error | null) => {
-          if (err) {
-            console.error('WebSocket: 心跳检测失败', err);
-            // 触发重连
-            this.handleReconnect();
-          } else {
-            console.log('WebSocket: 心跳检测成功');
-          }
+        console.log('WebSocket: 发送ping心跳包');
+        
+        // 使用Promise包装心跳检测，提供更好的错误处理
+        const pingPromise = new Promise<void>((resolve, reject) => {
+          this.socket!.timeout(10000).emit('ping', (err: Error | null) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
         });
+        
+        try {
+          await pingPromise;
+          console.log('WebSocket: 心跳检测成功');
+        } catch (err: any) {
+          console.warn('WebSocket: 心跳检测失败', err.message);
+          
+          // 根据错误类型决定是否重连
+          if (err.message.includes('timeout') || err.message.includes('Timeout')) {
+            console.log('WebSocket: 心跳检测超时，检查连接状态后决定是否重连');
+            
+            // 在触发重连前，先检查连接状态
+            if (!this.socket.connected) {
+              console.log('WebSocket: 连接已断开，触发重连');
+              this.handleReconnect();
+            } else {
+              console.log('WebSocket: 连接仍然活跃，可能是临时网络问题，不触发重连');
+            }
+          } else if (err.message.includes('unauthorized') || err.message.includes('Unauthorized')) {
+            console.log('WebSocket: 认证失败，需要重新认证');
+            this.disconnect();
+          } else {
+            console.log('WebSocket: 心跳检测其他错误，不触发重连');
+          }
+        }
       }
     } catch (error) {
       console.error('WebSocket: 健康检查失败', error);
