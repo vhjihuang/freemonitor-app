@@ -42,7 +42,8 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
   async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'] || '';
+    // 安全地访问user-agent头
+    const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
     
     // 验证请求体
     if (!loginDto || typeof loginDto !== 'object') {
@@ -57,7 +58,8 @@ export class AuthController {
   @Throttle({ auth: { limit: 3, ttl: 3600000 } })
   async register(@Body() registerDto: RegisterDto, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'] || '';
+    // 安全地访问user-agent头
+    const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
     return this.authService.register(registerDto, ip, userAgent);
   }
 
@@ -66,7 +68,8 @@ export class AuthController {
   @Throttle({ auth: { limit: 10, ttl: 60000 } })
   async refresh(@Body('refreshToken') refreshToken: string, @Request() req): Promise<TokenResponse> {
     const ip = req.ip || req.connection.remoteAddress;
-    const userAgent = req.headers['user-agent'] || '';
+    // 安全地访问user-agent头
+    const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
     const result = await this.authService.refresh(refreshToken, ip, userAgent);
     return {
       ...result,
@@ -85,7 +88,9 @@ export class AuthController {
     @Headers('authorization') authHeader?: string
   ): Promise<SessionResponseDto[]> {
     const accessToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : '';
-    return this.authService.getSessions(req.user.id, req.headers['user-agent'] || '', accessToken);
+    // 安全地访问user-agent头
+    const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
+    return this.authService.getSessions(req.user.id, userAgent, accessToken);
   }
 
   @Delete('sessions/:id')
@@ -105,7 +110,10 @@ export class AuthController {
   @ApiCommonResponses()
   @Throttle({ default: { limit: 100, ttl: 60000 } })
   async revokeOtherSessions(@Request() req: RequestWithUser): Promise<void> {
-    return this.authService.revokeOtherSessions(req.user.id, req.headers['authorization']?.split(' ')[1] || '');
+    // 添加安全检查，确保headers对象存在且有authorization属性
+    const authorizationHeader = req.headers && typeof req.headers === 'object' ? req.headers['authorization'] : undefined;
+    const token = authorizationHeader?.split(' ')[1] || '';
+    return this.authService.revokeOtherSessions(req.user.id, token);
   }
 
   @Public()
@@ -118,13 +126,12 @@ export class AuthController {
   }
 
   @Public()
-  @Patch('reset-password/:token')
+  @Post('reset-password')
   @Throttle({ auth: { limit: 5, ttl: 3600000 } })
   async resetPassword(
-    @Param('token') token: string,
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
-    await this.authService.updatePasswordWithResetToken(token, resetPasswordDto.password);
+    await this.authService.updatePasswordWithResetToken(resetPasswordDto.token, resetPasswordDto.password);
     // 返回简单数据，拦截器会自动包装为统一格式
     return { success: true };
   }

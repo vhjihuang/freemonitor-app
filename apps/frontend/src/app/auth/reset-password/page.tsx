@@ -10,6 +10,7 @@ import { Icons } from '@/components/icons'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api'
 import { SuccessResponse } from '@freemonitor/types'
+import { validatePassword } from '@freemonitor/types'
 
 // 将使用useSearchParams的组件提取为独立的客户端组件
 function ResetPasswordForm() {
@@ -22,6 +23,7 @@ function ResetPasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [countdown, setCountdown] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -42,8 +44,10 @@ function ResetPasswordForm() {
       return
     }
     
-    if (password.length < 6) {
-      setError('密码长度至少6位')
+    // 使用共享的密码验证函数
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.errorMessage || '密码不符合要求')
       return
     }
 
@@ -56,12 +60,24 @@ function ResetPasswordForm() {
         token, 
         password 
       })
-      setMessage(data.message)
+      setMessage('密码重置成功！')
       
-      // 重置成功后3秒跳转到登录页
-      setTimeout(() => {
-        router.push('/login')
-      }, 3000)
+      // 禁用表单输入
+      setIsLoading(true)
+      
+      // 重置成功后3秒跳转到登录页，并显示倒计时
+      let countdownValue = 3
+      setCountdown(countdownValue)
+      
+      const countdownInterval = setInterval(() => {
+        countdownValue -= 1
+        setCountdown(countdownValue)
+        
+        if (countdownValue <= 0) {
+          clearInterval(countdownInterval)
+          router.push('/login')
+        }
+      }, 1000)
     } catch (err: any) {
       console.error('Reset password error:', err)
       setError(err.message || '密码重置失败，请稍后重试')
@@ -140,6 +156,11 @@ function ResetPasswordForm() {
                     <p className="text-sm font-medium text-green-800 dark:text-green-200">
                       {message}
                     </p>
+                    {countdown !== null && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        {countdown}秒后将自动跳转到登录页面...
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

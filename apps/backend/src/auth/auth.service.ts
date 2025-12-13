@@ -12,6 +12,7 @@ import { TokenBlacklistService } from "./token-blacklist.service";
 import { LoginDto } from "./dto/login.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { SessionResponseDto } from "./dto/session.response.dto";
+import { validatePassword, validateEmail } from "@freemonitor/types";
 
 @Injectable()
 export class AuthService {
@@ -256,9 +257,8 @@ export class AuthService {
       throw new BadRequestException("邮箱和密码不能为空");
     }
 
-    // 验证邮箱格式
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(loginDto.email)) {
+    // 使用共享的邮箱验证函数
+    if (!validateEmail(loginDto.email)) {
       this.logger.warn("登录请求失败: 邮箱格式无效", requestInfo);
       throw new BadRequestException("邮箱格式无效");
     }
@@ -740,10 +740,11 @@ export class AuthService {
       throw new BadRequestException("令牌和新密码不能为空");
     }
 
-    // 密码强度验证
-    if (password.length < 8) {
-      this.logger.warn("密码重置请求失败: 密码长度不足", requestInfo);
-      throw new BadRequestException("新密码至少需要8个字符");
+    // 使用共享的密码验证函数
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      this.logger.warn("密码重置请求失败: 密码复杂度不足", requestInfo);
+      throw new BadRequestException(passwordValidation.errorMessage);
     }
 
     try {
