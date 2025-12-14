@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ProjectRules version="V2.4" status="AI_Ultimate_Configuration_Prompt_Optimized">
+    <Metadata>
+        <Description>项目开发规范与架构设计：面向 AI 的提示词增强与工程配置</Description>
+        <TargetAudience>AI 协作引擎</TargetAudience>
+    </Metadata>
+
+    <Section id="1" title="技术栈与架构设计">
+        <Subsection id="1.2" title="架构设计原则">
+            <Principle name="Architecture" value="严格分层: Controller &gt; Service &gt; Repository"/>
+            <Principle name="TypeSafety" value="强制使用 DTOs, 禁用 any (严格模式)"/>
+            <Principle name="ErrorHandling">
+                <ObservabilityRequirement value="Trace ID 强制要求：所有 API 必须返回唯一的 Request ID"/>
+            </Principle>
+            <Principle name="AsynchronousExecution">
+                <Policy value="强制使用消息队列 (Redis Bull) 处理耗时 > 500ms 的任务"/>
+            </Principle>
+        </Subsection>
+    </Section>
+
+    <Section id="8" title="开发工具与流程">
+        <Subsection id="8.2" title="工具库与依赖偏好">
+            <PreferredLibraries name="DateHandling" value="强制使用 dayjs 或 luxon，禁用原生 Date"/>
+            <PreferredLibraries name="Validation" value="后端: class-validator/class-transformer; 前端: Zod/Yup"/>
+            <PreferredLibraries name="DependencyLocking" value="强制锁定依赖版本，严格遵循 lock 文件"/>
+        </Subsection>
+    </Section>
+
+    <Section id="9" title="提示词使用指南 (AI 协作) - 核心优化区域">
+        <InstructionFormat>
+            <Pattern value="[指令类型] [Context] &lt;功能描述&gt; [可选 Reference Tag] [质量要求]"/>
+            <MandatoryTag name="Context" value="BACKEND|FRONTEND|BOTH|FILE_PATH (e.g., modules/users)"/>
+            <OptionalTag name="ReferenceTag" value="[USE: library_name] (e.g., [USE: dayjs])"/>
+            <InstructionType name="ADD" output_format="Pure_Code_Block"/>
+            <InstructionType name="UPDATE" output_format="Unified_Diff_Format"/>
+            <InstructionType name="FIX" output_format="Unified_Diff_Format"/>
+            <InstructionType name="REFACTOR" output_format="Unified_Diff_Format"/>
+        </InstructionFormat>
+
+        <QualityRequirements>
+            <Requirement name="TypeSafety" value="禁用 any, 精确定义类型"/>
+            <Requirement name="Implementation" value="必须优先使用 Section 8.2 中定义的工具库和经典实现模式"/>
+            <Requirement name="OutputFormat" value="**输出格式必须严格遵循指令类型定义的格式，禁止输出解释性文本或 Markdown 标题**"/>
+        </QualityRequirements>
+
+        <Prohibitions title="AI 未授权禁止修改列表">
+            <Prohibition name="DependencyChanges" value="禁止在未明确指令下修改 packages/*/package.json"/>
+            <Prohibition name="VersionChanges" value="禁止修改任何配置文件中的版本号或 Tag"/>
+            <Prohibition name="LinterRules" value="禁止修改 .eslintrc.js 或 .prettierrc 配置"/>
+            <Prohibition name="ConfigurationFiles" value="禁止修改 docker-compose.yml 或 CI/CD YAML 文件"/>
+        </Prohibitions>
+    </Section>
+
+    <Section id="10" title="角色与职责">
+        <Role name="Executor" value="AI 协作执行者，严格遵循所有配置和规范"/>
+    </Section>
+</ProjectRules>

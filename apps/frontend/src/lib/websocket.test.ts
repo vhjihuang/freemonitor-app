@@ -133,9 +133,12 @@ describe('WebSocketClient', () => {
       
       const metricsData = {
         deviceId: 'test-device',
-        cpu: 75.5,
-        memory: 60.2,
-        disk: 45.8,
+        metrics: {
+          cpu: 75.5,
+          memory: 60.2,
+          disk: 45.8,
+        },
+        timestamp: new Date().toISOString(),
       };
       
       client.sendDeviceMetrics(metricsData);
@@ -150,9 +153,9 @@ describe('WebSocketClient', () => {
       const alertData = {
         alertId: 'alert-1',
         deviceId: 'test-device',
-        alertType: 'cpu',
-        severity: 'critical',
         message: 'CPU使用率过高',
+        severity: 'critical' as 'low' | 'medium' | 'high' | 'critical',
+        timestamp: new Date().toISOString(),
       };
       
       client.sendAlertTrigger(alertData);

@@ -11,7 +11,7 @@ import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { WebSocketProvider } from '@/components/websocket/websocket-provider';
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper';
-
+import CriticalCssInliner from '@/components/CriticalCssInliner';
 
 export const metadata: Metadata = {
   title: 'FreeMonitor - 免费设备监控平台',
@@ -42,6 +42,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        {/* 添加关键CSS内联组件 */}
+        <CriticalCssInliner />
+      </head>
       <body>
         <ErrorBoundary>
           <AuthProviderWrapper>
