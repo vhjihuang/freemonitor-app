@@ -1,7 +1,7 @@
 // src/lib/api.ts
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import { getAccessToken, refreshTokens, logout } from "./auth";
-import { getCsrfToken, refreshCsrfToken } from "./csrf";
+import { getCsrfToken, getValidCsrfToken, refreshCsrfToken } from "./csrf";
 import { processResponse, isErrorResponse } from "@freemonitor/types";
 import { standardizeError } from "./error-handler";
 
@@ -35,34 +35,23 @@ export class ApiClient {
           config.headers.Authorization = `Bearer ${token}`;
         }
         
-        // 为需要保护的请求方法添加CSRF令牌
-        if (config.method && ['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
+        // 为需要保护的请求方法添加CSRF令牌 - 仅对状态修改请求
+        const method = config.method?.toLowerCase();
+        if (method && ['post', 'put', 'patch', 'delete'].includes(method)) {
           // 跳过获取CSRF令牌的请求，避免循环依赖
           const isCsrfTokenRequest = config.url?.includes('/csrf/token');
           
           if (!isCsrfTokenRequest) {
             try {
-              // 确保CSRF令牌可用
-              let csrfToken = getCsrfToken();
-              
-              // 如果没有缓存的CSRF令牌，尝试刷新获取
-              if (!csrfToken) {
-                console.log('未找到缓存的CSRF令牌，尝试刷新获取');
-                try {
-                  csrfToken = await refreshCsrfToken();
-                  console.log('成功获取CSRF令牌:', csrfToken ? csrfToken.substring(0, 10) + '...' : 'null/undefined');
-                } catch (refreshError) {
-                  console.warn('刷新CSRF令牌失败:', refreshError);
-                }
-              }
-              
-              if (csrfToken) {
-                // 使用标准的CSRF令牌头部名称
-                config.headers['X-CSRF-Token'] = csrfToken;
-                console.log('已添加CSRF令牌到请求头');
-              } else {
-                console.warn('无法获取CSRF令牌');
-              }
+              // 使用异步方法确保CSRF令牌可用，但不等待刷新完成，避免阻塞
+               getValidCsrfToken().then((token: string | null) => {
+                 if (token) {
+                   config.headers['X-CSRF-Token'] = token;
+                   console.log('已添加CSRF令牌到请求头');
+                 }
+               }).catch((error: unknown) => {
+                 console.warn('获取CSRF令牌失败:', error);
+               });
             } catch (error) {
               console.warn('获取CSRF令牌失败:', error);
             }
