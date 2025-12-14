@@ -6,6 +6,23 @@ import { Role } from "@freemonitor/types";
 import { DashboardService } from './dashboard.service';
 import { User } from "@prisma/client";
 
+// 设备状态趋势响应类型
+export interface DeviceStatusTrendResponse {
+  timeRange: '1h' | '6h' | '24h' | '7d' | '30d';
+  startDate: string;
+  endDate: string;
+  data: Array<{ timestamp: string; online: number; offline: number; degraded: number; unknown: number; maintenance: number }>;
+}
+
+// 系统健康状态响应类型
+export interface SystemHealthResponse {
+  database: {
+    status: string;
+    responseTime: number;
+  };
+  timestamp: string;
+}
+
 interface RequestWithUser extends Request {
   user?: User;
 }
@@ -32,7 +49,7 @@ export class DashboardController {
   @Roles(Role.ADMIN, Role.OPERATOR, Role.USER) // 所有认证用户都可以查看设备状态趋势
   async getDeviceStatusTrend(
     @Query('timeRange') timeRange: '1h' | '6h' | '24h' | '7d' | '30d' = '24h'
-  ) {
+  ): Promise<DeviceStatusTrendResponse> {
     this.logger.log(`Device status trend endpoint accessed with timeRange: ${timeRange}`);
     
     // 直接返回数据，让拦截器处理统一格式
@@ -42,7 +59,7 @@ export class DashboardController {
 
   @Get('health')
   @Roles(Role.ADMIN, Role.OPERATOR) // 只有管理员和操作员可以查看系统健康状态
-  async getSystemHealth() {
+  async getSystemHealth(): Promise<SystemHealthResponse> {
     this.logger.log('System health endpoint accessed');
     
     // 直接返回数据，让拦截器处理统一格式

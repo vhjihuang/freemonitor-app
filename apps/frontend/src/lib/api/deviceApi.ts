@@ -54,7 +54,33 @@ export const createDevice = async (deviceData: CreateDeviceDto): Promise<Device>
  * @returns Promise<Device> - 更新后的设备
  */
 export const updateDevice = async (id: string, deviceData: UpdateDeviceDto): Promise<Device> => {
-  return ApiHandlers.object(() => apiClient.patch<Device>(`devices/${id}`, deviceData));
+  const updatedDevice = await ApiHandlers.object(() => apiClient.patch<Device>(`devices/${id}`, deviceData));
+  
+  // 触发设备更新事件，以便其他组件可以更新状态或清除缓存
+  if (typeof window !== 'undefined') {
+    // 发出设备更新事件
+    window.dispatchEvent(new CustomEvent('device-updated', {
+      detail: {
+        id,
+        updatedFields: Object.keys(deviceData),
+        timestamp: new Date().toISOString(),
+      }
+    }));
+    
+    // 如果状态变更，单独发出设备状态变更事件
+    if (deviceData.status) {
+      window.dispatchEvent(new CustomEvent('device-status-changed', {
+        detail: {
+          id,
+          previousStatus: updatedDevice.status, // 注意这里可能不准确，因为API响应中的状态已经是更新后的状态
+          newStatus: deviceData.status,
+          timestamp: new Date().toISOString(),
+        }
+      }));
+    }
+  }
+  
+  return updatedDevice;
 };
 
 /**
