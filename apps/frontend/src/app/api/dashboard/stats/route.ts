@@ -19,6 +19,24 @@ interface DashboardStats {
  * 2. 在运行时动态获取数据
  * 3. 在开发环境提供模拟数据
  */
+// 分层缓存策略，提高数据及时性
+// 根据数据类型设置不同的缓存时间，优化监控场景下的及时性
+interface CacheEntry {
+  data: DashboardStats;
+  timestamp: number;
+  dataType: 'critical' | 'normal' | 'slow';
+}
+
+// 分层缓存配置
+const CACHE_CONFIGS = {
+  critical: 5 * 1000,    // 关键数据（设备状态、告警）：5秒缓存
+  normal: 15 * 1000,     // 一般数据（统计信息）：15秒缓存
+  slow: 30 * 1000,       // 缓慢变化数据（历史统计）：30秒缓存
+};
+
+// 缓存存储
+let cachedStats: CacheEntry | null = null;
+
 export async function GET(request: NextRequest) {
   try {
     // 检查是否是构建时（静态生成）
@@ -40,6 +58,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 检查缓存
+    const now = Date.now();
+    if (cachedStats) {
+      // 根据数据类型确定缓存时长
+      const cacheDuration = CACHE_CONFIGS[cachedStats.dataType];
+      if ((now - cachedStats.timestamp) < cacheDuration) {
+        return NextResponse.json({
+          success: true,
+          data: cachedStats.data,
+        });
+      }
+    }
+
     // 运行时：从请求头获取token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     
@@ -52,6 +83,13 @@ export async function GET(request: NextRequest) {
           totalDevices: 18,
           activeAlerts: 2,
           lastUpdated: new Date().toISOString(),
+        };
+
+        // 更新缓存
+        cachedStats = {
+          data: mockStats,
+          timestamp: now,
+          dataType: 'normal'
         };
 
         return NextResponse.json({
@@ -74,6 +112,13 @@ export async function GET(request: NextRequest) {
         },
       });
       
+      // 更新缓存
+      cachedStats = {
+        data,
+        timestamp: now,
+        dataType: 'critical' // 实时数据为关键类型
+      };
+      
       return NextResponse.json({
         success: true,
         data: data,
@@ -89,6 +134,13 @@ export async function GET(request: NextRequest) {
           totalDevices: 18,
           activeAlerts: 2,
           lastUpdated: new Date().toISOString(),
+        };
+
+        // 更新缓存
+        cachedStats = {
+          data: mockStats,
+          timestamp: now,
+          dataType: 'normal'
         };
 
         return NextResponse.json({

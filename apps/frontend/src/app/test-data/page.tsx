@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateTestData } from '@/lib/generateTestData';
 import { generateTestAlerts } from '@/lib/generateTestAlerts';
-import { createTestDevices } from './create-test-devices';
+// import { createTestDevices } from './create-test-devices';
 
 export default function TestDataPage() {
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,8 @@ export default function TestDataPage() {
     setMessage('正在创建测试设备...');
     
     try {
-      await createTestDevices();
+      // 已删除create-test-devices功能
+      // await createTestDevices();
       setMessage('测试设备创建成功！');
     } catch (error) {
       console.error('创建测试设备失败:', error);

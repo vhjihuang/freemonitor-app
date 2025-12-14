@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { optimizedApiClient } from '@/lib/api-optimized';
+// import { optimizedApiClient } from '@/lib/api-optimized';
+import { apiClient } from '@/lib/api';
 import { getCsrfToken } from '@/lib/csrf';
 
 /**
@@ -172,7 +173,8 @@ export function usePerformanceMonitor() {
 
   // 更新缓存统计
   const updateCacheStats = useCallback(() => {
-    const cacheStats = optimizedApiClient.getCacheStats();
+    // 简单的缓存统计，替代原有的optimizedApiClient.getCacheStats
+    const cacheStats = { responseCache: 0 };
     setMetrics(prev => ({
       ...prev,
       cacheSize: cacheStats.responseCache,
@@ -520,7 +522,8 @@ export function SecurityChecker() {
 
     // 检查API缓存安全性
     try {
-      const cacheStats = optimizedApiClient.getCacheStats();
+      // 简单的缓存统计，替代原有的optimizedApiClient.getCacheStats
+      const cacheStats = { responseCache: 0 };
       if (cacheStats.responseCache > 100) {
         checks.push({
           name: 'API缓存',

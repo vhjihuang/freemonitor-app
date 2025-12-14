@@ -18,8 +18,8 @@
     "clean": "rimraf node_modules pnpm-lock.yaml && pnpm -r exec -- rimraf node_modules || true"
   },
   "devDependencies": {
-    "@types/node": "^20.19.11",
     "@freemonitor/eslint-config": "workspace:*",
+    "@types/node": "^20.19.11",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.34.0",
     "kill-port": "^2.0.1",
@@ -43,5 +43,8 @@
       "@types/react": "^18.3.1",
       "@types/react-dom": "^18.3.1"
     }
+  },
+  "dependencies": {
+    "critters": "^0.0.25"
   }
 }
