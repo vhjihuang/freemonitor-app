@@ -13,12 +13,15 @@
     "build": "turbo run build",
     "start": "node scripts/start-production.js",
     "start:legacy": "turbo run start",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "clean": "rimraf node_modules pnpm-lock.yaml && pnpm -r exec -- rimraf node_modules || true"
   },
   "devDependencies": {
     "@types/node": "^20.19.11",
+    "@freemonitor/eslint-config": "workspace:*",
     "autoprefixer": "^10.4.21",
+    "eslint": "^9.34.0",
     "kill-port": "^2.0.1",
     "only-allow": "^1.0.0",
     "postcss": "^8.5.6",
@@ -34,7 +37,11 @@
   "pnpm": {
     "overrides": {
       "@nestjs/common": "^10.0.0",
-      "@nestjs/core": "^10.0.0"
+      "@nestjs/core": "^10.0.0",
+      "react": "^18.3.1",
+      "react-dom": "^18.3.1",
+      "@types/react": "^18.3.1",
+      "@types/react-dom": "^18.3.1"
     }
   }
 }
