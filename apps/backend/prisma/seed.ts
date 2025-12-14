@@ -13,19 +13,19 @@ async function main() {
     const usersToCreate = [
       {
         email: 'admin@example.com',
-        password: '123456',
+        password: 'Admin@123456',
         name: 'Admin',
         role: UserRole.ADMIN,
       },
       {
         email: 'user@example.com',
-        password: '123456',
+        password: 'User@123456',
         name: 'Test User',
         role: UserRole.USER,
       },
       {
         email: 'perf-test@example.com',
-        password: 'perf-test-password',
+        password: 'Perf@Test123456',
         name: 'Performance Test User',
         role: UserRole.USER,
       }
