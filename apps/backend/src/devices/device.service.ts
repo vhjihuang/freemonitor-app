@@ -316,6 +316,9 @@ export class DeviceService {
       }
     }
 
+    // 记录设备状态变更（如果状态变更）
+    const isStatusChanged = updateDeviceDto.status && updateDeviceDto.status !== device.status;
+
     const updatedDevice = await this.prisma.device.update({
       where: { id: device.id },
       data: {
@@ -338,6 +341,13 @@ export class DeviceService {
       deviceId: updatedDevice.id, 
       updatedFields: Object.keys(updateDeviceDto) 
     });
+
+    // 如果状态变更，需要触发缓存失效
+    if (isStatusChanged) {
+      // 发送事件或通知前端清除缓存
+      // 这里是简化实现，实际项目中应该有更完善的缓存失效机制
+      console.log(`设备状态变更: ${device.id} 从 ${device.status} 变为 ${updateDeviceDto.status}`);
+    }
 
     return updatedDevice;
   }
@@ -834,6 +844,10 @@ export class DeviceService {
     });
 
     this.logger.log('告警解决成功', { alertId, userId });
+    
+    // 告警状态变更需要触发缓存失效
+    console.log(`告警状态变更: ${alertId} 从 ${alert.status} 变为 ${AlertStatus.RESOLVED}`);
+    
     return updatedAlert;
   }
 
@@ -905,6 +919,9 @@ export class DeviceService {
       resolvedCount: updatedAlerts.count, 
       userId 
     });
+    
+    // 批量告警状态变更需要触发缓存失效
+    console.log(`批量告警状态变更: 解决了 ${updatedAlerts.count} 条告警`);
     
     return result;
   }
