@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@freemonitor/types/*": ["../../packages/types/dist/*"]
     },
     "allowImportingTsExtensions": true,
     "types": ["jest", "@testing-library/jest-dom"]

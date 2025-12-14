@@ -17,7 +17,11 @@
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "baseUrl": ".",
+    "paths": {
+      "@freemonitor/types/*": ["packages/types/dist/*"]
+    }
   },
   "exclude": ["node_modules", "dist"]
 }
