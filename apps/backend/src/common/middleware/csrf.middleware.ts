@@ -54,6 +54,16 @@ export class CsrfMiddleware implements NestMiddleware {
       });
       
       console.log('生成新的CSRF令牌');
+      
+      // 生成会话ID和会话Cookie
+      const sessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      res.cookie('session', sessionId, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24小时
+      });
+      console.log('创建会话 cookie');
     } else {
       console.log('使用现有的CSRF令牌');
     }
