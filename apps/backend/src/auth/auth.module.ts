@@ -17,10 +17,30 @@ import { TokenBlacklistService } from './token-blacklist.service';
     PrismaModule,
     MailModule,
     JwtModule.registerAsync({
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || "ivDMPB8l0IWo/veUZne93BTEv4mCxVq4jDc11yXwHPc=",
-        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN') || "15m" },
-      }),
+      useFactory: (configService: ConfigService) => {
+        // 将 JWT 配置转换为 number 类型以符合 JwtModule 要求
+        const expiresInConfig = configService.get<string>('JWT_EXPIRES_IN') || '15m';
+        let expiresIn: number;
+        
+        if (typeof expiresInConfig === 'string') {
+          if (expiresInConfig.includes('m')) {
+            const minutes = parseInt(expiresInConfig.replace('m', ''));
+            expiresIn = minutes * 60;
+          } else if (expiresInConfig.includes('h')) {
+            const hours = parseInt(expiresInConfig.replace('h', ''));
+            expiresIn = hours * 3600;
+          } else {
+            expiresIn = parseInt(expiresInConfig) || 900;
+          }
+        } else {
+          expiresIn = Number(expiresInConfig) || 900;
+        }
+        
+        return {
+          secret: configService.get<string>('JWT_SECRET') || "ivDMPB8l0IWo/veUZne93BTEv4mCxVq4jDc11yXwHPc=",
+          signOptions: { expiresIn },
+        };
+      },
       inject: [ConfigService],
     }),
     HashingModule,

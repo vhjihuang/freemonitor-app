@@ -127,9 +127,27 @@ export class AuthService {
   private generateAccessToken(userId: string, email: string): string {
     const payload = { sub: userId, email };
     const jwtConfig = this.configService.get<JwtConfig>("jwt");
-
+    
+    // 修复 expiresIn 类型错误 - 将字符串配置转换为 number
+    const expiresInConfig = jwtConfig.expiresIn;
+    let expiresIn: number;
+    
+    if (typeof expiresInConfig === 'string') {
+      if (expiresInConfig.includes('m')) {
+        const minutes = parseInt(expiresInConfig.replace('m', ''));
+        expiresIn = minutes * 60;
+      } else if (expiresInConfig.includes('h')) {
+        const hours = parseInt(expiresInConfig.replace('h', ''));
+        expiresIn = hours * 3600;
+      } else {
+        expiresIn = parseInt(expiresInConfig) || 900;
+      }
+    } else {
+      expiresIn = expiresInConfig as number;
+    }
+    
     return this.jwtService.sign(payload, {
-      expiresIn: jwtConfig.expiresIn,
+      expiresIn,
     });
   }
 
@@ -160,7 +178,7 @@ export class AuthService {
             iat: Math.floor(Date.now() / 1000),
           },
           {
-            expiresIn: "7d", // 刷新令牌有效期7天
+            expiresIn: 7 * 24 * 3600, // 刷新令牌有效期7天（秒数）
             secret: this.configService.get("JWT_REFRESH_SECRET") || "default-refresh-secret",
           }
         );
@@ -397,8 +415,27 @@ export class AuthService {
     // 生成JWT令牌
     const payload = { sub: user.id, email: user.email };
     const jwtConfig = this.configService.get<JwtConfig>("jwt");
+    
+    // 修复 expiresIn 类型错误 - 将字符串配置转换为 number
+    const expiresInConfig = jwtConfig.expiresIn;
+    let expiresIn: number;
+    
+    if (typeof expiresInConfig === 'string') {
+      if (expiresInConfig.includes('m')) {
+        const minutes = parseInt(expiresInConfig.replace('m', ''));
+        expiresIn = minutes * 60;
+      } else if (expiresInConfig.includes('h')) {
+        const hours = parseInt(expiresInConfig.replace('h', ''));
+        expiresIn = hours * 3600;
+      } else {
+        expiresIn = parseInt(expiresInConfig) || 900;
+      }
+    } else {
+      expiresIn = expiresInConfig as number;
+    }
+    
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: jwtConfig.expiresIn,
+      expiresIn,
     });
 
     // 生成并存储刷新令牌

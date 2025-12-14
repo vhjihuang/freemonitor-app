@@ -4,7 +4,7 @@ import { Role } from '@freemonitor/types';
 
 export interface JwtConfig {
   secret: string;
-  expiresIn: string;
+  expiresIn: string | number; // 支持字符串和数字类型
   refreshIn: string;
 }
 
@@ -18,11 +18,30 @@ export interface DevUserConfig {
 
 export const jwtConfig = registerAs(
   "jwt",
-  (): JwtConfig => ({
-    secret: process.env.JWT_SECRET || "ivDMPB8l0IWo/veUZne93BTEv4mCxVq4jDc11yXwHPc=",
-    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
-    refreshIn: process.env.JWT_REFRESH_IN || "7d",
-  })
+  (): JwtConfig => {
+    const expiresInConfig = process.env.JWT_EXPIRES_IN || "15m";
+    
+    // 将配置转换为数字类型（秒数）
+    let expiresIn: number;
+    if (typeof expiresInConfig === 'string' && expiresInConfig.includes('m')) {
+      // 处理 "15m" 格式
+      const minutes = parseInt(expiresInConfig.replace('m', ''));
+      expiresIn = minutes * 60;
+    } else if (typeof expiresInConfig === 'string' && expiresInConfig.includes('h')) {
+      // 处理 "1h" 格式
+      const hours = parseInt(expiresInConfig.replace('h', ''));
+      expiresIn = hours * 3600;
+    } else {
+      // 假设是秒数
+      expiresIn = parseInt(expiresInConfig) || 900; // 默认 15 分钟 = 900 秒
+    }
+    
+    return {
+      secret: process.env.JWT_SECRET || "ivDMPB8l0IWo/veUZne93BTEv4mCxVq4jDc11yXwHPc=",
+      expiresIn,
+      refreshIn: process.env.JWT_REFRESH_IN || "7d",
+    };
+  }
 );
 
 export const devUserConfig = registerAs("devUser", (): DevUserConfig => {
