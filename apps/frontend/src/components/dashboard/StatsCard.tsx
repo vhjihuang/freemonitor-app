@@ -11,6 +11,7 @@ interface StatsCardProps {
   description: string;
   color: 'green' | 'red' | 'blue' | 'yellow';
   loading?: boolean;
+  isRefreshing?: boolean;
 }
 
 const colorClasses = {
@@ -20,7 +21,7 @@ const colorClasses = {
   yellow: 'text-yellow-600',
 };
 
-export function StatsCard({ title, value, icon, description, color, loading }: StatsCardProps) {
+export function StatsCard({ title, value, icon, description, color, loading, isRefreshing }: StatsCardProps) {
   if (loading) {
     return (
       <Card>
@@ -40,7 +41,14 @@ export function StatsCard({ title, value, icon, description, color, loading }: S
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className={colorClasses[color]}>{icon}</div>
+        <div className="relative">
+          <div className={colorClasses[color]}>{icon}</div>
+          {isRefreshing && (
+            <div className="absolute -top-1 -right-1">
+              <div className="h-3 w-3 rounded-full bg-blue-500 animate-ping opacity-75"></div>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className={`text-2xl font-bold ${colorClasses[color]}`}>{value}</div>

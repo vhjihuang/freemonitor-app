@@ -13,17 +13,21 @@ export function StatsOverview() {
     data: stats, 
     error: statsError, 
     isLoading: statsLoading,
+    isFetching: statsFetching, // 添加这个属性，检查数据是否正在后台获取
     refetch: refetchStats 
   } = useDashboardStats({
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    staleTime: 30 * 1000, // 30秒缓存，与服务器端缓存保持一致
     refetchOnWindowFocus: false, // 禁用窗口聚焦时刷新
     refetchOnReconnect: false, // 禁用网络重连时刷新
     enabled: isAuthenticated, // 只有在认证成功时才启用
   });
 
   // 计算加载状态和错误状态
-  const loading = isAuthLoading() || statsLoading;
+  // 只在首次加载时显示加载状态，背景获取时显示现有数据
+  const loading = isAuthLoading() || (statsLoading && !stats);
   const error = statsError ? getErrorMessage(statsError) : null;
+  // 后台获取时只更新数据，不显示加载状态
+  const isRefreshing = statsFetching && stats;
 
   // 错误消息处理函数
   function getErrorMessage(error: Error): string {
@@ -68,6 +72,46 @@ export function StatsOverview() {
         <StatsCard title="离线设备" value={0} icon={<WifiOff />} description="获取数据中..." color="red" loading />
         <StatsCard title="总设备数" value={0} icon={<Server />} description="获取数据中..." color="blue" loading />
         <StatsCard title="活跃告警" value={0} icon={<AlertCircle />} description="获取数据中..." color="yellow" loading />
+      </div>
+    );
+  }
+
+  // 后台刷新时显示微妙的加载指示器，但保持显示现有数据
+  if (isRefreshing) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatsCard 
+          title="在线设备" 
+          value={stats?.onlineDevices || 0} 
+          icon={<Wifi />} 
+          description={stats?.totalDevices > 0 ? `占比 ${((stats?.onlineDevices || 0) / stats.totalDevices * 100).toFixed(1)}%` : '无设备'} 
+          color="green" 
+          isRefreshing={true}
+        />
+        <StatsCard 
+          title="离线设备" 
+          value={stats?.offlineDevices || 0} 
+          icon={<WifiOff />} 
+          description={stats?.totalDevices > 0 ? `占比 ${((stats?.offlineDevices || 0) / stats.totalDevices * 100).toFixed(1)}%` : '无设备'} 
+          color="red" 
+          isRefreshing={true}
+        />
+        <StatsCard 
+          title="总设备数" 
+          value={stats?.totalDevices || 0} 
+          icon={<Server />} 
+          description="所有设备总数" 
+          color="blue" 
+          isRefreshing={true}
+        />
+        <StatsCard 
+          title="活跃告警" 
+          value={stats?.activeAlerts || 0} 
+          icon={<AlertCircle />} 
+          description="未解决的告警" 
+          color="yellow" 
+          isRefreshing={true}
+        />
       </div>
     );
   }
