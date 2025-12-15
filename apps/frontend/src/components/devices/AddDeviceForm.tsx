@@ -3,9 +3,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { CreateDeviceDto } from '@freemonitor/types';
 
 interface AddDeviceFormProps {
@@ -14,177 +18,212 @@ interface AddDeviceFormProps {
   loading?: boolean;
 }
 
+// 定义验证schema
+const addDeviceSchema = z.object({
+  name: z.string().min(1, '设备名称不能为空').max(100, '设备名称长度不能超过100个字符'),
+  ipAddress: z.string().min(1, 'IP地址不能为空').refine(
+    (ip) => {
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipRegex.test(ip)) return false;
+      const ipParts = ip.split('.').map(Number);
+      return ipParts.every(part => !isNaN(part) && part >= 0 && part <= 255);
+    },
+    'IP地址格式无效，请输入正确的IPv4地址（例如：192.168.1.1）'
+  ),
+  hostname: z.string().optional(),
+  description: z.string().optional(),
+  type: z.enum(["SERVER", "ROUTER", "IOT"]).optional(),
+  location: z.string().optional(),
+  tags: z.string().optional(),
+  deviceGroupId: z.string().nullable().optional()
+});
+
+type FormData = z.infer<typeof addDeviceSchema>;
+
 export function AddDeviceForm({ onSubmit, onCancel, loading = false }: AddDeviceFormProps) {
-  const [formData, setFormData] = useState<CreateDeviceDto>({
-    name: '',
-    ipAddress: '',
-    hostname: '',
-    description: '',
-    type: undefined,
-    location: '',
-    tags: [],
-    deviceGroupId: null
+  const form = useForm<FormData>({
+    resolver: zodResolver(addDeviceSchema),
+    defaultValues: {
+      name: '',
+      ipAddress: '',
+      hostname: '',
+      description: '',
+      type: undefined,
+      location: '',
+      tags: '',
+      deviceGroupId: null
+    }
   });
 
-  const [tagsInput, setTagsInput] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (data: FormData) => {
     try {
-      // 1. 验证必填字段
-      if (!formData.name || formData.name.trim().length === 0) {
-        throw new Error('设备名称不能为空');
-      }
-      
-      if (!formData.ipAddress || formData.ipAddress.trim().length === 0) {
-        throw new Error('IP 地址不能为空');
-      }
-      
-      // 2. 验证 IP 地址格式
-      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-      if (!ipRegex.test(formData.ipAddress.trim())) {
-        throw new Error('IP 地址格式无效，请输入正确的 IPv4 地址（例如：192.168.1.1）');
-      }
-      
-      // 3. 验证 IP 地址范围（每段 0-255）
-      const ipParts = formData.ipAddress.trim().split('.').map(Number);
-      if (ipParts.some(part => isNaN(part) || part < 0 || part > 255)) {
-        throw new Error('IP 地址范围无效，每段必须在 0-255 之间');
-      }
-      
-      // 4. 验证设备名称长度
-      if (formData.name.trim().length > 100) {
-        throw new Error('设备名称长度不能超过 100 个字符');
-      }
-      
-      // 5. 处理标签
-      const tags = tagsInput && tagsInput.trim().length > 0
-        ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+      // 处理标签
+      const tags = data.tags && data.tags.trim().length > 0
+        ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
         : [];
 
-      const submitData = {
-        ...formData,
-        name: formData.name.trim(),
-        ipAddress: formData.ipAddress.trim(),
-        hostname: formData.hostname?.trim() || undefined,
-        description: formData.description?.trim() || undefined,
-        location: formData.location?.trim() || undefined,
-        tags: tags.length > 0 ? tags : undefined
+      const submitData: CreateDeviceDto = {
+        ...data,
+        tags: tags.length > 0 ? tags : undefined,
+        type: data.type || undefined,
+        deviceGroupId: data.deviceGroupId || null
       };
 
       await onSubmit(submitData);
     } catch (error) {
       console.error('提交表单失败:', error);
-      // 错误会被父组件的 toast 处理
       throw error;
     }
   };
 
-  const handleInputChange = (field: keyof CreateDeviceDto, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const processTags = (tagsString: string) => {
+    return tagsString && tagsString.trim().length > 0
+      ? tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+      : [];
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 设备名称 - 必填 */}
-        <div className="space-y-2">
-          <Label htmlFor="name">设备名称 *</Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => handleInputChange('name', e.target.value)}
-            placeholder="输入设备名称"
-            required
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem fieldName="name">
+                <FormLabel>设备名称 *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="输入设备名称"
+                    {...field}
+                    required
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="ipAddress"
+            render={({ field }) => (
+              <FormItem fieldName="ipAddress">
+                <FormLabel>IP地址 *</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="192.168.1.100"
+                    {...field}
+                    required
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="hostname"
+            render={({ field }) => (
+              <FormItem fieldName="hostname">
+                <FormLabel>主机名</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="server01.local"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem fieldName="type">
+                <FormLabel>设备类型</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择设备类型" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="SERVER">服务器</SelectItem>
+                    <SelectItem value="ROUTER">路由器</SelectItem>
+                    <SelectItem value="IOT">物联网设备</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem fieldName="location">
+                <FormLabel>位置</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="机房A-机柜01"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="tags"
+            render={({ field }) => (
+              <FormItem fieldName="tags">
+                <FormLabel>标签</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="prod, web, database (用逗号分隔)"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
 
-        {/* IP地址 - 必填 */}
-        <div className="space-y-2">
-          <Label htmlFor="ipAddress">IP地址 *</Label>
-          <Input
-            id="ipAddress"
-            value={formData.ipAddress}
-            onChange={(e) => handleInputChange('ipAddress', e.target.value)}
-            placeholder="192.168.1.100"
-            required
-          />
-        </div>
-
-        {/* 主机名 */}
-        <div className="space-y-2">
-          <Label htmlFor="hostname">主机名</Label>
-          <Input
-            id="hostname"
-            value={formData.hostname || ''}
-            onChange={(e) => handleInputChange('hostname', e.target.value)}
-            placeholder="server01.local"
-          />
-        </div>
-
-        {/* 设备类型 */}
-        <div className="space-y-2">
-          <Label htmlFor="type">设备类型</Label>
-          <Select value={formData.type || ''} onValueChange={(value) => handleInputChange('type', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="选择设备类型" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="SERVER">服务器</SelectItem>
-              <SelectItem value="ROUTER">路由器</SelectItem>
-              <SelectItem value="IOT">物联网设备</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 位置 */}
-        <div className="space-y-2">
-          <Label htmlFor="location">位置</Label>
-          <Input
-            id="location"
-            value={formData.location || ''}
-            onChange={(e) => handleInputChange('location', e.target.value)}
-            placeholder="机房A-机柜01"
-          />
-        </div>
-
-        {/* 标签 */}
-        <div className="space-y-2">
-          <Label htmlFor="tags">标签</Label>
-          <Input
-            id="tags"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            placeholder="prod, web, database (用逗号分隔)"
-          />
-        </div>
-      </div>
-
-      {/* 描述 */}
-      <div className="space-y-2">
-        <Label htmlFor="description">描述</Label>
-        <Textarea
-          id="description"
-          value={formData.description || ''}
-          onChange={(e) => handleInputChange('description', e.target.value)}
-          placeholder="设备描述信息"
-          rows={3}
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem fieldName="description">
+              <FormLabel>描述</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="设备描述信息"
+                  rows={3}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      {/* 按钮 */}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          取消
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? '创建中...' : '创建设备'}
-        </Button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+            取消
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? '创建中...' : '创建设备'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

@@ -57,9 +57,10 @@ const useFormField = () => {
   return {
     id,
     name: fieldContext.name,
-    formItemId: `${id}-form-item`,
-    formDescriptionId: `${id}-form-item-description`,
-    formMessageId: `${id}-form-item-message`,
+    // 确保所有ID都基于FormItem的id，服务器端和客户端一致
+    formItemId: id,
+    formDescriptionId: `${id}-description`,
+    formMessageId: `${id}-message`,
     ...fieldState,
   }
 }
@@ -74,9 +75,10 @@ const FormItemContext = React.createContext<FormItemContextValue>(
 
 const FormItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
-  const id = React.useId()
+  React.HTMLAttributes<HTMLDivElement> & { fieldName?: string }
+>(({ className, fieldName, ...props }, ref) => {
+  // 使用稳定的ID生成方式，基于字段名称，避免服务器端和客户端渲染不匹配
+  const id = fieldName ? `form-${fieldName}` : React.useId()
 
   return (
     <FormItemContext.Provider value={{ id }}>
@@ -90,13 +92,13 @@ const FormLabel = React.forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
 >(({ className, ...props }, ref) => {
-  const { error, formItemId } = useFormField()
+  const { error, id } = useFormField()
 
   return (
     <Label
       ref={ref}
       className={cn(error && "text-destructive", className)}
-      htmlFor={formItemId}
+      htmlFor={`${id}-input`}
       {...props}
     />
   )
@@ -107,12 +109,12 @@ const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
+  const { error, id, formDescriptionId, formMessageId } = useFormField()
 
   return (
     <Slot
       ref={ref}
-      id={formItemId}
+      id={`${id}-input`}
       aria-describedby={
         !error
           ? `${formDescriptionId}`

@@ -39,7 +39,9 @@ const ipValidation = (val: string) => {
 const deviceFormSchema = z.object({
   name: z.string().min(1, '设备名称不能为空'),
   hostname: z.string().optional(),
-  ipAddress: z.string().min(1, 'IP地址不能为空').refine(ipValidation, '请输入有效的IP地址'),
+  ipAddress: z.string().min(1, 'IP地址不能为空').refine(ipValidation, {
+    message: '请输入有效的IP地址'
+  }),
   description: z.string().optional(),
   type: z.enum(['SERVER', 'ROUTER', 'IOT']).optional(),
   status: z.enum(['ONLINE', 'OFFLINE', 'DEGRADED', 'UNKNOWN', 'MAINTENANCE']).optional(),
@@ -128,7 +130,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="name"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="name">
                 <FormLabel>设备名称 *</FormLabel>
                 <FormControl>
                   <Input placeholder="输入设备名称" {...field} />
@@ -143,7 +145,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="ipAddress"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="ipAddress">
                 <FormLabel>IP地址 *</FormLabel>
                 <FormControl>
                   <Input placeholder="192.168.1.100" {...field} />
@@ -158,7 +160,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="hostname"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="hostname">
                 <FormLabel>主机名</FormLabel>
                 <FormControl>
                   <Input placeholder="server01.local" {...field} />
@@ -173,7 +175,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="type"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="type">
                 <FormLabel>设备类型</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                   <FormControl>
@@ -197,7 +199,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="status"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="status">
                 <FormLabel>设备状态</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value || 'UNKNOWN'}>
                   <FormControl>
@@ -223,7 +225,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="location"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="location">
                 <FormLabel>位置</FormLabel>
                 <FormControl>
                   <Input placeholder="机房A-机柜01" {...field} />
@@ -238,7 +240,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
             control={form.control}
             name="tags"
             render={({ field }) => (
-              <FormItem className="space-y-2">
+              <FormItem className="space-y-2" fieldName="tags">
                 <FormLabel>标签</FormLabel>
                 <FormControl>
                   <Input
@@ -258,7 +260,7 @@ export function DeviceForm({ device, onSuccess, onCancel }: DeviceFormProps) {
           control={form.control}
           name="description"
           render={({ field }) => (
-            <FormItem className="space-y-2">
+            <FormItem className="space-y-2" fieldName="description">
               <FormLabel>描述</FormLabel>
               <FormControl>
                 <Textarea

@@ -1,10 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import Link from 'next/link';
-import { validatePassword } from '@freemonitor/types';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { registerSchema, RegisterFormValues } from '@/lib/validations';
 
 interface RegisterFormProps {
   onSubmit: (email: string, password: string, name: string) => void;
@@ -12,124 +21,116 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSubmit, error }: RegisterFormProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const validateForm = (): boolean => {
-    if (!email || !password || !name) {
-      return false;
-    }
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
-    // 使用共享的密码验证函数
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.isValid) {
-      setPasswordError(passwordValidation.errorMessage);
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      setPasswordError('两次输入的密码不一致');
-      return false;
-    }
-
-    setPasswordError(null);
-    return true;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
+  const onFormSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-    await onSubmit(email, password, name);
-    setIsLoading(false);
+    try {
+      await onSubmit(values.email, values.password, values.name);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
-
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-          姓名
-        </label>
-        <Input
-          id="name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="mt-1"
-          placeholder="请输入您的姓名"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          邮箱地址
-        </label>
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="mt-1"
-          placeholder="请输入邮箱地址"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          密码
-        </label>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          className="mt-1"
-          placeholder="请输入密码（至少6位）"
-        />
-        {passwordError && (
-          <p className="mt-1 text-sm text-red-600">{passwordError}</p>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onFormSubmit)} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
         )}
-      </div>
 
-      <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-          确认密码
-        </label>
-        <Input
-          id="confirmPassword"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          className="mt-1"
-          placeholder="请再次输入密码"
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem fieldName="name">
+              <FormLabel>姓名</FormLabel>
+              <FormControl>
+                <Input 
+                  type="text" 
+                  placeholder="请输入您的姓名"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </div>
 
-      <Button
-        type="submit"
-        disabled={isLoading}
-        className="w-full"
-      >
-        {isLoading ? '注册中...' : '注册'}
-      </Button>
-    </form>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem fieldName="email">
+              <FormLabel>邮箱地址</FormLabel>
+              <FormControl>
+                <Input 
+                  type="email" 
+                  placeholder="请输入邮箱地址"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem fieldName="password">
+              <FormLabel>密码</FormLabel>
+              <FormControl>
+                <Input 
+                  type="password" 
+                  placeholder="请输入密码（至少6位）"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="confirmPassword"
+          render={({ field }) => (
+            <FormItem fieldName="confirmPassword">
+              <FormLabel>确认密码</FormLabel>
+              <FormControl>
+                <Input 
+                  type="password" 
+                  placeholder="请再次输入密码"
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button
+          type="submit"
+          disabled={isLoading}
+          className="w-full"
+        >
+          {isLoading ? '注册中...' : '注册'}
+        </Button>
+      </form>
+    </Form>
   );
 }

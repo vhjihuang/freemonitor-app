@@ -44,8 +44,8 @@ const ChartContainer = React.forwardRef<
     >['children'];
   }
 >(({ id, className, children, config, ...props }, ref) => {
-  const uniqueId = React.useId();
-  const chartId = `chart-${id || uniqueId.replace(/:/g, '')}`;
+  // 使用稳定的ID生成方式，避免服务器端和客户端渲染不匹配
+  const chartId = id || `chart-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
     <ChartContext.Provider value={{ config }}>
