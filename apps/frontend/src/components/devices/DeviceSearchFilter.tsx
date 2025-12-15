@@ -92,7 +92,9 @@ export function DeviceSearchFilter({
     <div className="mb-6 p-4 bg-card rounded-lg border">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="search">搜索设备 <kbd className="text-xs bg-muted px-1 rounded">Ctrl+K</kbd></Label>
+          <Label htmlFor="search">
+            搜索设备 <kbd className="text-xs bg-muted px-1 rounded">Ctrl+K</kbd>
+          </Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
@@ -117,9 +119,11 @@ export function DeviceSearchFilter({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="status">设备状态</Label>
+          <Label htmlFor="device-status-select">
+            设备状态
+          </Label>
           <Select value={statusValue} onValueChange={onStatusChange}>
-            <SelectTrigger>
+            <SelectTrigger id="device-status-select">
               <SelectValue placeholder="选择状态" />
             </SelectTrigger>
             <SelectContent>
@@ -159,9 +163,11 @@ export function DeviceSearchFilter({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="type">设备类型</Label>
+          <Label htmlFor="device-type-select">
+            设备类型
+          </Label>
           <Select value={typeValue} onValueChange={onTypeChange}>
-            <SelectTrigger>
+            <SelectTrigger id="device-type-select">
               <SelectValue placeholder="选择类型" />
             </SelectTrigger>
             <SelectContent>

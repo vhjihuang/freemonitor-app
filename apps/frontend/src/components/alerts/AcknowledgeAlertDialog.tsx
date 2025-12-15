@@ -93,11 +93,12 @@ export function AcknowledgeAlertDialog({
             <p className="text-sm text-muted-foreground">{alert?.message}</p>
           </div>
           <div className="space-y-2">
-            <label htmlFor="comment" className="text-sm font-medium">
+            <label id="label-comment" className="text-sm font-medium">
               处理意见 *
             </label>
             <Textarea
               id="comment"
+              aria-labelledby="label-comment"
               placeholder="请输入处理意见，至少10个字符"
               value={comment}
               onChange={(e) => setComment(e.target.value)}

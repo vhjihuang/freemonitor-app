@@ -112,11 +112,11 @@ export function ResolveAlertDialog({
             <p className="text-sm text-muted-foreground">{alert?.message}</p>
           </div>
           <div className="space-y-2">
-            <label htmlFor="solution-type" className="text-sm font-medium">
+            <label id="label-solution-type" className="text-sm font-medium">
               解决方案类型 *
             </label>
             <Select value={solutionType} onValueChange={setSolutionType}>
-              <SelectTrigger id="solution-type">
+              <SelectTrigger id="solution-type" aria-labelledby="label-solution-type">
                 <SelectValue placeholder="选择解决方案类型" />
               </SelectTrigger>
               <SelectContent>
@@ -129,11 +129,12 @@ export function ResolveAlertDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <label htmlFor="comment" className="text-sm font-medium">
+            <label id="label-comment" className="text-sm font-medium">
               解决说明 *
             </label>
             <Textarea
               id="comment"
+              aria-labelledby="label-comment"
               placeholder="请输入详细的解决说明，至少20个字符"
               value={comment}
               onChange={(e) => setComment(e.target.value)}

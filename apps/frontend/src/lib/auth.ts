@@ -3,6 +3,7 @@ import { refreshCsrfToken } from './csrf';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 import { ApiHandlers } from '@freemonitor/types';
 import { standardizeError, formatUserErrorMessage } from './error-handler';
+import { parseJWT } from './string-utils';
 
 // 认证相关类型
 export interface User extends UserResponseDto {}
@@ -286,7 +287,8 @@ export function getAccessToken(): string | null {
 // 检查JWT令牌是否过期
 function isTokenExpired(token: string): boolean {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payload = parseJWT(token);
+    if (!payload) return true;
     const currentTime = Math.floor(Date.now() / 1000);
     return payload.exp < currentTime;
   } catch (error) {

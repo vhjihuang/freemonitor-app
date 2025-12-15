@@ -8,8 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRecentAlerts } from '@/hooks/useAlerts';
 import { AlertSeverityBadge } from '@/components/alerts/AlertSeverityBadge';
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
+import { formatToShortDateTime } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -94,7 +93,7 @@ export default function DashboardPage() {
                           <AlertSeverityBadge severity={alert.severity} />
                         </TableCell>
                         <TableCell className="text-right">
-                          {alert.createdAt ? format(new Date(alert.createdAt), 'MM-dd HH:mm', { locale: zhCN }) : '无时间'}
+                          {alert.createdAt ? formatToShortDateTime(alert.createdAt) : '无时间'}
                         </TableCell>
                       </TableRow>
                     ))}

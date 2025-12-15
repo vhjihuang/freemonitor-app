@@ -2,6 +2,7 @@ import * as React from 'react';
 import { io, Socket } from 'socket.io-client';
 import { refreshTokens, getAccessToken, isAuthenticated } from './auth';
 import { standardizeError } from './error-handler';
+import { getStringPrefix } from './string-utils';
 
 // WebSocket 配置接口
 interface WebSocketConfig {
@@ -65,7 +66,7 @@ export class WebSocketClient {
     console.log('WebSocket: 尝试建立连接', {
       hasSocket: !!this.socket,
       isConnected: this.socket?.connected,
-      token: this.config.token ? `${this.config.token.substring(0, 10)}...` : 'null'
+      token: this.config.token ? getStringPrefix(this.config.token, 10) : 'null'
     });
     
     if (this.socket?.connected) {
@@ -82,7 +83,7 @@ export class WebSocketClient {
     // 使用最新的有效令牌
     const token = this.getLatestToken();
     console.log('WebSocket: 使用令牌建立连接', {
-      token: token ? `${token.substring(0, 10)}...` : 'null'
+      token: token ? getStringPrefix(token, 10) : 'null'
     });
     
     const queryParams: Record<string, string> = {
@@ -406,7 +407,7 @@ export class WebSocketClient {
     // 首先尝试使用配置中的令牌
     if (this.config && this.config.token) {
       console.log('WebSocket: 使用配置中的令牌', {
-        token: this.config.token ? `${this.config.token.substring(0, 10)}...` : 'null'
+        token: getStringPrefix(this.config.token, 10)
       });
       return this.config.token;
     }
@@ -415,7 +416,7 @@ export class WebSocketClient {
     try {
       const token = localStorage.getItem('accessToken');
       console.log('WebSocket: 从localStorage获取令牌', {
-        token: token ? `${token.substring(0, 10)}...` : 'null'
+        token: getStringPrefix(token, 10)
       });
       if (token && token !== 'undefined' && token !== 'null') {
         return token;

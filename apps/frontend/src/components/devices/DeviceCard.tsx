@@ -1,13 +1,12 @@
 'use client';
 
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale/zh-CN';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, Trash } from 'lucide-react';
 
 import { Device } from '@freemonitor/types';
+import { formatDate } from '@/lib/date-utils';
 import { HighlightText } from './HighlightText';
 
 interface DeviceCardProps {
@@ -136,7 +135,7 @@ export function DeviceCard({ device, searchTerm = '', onEdit, onDelete }: Device
       </CardContent>
       <CardFooter>
         <p className="text-xs text-muted-foreground">
-          创建于 {format(new Date(device.createdAt), 'yyyy年MM月dd日', { locale: zhCN })}
+          创建于 {formatDate(device.createdAt, 'yyyy年MM月dd日')}
         </p>
       </CardFooter>
     </Card>
