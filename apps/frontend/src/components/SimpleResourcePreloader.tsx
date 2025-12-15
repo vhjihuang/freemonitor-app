@@ -9,16 +9,6 @@ import { useEffect } from 'react';
  */
 export function SimpleResourcePreloader() {
   useEffect(() => {
-    // 关键CSS预加载 - app/layout.css
-    const layoutLink = document.createElement('link');
-    layoutLink.rel = 'preload';
-    layoutLink.as = 'style';
-    layoutLink.href = '/app/layout.css';
-    layoutLink.onload = () => {
-      layoutLink.rel = 'stylesheet';
-    };
-    document.head.appendChild(layoutLink);
-
     // dashboard/stats API预加载
     const statsLink = document.createElement('link');
     statsLink.rel = 'prefetch';
@@ -26,20 +16,6 @@ export function SimpleResourcePreloader() {
     statsLink.href = '/api/dashboard/stats';
     statsLink.crossOrigin = 'anonymous';
     document.head.appendChild(statsLink);
-
-    // 关键组件预加载
-    const componentsToPreload = [
-      '/_next/static/chunks/pages/_app.js',
-      '/_next/static/chunks/main-app.js'
-    ];
-
-    componentsToPreload.forEach((component) => {
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.as = 'script';
-      link.href = component;
-      document.head.appendChild(link);
-    });
 
     console.log('🚀 关键资源预加载已完成');
   }, []);

@@ -14,7 +14,7 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   
-  trailingSlash: true, // 静态导出推荐
+  trailingSlash: false, // 禁用尾部斜杠以支持静态资产正确加载
   distDir: process.env.RENDER_STATIC ? 'out' : '.next',
   
   // 高级性能优化配置
@@ -38,35 +38,6 @@ const nextConfig = {
   
   // Webpack优化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Bundle分析优化
-    if (!dev && !isServer) {
-      // 生产环境代码分割优化
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-            priority: 10,
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            chunks: 'all',
-            priority: 5,
-            reuseExistingChunk: true,
-          },
-          react: {
-            test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-            name: 'react',
-            chunks: 'all',
-            priority: 20,
-          },
-        },
-      };
-    }
-    
     // Bundle大小警告阈值
     config.performance = {
       maxAssetSize: 500000, // 500KB

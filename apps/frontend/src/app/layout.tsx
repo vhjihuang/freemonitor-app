@@ -11,7 +11,6 @@ import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { WebSocketProvider } from '@/components/websocket/websocket-provider';
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper';
-import { SimpleResourcePreloader } from '@/components/SimpleResourcePreloader';
 
 export const metadata: Metadata = {
   title: 'FreeMonitor - 免费设备监控平台',
@@ -23,7 +22,6 @@ export const metadata: Metadata = {
     description: '专业的设备监控解决方案，实时监控您的设备状态',
     type: 'website',
   },
-  metadataBase: new URL('http://localhost:3000'),
 };
 
 export const viewport: Viewport = {
@@ -45,7 +43,6 @@ export default function RootLayout({
       <head>
       </head>
       <body>
-        <SimpleResourcePreloader />
         <ErrorBoundary>
           <AuthProviderWrapper>
             <CsrfProvider>
