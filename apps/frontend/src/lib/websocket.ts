@@ -457,6 +457,12 @@ export class WebSocketClient {
       }
     } catch (error) {
       console.error('WebSocket: 令牌刷新失败:', error);
+      
+      // 如果是401未授权错误，清除认证状态并重定向到登录页面
+      if (error instanceof Error && error.message.includes('401')) {
+        console.warn('WebSocket: 认证已失效，清除状态并重定向到登录页面');
+        this.handleAuthenticationFailure();
+      }
     }
     return null;
   }
@@ -487,6 +493,25 @@ export class WebSocketClient {
       connected: this.isConnected(),
       id: this.socket?.id,
     };
+  }
+
+  // 处理认证失败
+  private handleAuthenticationFailure(): void {
+    // 清除本地存储的认证信息
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    
+    // 断开WebSocket连接
+    this.disconnect();
+    
+    // 重定向到登录页面
+    if (typeof window !== 'undefined') {
+      // 使用setTimeout避免在错误处理过程中立即重定向
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 100);
+    }
   }
 }
 

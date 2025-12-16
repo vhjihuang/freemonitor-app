@@ -247,6 +247,19 @@ export async function refreshTokens(maxRetries: number = 3): Promise<AuthTokens 
   // 所有重试都失败了
   console.error('令牌刷新失败，已达到最大重试次数:', lastError);
   
+  // 如果是401未授权错误，清除认证状态并重定向到登录页面
+  if (lastError && lastError.message && lastError.message.includes('401')) {
+    console.warn('认证已失效，清除状态并重定向到登录页面');
+    logout();
+    
+    // 重定向到登录页面
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.location.href = '/auth/login';
+      }, 100);
+    }
+  }
+  
   // 提供更详细的错误信息
   const standardizedError = standardizeError(lastError);
   const errorMessage = standardizedError.userMessage || '刷新令牌失败，请重新登录';
