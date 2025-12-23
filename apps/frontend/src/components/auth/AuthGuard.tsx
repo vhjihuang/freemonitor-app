@@ -23,19 +23,17 @@ export function AuthGuard({
 
   // 处理认证和权限检查
   useEffect(() => {
-    // 数据加载期间不执行检查
-    if (isLoading) return;
+    if (isLoading) {
+      return;
+    }
 
-    // 未认证用户重定向到登录页
     if (!isAuthenticated) {
       setIsRedirecting(true);
       router.replace(redirectTo);
       return;
     }
 
-    // 如果需要角色检查且用户角色不匹配，则重定向到未授权页面
     if (roles && roles.length > 0 && !isAllowed) {
-      console.log('unauthorized', isAllowed)
       setIsRedirecting(true);
       router.replace('/unauthorized');
       return;

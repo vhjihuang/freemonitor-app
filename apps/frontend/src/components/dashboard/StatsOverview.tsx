@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 
 export function StatsOverview() {
-  const { isAuthenticated, isAuthLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   
   // 使用React Query获取仪表盘统计数据
   const { 
@@ -24,7 +24,7 @@ export function StatsOverview() {
 
   // 计算加载状态和错误状态
   // 只在首次加载时显示加载状态，背景获取时显示现有数据
-  const loading = isAuthLoading() || (statsLoading && !stats);
+  const loading = isLoading || (statsLoading && !stats);
   const error = statsError ? getErrorMessage(statsError) : null;
   // 后台获取时只更新数据，不显示加载状态
   const isRefreshing = statsFetching && stats;
@@ -41,7 +41,7 @@ export function StatsOverview() {
   }
 
   // 认证加载中
-  if (isAuthLoading()) {
+  if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard title="在线设备" value={0} icon={<Wifi />} description="加载中..." color="green" loading />
