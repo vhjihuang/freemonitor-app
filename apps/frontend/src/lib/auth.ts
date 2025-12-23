@@ -1,12 +1,17 @@
-import { apiClient } from './api';
+import { authApi } from '../clients/auth-client';
 import { refreshCsrfToken } from './csrf';
 import { TokenResponse, UserResponseDto } from '@freemonitor/types';
-import { ApiHandlers } from '@freemonitor/types';
 import { standardizeError, formatUserErrorMessage } from './error-handler';
 import { parseJWT } from './string-utils';
 
 // 认证相关类型
 export interface User extends UserResponseDto {}
+
+// 登录响应类型
+export interface LoginResponse {
+  user: User;
+  expiresIn: number;
+}
 
 export interface AuthTokens {
   accessToken: string;
@@ -28,22 +33,19 @@ export async function login(email: string, password: string): Promise<AuthTokens
     });
     window.dispatchEvent(authStartEvent);
     
-    const data = await ApiHandlers.generic<TokenResponse>(
-      () => apiClient.post('/auth/login', { email, password })
-    );
-    
-    if (!data.accessToken) {
-      throw new Error('登录响应缺少访问令牌');
-    }
-    
-    if (!data.user) {
+    // 注意：后端现在将令牌存储在httpOnly Cookie中，响应体只包含用户信息和过期时间
+    // processResponse已经提取了response.data中的内容，所以data直接就是用户信息
+    const user = await authApi.login({ email, password });
+    console.log('user', user)
+    if (!user) {
       throw new Error('登录响应缺少用户信息');
     }
     
+    // 构建认证对象，令牌现在由Cookie管理
     const tokens: AuthTokens = {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user
+      accessToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+      refreshToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+      user: user
     };
     
     saveAuthData(tokens);
@@ -92,22 +94,22 @@ export async function register(email: string, password: string, name: string): P
     });
     window.dispatchEvent(authStartEvent);
     
-    const data = await ApiHandlers.generic<TokenResponse>(
-        () => apiClient.post('/auth/register', { email, password, name })
-      );
+    // 注意：后端现在将令牌存储在httpOnly Cookie中，响应体只包含用户信息和过期时间
+    // processResponse已经提取了response.data中的内容，所以data直接就是用户信息
+    const response = await authApi.register({ email, password, name });
     
-    if (!data.accessToken) {
-      throw new Error('注册响应缺少访问令牌');
-    }
+    // 从响应中提取用户对象
+    const user = response.data?.user;
     
-    if (!data.user) {
+    if (!user) {
       throw new Error('注册响应缺少用户信息');
     }
     
+    // 构建认证对象，令牌现在由Cookie管理
     const tokens: AuthTokens = {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user
+      accessToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+      refreshToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+      user: user
     };
     
     saveAuthData(tokens);
@@ -146,33 +148,22 @@ export async function register(email: string, password: string, name: string): P
 function saveAuthData(data: AuthTokens): void {
   try {
     console.log('[auth] 保存认证数据:', { 
-      hasAccessToken: !!data.accessToken, 
-      hasRefreshToken: !!data.refreshToken, 
       hasUser: !!data.user,
       user: data.user ? { id: data.user.id, email: data.user.email } : null
     });
     
     // 验证数据完整性
-    if (!data.accessToken || typeof data.accessToken !== 'string') {
-      throw new Error('无效的访问令牌');
-    }
-    
     if (data.user && typeof data.user !== 'object') {
       throw new Error('无效的用户数据格式');
     }
     
-    // 使用localStorage存储令牌（添加安全措施）
-    localStorage.setItem('accessToken', data.accessToken);
-    
-    if (data.refreshToken) {
-      localStorage.setItem('refreshToken', data.refreshToken);
-    }
-    
+    // 只在sessionStorage中存储用户信息，不存储JWT令牌
+    // JWT令牌现在存储在httpOnly Cookie中，由浏览器自动管理
     if (data.user && typeof data.user === 'object') {
       const userStr = JSON.stringify(data.user);
-      localStorage.setItem('user', userStr);
+      sessionStorage.setItem('user', userStr);
     } else {
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
     }
     
     console.log('[auth] 认证数据保存完成，触发认证状态变化事件');
@@ -186,18 +177,15 @@ function saveAuthData(data: AuthTokens): void {
     });
     window.dispatchEvent(authChangeEvent);
   } catch (error) {
-    console.error('Failed to save auth data to localStorage:', error);
+    console.error('Failed to save auth data:', error);
     throw new Error('保存认证数据失败');
   }
 }
 
 // 自动刷新令牌机制
 export async function refreshTokens(maxRetries: number = 3): Promise<AuthTokens | null> {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    console.warn('没有可用的刷新令牌');
-    return null;
-  }
+  // 不再从localStorage获取refreshToken，因为refreshToken现在存储在httpOnly Cookie中
+  // 浏览器会自动在请求中包含Cookie
   
   let lastError: any = null;
   
@@ -206,22 +194,19 @@ export async function refreshTokens(maxRetries: number = 3): Promise<AuthTokens 
     try {
       console.log(`尝试刷新令牌 (第${attempt}/${maxRetries}次)`);
       
-      const data = await ApiHandlers.generic<TokenResponse>(
-        () => apiClient.post('/auth/refresh', { refreshToken })
-      );
+      // 注意：后端现在将令牌存储在httpOnly Cookie中，响应体只包含用户信息和过期时间
+      // processResponse已经提取了response.data中的内容，所以data直接就是用户信息
+      const user = await authApi.refreshToken();
       
-      if (!data.accessToken) {
-        throw new Error('刷新令牌响应缺少访问令牌');
-      }
-      
-      if (!data.user) {
+      if (!user) {
         throw new Error('刷新令牌响应缺少用户信息');
       }
       
+      // 构建认证对象，令牌现在由Cookie管理
       const tokens: AuthTokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user
+        accessToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+        refreshToken: 'httpOnly-cookie', // 标记令牌由Cookie管理
+        user: user
       };
       
       saveAuthData(tokens);
@@ -271,7 +256,7 @@ export function getCurrentUser(): User | null {
   if (typeof window === 'undefined') return null;
   
   try {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     
     if (!userStr || userStr === 'undefined' || userStr === 'null') {
       return null;
@@ -280,21 +265,17 @@ export function getCurrentUser(): User | null {
     const user = JSON.parse(userStr);
     return user;
   } catch (error) {
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     return null;
   }
 }
 
 // 获取访问令牌
 export function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  const token = localStorage.getItem('accessToken');
-  
-  if (!token || token === 'undefined' || token === 'null') {
-    return null;
-  }
-  
-  return token;
+  // JWT令牌现在存储在httpOnly Cookie中，前端无法直接访问
+  // 这个函数现在返回null，因为令牌将由浏览器自动包含在请求中
+  // 实际的令牌验证将在服务器端进行
+  return null;
 }
 
 // 检查JWT令牌是否过期
@@ -312,19 +293,30 @@ function isTokenExpired(token: string): boolean {
 
 // 检查是否已认证
 export function isAuthenticated(): boolean {
-  const token = getAccessToken();
-  if (!token) return false;
+  // 由于JWT令牌现在存储在httpOnly Cookie中，前端无法直接检查令牌有效性
+  // 我们改为检查sessionStorage中是否有用户信息作为认证状态的指示
+  // 实际的认证验证将在API请求时由服务器端进行
   
-  // 检查令牌是否过期
-  if (isTokenExpired(token)) {
-    // 令牌过期，清除认证数据
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    const userStr = sessionStorage.getItem('user');
+    
+    // 如果没有用户信息，认为未认证
+    if (!userStr || userStr === 'undefined' || userStr === 'null') {
+      return false;
+    }
+    
+    // 尝试解析用户信息
+    const user = JSON.parse(userStr);
+    
+    // 检查用户对象是否有效
+    return user && typeof user === 'object' && user.id && user.email;
+  } catch (error) {
+    // 如果解析失败，清除无效数据并返回false
+    sessionStorage.removeItem('user');
     return false;
   }
-  
-  return true;
 }
 
 // 登出
@@ -332,10 +324,14 @@ export function logout(): void {
   try {
     console.log('[auth] 执行登出操作');
     
-    // 清除localStorage中的认证信息
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    // 调用后端登出API，清除服务器端的Cookie
+    authApi.logout().catch((error: any) => {
+      console.warn('调用登出API失败:', error);
+      // 即使API调用失败，也继续清除本地状态
+    });
+    
+    // 清除sessionStorage中的用户信息
+    sessionStorage.removeItem('user');
     
     console.log('[auth] 认证数据已清除，触发认证状态变化事件');
     

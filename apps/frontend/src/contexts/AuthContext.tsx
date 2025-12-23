@@ -152,45 +152,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // 初始化认证状态
   useEffect(() => {
-    // 添加调试日志，追踪localStorage中的认证数据
-    console.log('[AuthContext] 页面加载时的localStorage状态:', {
-      accessToken: localStorage.getItem('accessToken'),
-      refreshToken: localStorage.getItem('refreshToken'),
-      user: localStorage.getItem('user')
+    // 添加调试日志，追踪sessionStorage中的认证数据
+    console.log('[AuthContext] 页面加载时的sessionStorage状态:', {
+      accessToken: sessionStorage.getItem('accessToken'),
+      refreshToken: sessionStorage.getItem('refreshToken'),
+      user: sessionStorage.getItem('user')
     });
 
-    // 检查localStorage中是否已有认证数据，避免不必要的初始化
-    const token = localStorage.getItem('accessToken');
-    const userStr = localStorage.getItem('user');
+    // 检查sessionStorage中是否已有认证数据，避免不必要的初始化
+    const userStr = sessionStorage.getItem('user');
     
-    // 如果已经有认证数据且状态是初始状态，则检查令牌有效性后再设置状态
-    if (token && userStr && state.loadingStatus.state === LoadingState.IDLE) {
+    // 如果已经有用户数据且状态是初始状态，则检查令牌有效性后再设置状态
+    if (userStr && state.loadingStatus.state === LoadingState.IDLE) {
       try {
         const user = JSON.parse(userStr);
-        if (user && token !== 'undefined' && token !== 'null') {
+        if (user && typeof user === 'object' && user.id && user.email) {
           // 使用更新后的isAuthenticated函数检查令牌有效性
           const authenticated = isAuthenticated();
           if (authenticated) {
             console.log('[AuthContext] 检测到有效的认证数据，设置为已认证', { userId: user.id, email: user.email });
             dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+            return;
           } else {
             console.log('[AuthContext] 检测到无效的认证数据，设置为未认证');
             dispatch({ type: 'AUTH_FAILURE', payload: { error: '未登录' } });
+            return;
           }
-          return;
         }
       } catch (error) {
         console.error('[AuthContext] 解析已存在的用户数据失败:', error);
       }
     }
 
-    const initAuth = () => {
+    const initAuth = async () => {
       try {
         console.log('[AuthContext] 开始初始化认证状态');
         dispatch({ type: 'AUTH_START' });
+        
+        // 添加短暂延迟，确保所有异步操作完成
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const user = getCurrentUser();
         const authenticated = isAuthenticated();
-        console.log('[AuthContext] 认证状态检查结果:', { user, authenticated, userStr: localStorage.getItem('user'), token: localStorage.getItem('accessToken') });
+        console.log('[AuthContext] 认证状态检查结果:', { user, authenticated, userStr: sessionStorage.getItem('user') });
         
         if (authenticated && user) {
           console.log('[AuthContext] 认证成功');
