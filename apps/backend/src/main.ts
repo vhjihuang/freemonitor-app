@@ -1,7 +1,7 @@
 // apps/backend/src/main.ts
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { ValidationPipe, BadRequestException } from "@nestjs/common";
+import { ValidationPipe, BadRequestException, VersioningType } from "@nestjs/common";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import { ConfigService } from "@nestjs/config";
@@ -67,7 +67,8 @@ async function bootstrap() {
       "CSRF-Token",
       "X-Requested-With",
       "Accept",
-      "Origin"
+      "Origin",
+      "X-Request-ID"
     ],
     credentials: true,
     maxAge: 3600,
@@ -125,7 +126,14 @@ async function bootstrap() {
   app.setGlobalPrefix(globalPrefix);
   logger.log(`全局API前缀已设置: /${globalPrefix}`);
 
-  // ✅ 7. 启动服务器
+  // ✅ 7. 启用API版本控制
+  app.enableVersioning({
+    type: VersioningType.URI, // URI版本控制类型
+    defaultVersion: '1',
+  });
+  logger.log('API版本控制已启用: v1');
+
+  // ✅ 8. 启动服务器
   const port = process.env.PORT || 3001;
   const host = process.env.HOST || "0.0.0.0";
 

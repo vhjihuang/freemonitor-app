@@ -1,7 +1,20 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { CsrfMiddleware } from './middleware/csrf.middleware';
+import { CsrfController } from './csrf.controller';
+import { CookieManagerService } from './services/cookie-manager.service';
+import { CsrfValidationManager } from './strategies/csrf-validation.strategy';
 
-@Module({})
+@Module({
+  controllers: [CsrfController],
+  providers: [
+    CookieManagerService,
+    CsrfValidationManager,
+  ],
+  exports: [
+    CookieManagerService,
+    CsrfValidationManager,
+  ],
+})
 export class CsrfModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 应用CSRF中间件到所有POST、PUT、PATCH、DELETE请求，但排除获取CSRF令牌的路由

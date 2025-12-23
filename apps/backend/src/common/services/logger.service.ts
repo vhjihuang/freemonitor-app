@@ -3,9 +3,23 @@ import { ConfigService } from '@nestjs/config';
 import { DevelopmentConfig } from '../../config/development.config';
 import { getSystemInfo, getMemoryUsageSummary } from '../utils/memory.utils';
 
+/**
+ * 日志条目接口
+ */
+interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+  context?: string;
+  traceId: string;
+  meta?: any;
+  stack?: string;
+}
+
 @Injectable()
 export class AppLoggerService extends ConsoleLogger {
   private readonly developmentConfig: DevelopmentConfig;
+  private traceId: string;
 
   constructor(
     private configService: ConfigService,
@@ -29,8 +43,66 @@ export class AppLoggerService extends ConsoleLogger {
       debugNamespaces: 'app:*'
     };
     
+    // 初始化traceId
+    this.traceId = this.generateTraceId();
+    
     // Configure logger based on environment
     this.configureLogger();
+  }
+
+  /**
+   * 生成唯一的traceId
+   */
+  private generateTraceId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substring(2);
+  }
+
+  /**
+   * 设置当前请求的traceId
+   */
+  setTraceId(traceId: string): void {
+    this.traceId = traceId;
+  }
+
+  /**
+   * 获取当前traceId
+   */
+  getTraceId(): string {
+    return this.traceId;
+  }
+
+  /**
+   * 格式化日志条目
+   */
+  private formatLogEntry(level: string, message: string, context?: string, meta?: any, stack?: string): LogEntry {
+    return {
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      context: context || this.context,
+      traceId: this.traceId,
+      meta,
+      stack
+    };
+  }
+
+  /**
+   * 输出日志
+   */
+  private printLog(entry: LogEntry): void {
+    if (this.developmentConfig.logFormat === 'json') {
+      // JSON格式输出
+      console.log(JSON.stringify(entry));
+    } else {
+      // 简单格式输出
+      const { timestamp, level, message, context, traceId, meta, stack } = entry;
+      const contextStr = context ? `[${context}]` : '';
+      const traceIdStr = `[${traceId}]`;
+      const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+      const stackStr = stack ? `\n${stack}` : '';
+      
+      console.log(`${timestamp} ${level.toUpperCase()} ${contextStr}${traceIdStr} ${message}${metaStr}${stackStr}`);
+    }
   }
 
   /**
@@ -82,8 +154,8 @@ export class AppLoggerService extends ConsoleLogger {
    */
   debug(message: string, context?: string, meta?: any): void {
     if (this.developmentConfig.detailedLogs) {
-      const logMessage = context ? `${context}: ${message}` : message;
-      super.debug(logMessage, meta);
+      const logEntry = this.formatLogEntry('debug', message, context, meta);
+      this.printLog(logEntry);
     }
   }
 
@@ -91,30 +163,24 @@ export class AppLoggerService extends ConsoleLogger {
    * 记录信息
    */
   log(message: string, context?: string, meta?: any): void {
-    const logMessage = context ? `${context}: ${message}` : message;
-    super.log(logMessage, meta);
+    const logEntry = this.formatLogEntry('info', message, context, meta);
+    this.printLog(logEntry);
   }
 
   /**
    * 记录警告
    */
   warn(message: string, context?: string, meta?: any): void {
-    const logMessage = context ? `${context}: ${message}` : message;
-    super.warn(logMessage, meta);
+    const logEntry = this.formatLogEntry('warn', message, context, meta);
+    this.printLog(logEntry);
   }
 
   /**
    * 记录错误
    */
   error(message: string, trace?: string, context?: string, meta?: any): void {
-    const logMessage = context ? `${context}: ${message}` : message;
-    
-    // 在开发环境中记录更详细的错误信息
-    if (this.developmentConfig.detailedLogs && meta) {
-      super.error(logMessage, trace || undefined, meta);
-    } else {
-      super.error(logMessage, trace);
-    }
+    const logEntry = this.formatLogEntry('error', message, context, meta, trace);
+    this.printLog(logEntry);
   }
 
   /**
