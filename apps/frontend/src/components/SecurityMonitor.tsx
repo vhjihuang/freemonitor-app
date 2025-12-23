@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 // import { optimizedApiClient } from '@/lib/api-optimized';
-import { apiClient } from '@/lib/api';
+import { apiClient } from '@/clients';
 import { getCsrfToken } from '@/lib/csrf';
 
 /**

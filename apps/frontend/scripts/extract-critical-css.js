@@ -7,7 +7,7 @@ function extractCriticalCSS() {
   const cssPath = path.join(process.cwd(), 'src/app/globals.css');
   const outputPath = path.join(process.cwd(), 'public/critical.css');
   
-  let cssContent = fs.readFileSync(cssPath, 'utf8');
+  const cssContent = fs.readFileSync(cssPath, 'utf8');
   
   // 提取关键CSS（简化版）
   // 这里只提取Tailwind基础和工具类，忽略组件样式

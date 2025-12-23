@@ -18,9 +18,27 @@ export default function LoginPage() {
       // 使用 auth.ts 中的 login 函数
       await login(email, password);
 
+      // 等待认证状态同步完成
+      await new Promise<void>((resolve) => {
+        const handleAuthStateChange = (event: CustomEvent) => {
+          if (event.detail.isAuthenticated) {
+            window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
+            resolve();
+          }
+        };
+        
+        // 监听认证状态变化事件
+        window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
+        
+        // 设置超时，避免无限等待
+        setTimeout(() => {
+          window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
+          resolve();
+        }, 1000);
+      });
+
       // 重定向到仪表板（使用 replace 防止回退到登录页）
       router.replace('/dashboard');
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     }
