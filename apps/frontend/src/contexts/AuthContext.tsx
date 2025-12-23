@@ -1,254 +1,102 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { User, AuthTokens } from '../lib/auth';
-import { getCurrentUser, getAccessToken, isAuthenticated } from '../lib/auth';
-import { LoadingState, LoadingStatus, createInitialLoadingStatus, createLoadingStatus, createSuccessStatus, createErrorStatus } from '../lib/loading-state';
+import { User, getCurrentUser } from '../lib/auth';
 
-// 认证状态接口
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  loadingStatus: LoadingStatus<any>;
+  isLoading: boolean;
   error: string | null;
 }
 
-// 认证动作类型
-export type AuthAction =
+type AuthAction =
   | { type: 'AUTH_START' }
   | { type: 'AUTH_SUCCESS'; payload: { user: User } }
   | { type: 'AUTH_FAILURE'; payload: { error: string } }
-  | { type: 'LOGOUT' }
-  | { type: 'CLEAR_ERROR' }
-  | { type: 'UPDATE_USER'; payload: { user: User } }
-  | { type: 'INITIAL_LOAD' } // 添加INITIAL_LOAD类型
-  | { type: 'LOGIN_SUCCESS'; payload: { user: User; isAuthenticated: boolean } }; // 添加LOGIN_SUCCESS类型
+  | { type: 'CLEAR_ERROR' };
 
-// 初始状态
 const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
-  loadingStatus: createInitialLoadingStatus(),
+  isLoading: true,
   error: null,
 };
 
-// 认证状态reducer
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
     case 'AUTH_START':
-      return {
-        ...state,
-        loadingStatus: createLoadingStatus(0, '正在认证...'),
-        error: null,
-      };
+      return { ...state, isLoading: true, error: null };
     case 'AUTH_SUCCESS':
-      return {
-        ...state,
-        user: action.payload.user,
-        isAuthenticated: true,
-        loadingStatus: createSuccessStatus(action.payload.user, '认证成功'),
-        error: null,
-      };
+      return { ...state, user: action.payload.user, isAuthenticated: true, isLoading: false, error: null };
     case 'AUTH_FAILURE':
-      return {
-        ...state,
-        user: null,
-        isAuthenticated: false,
-        loadingStatus: createErrorStatus(action.payload.error, '认证失败'),
-        error: action.payload.error,
-      };
-    case 'LOGOUT':
-      return {
-        ...state,
-        user: null,
-        isAuthenticated: false,
-        loadingStatus: createInitialLoadingStatus(),
-        error: null,
-      };
+      return { ...state, user: null, isAuthenticated: false, isLoading: false, error: action.payload.error };
     case 'CLEAR_ERROR':
-      return {
-        ...state,
-        error: null,
-      };
-    case 'UPDATE_USER':
-      return {
-        ...state,
-        user: action.payload.user,
-      };
-    case 'INITIAL_LOAD':
-      try {
-        const user = getCurrentUser();
-        const authenticated = isAuthenticated();
-        return {
-          ...state,
-          user,
-          isAuthenticated: authenticated,
-          loadingStatus: createSuccessStatus(null, '状态加载完成'),
-          error: null,
-        };
-      } catch (error) {
-        return {
-          ...state,
-          user: null,
-          isAuthenticated: false,
-          loadingStatus: createErrorStatus('加载认证状态失败', '状态加载失败'),
-          error: '加载认证状态失败',
-        };
-      }
-    case 'LOGIN_SUCCESS':
-      return {
-        ...state,
-        user: action.payload.user,
-        isAuthenticated: action.payload.isAuthenticated,
-        loadingStatus: createSuccessStatus(action.payload.user, '登录成功'),
-        error: null,
-      };
+      return { ...state, error: null };
     default:
       return state;
   }
 }
 
-// 认证上下文接口
 interface AuthContextType extends AuthState {
-  login: (tokens: AuthTokens) => void;
+  login: (user: User) => void;
   logout: () => void;
   clearError: () => void;
-  updateUser: (user: User) => void;
-  dispatch: React.Dispatch<AuthAction>; // 添加dispatch到上下文类型
 }
 
-// 创建认证上下文
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 认证提供者组件props
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// 认证提供者组件
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // 直接在AuthProvider中实现状态同步逻辑，避免循环依赖
   useEffect(() => {
-    // 监听自定义的认证状态变化事件
-    const handleAuthStateChange = (event: CustomEvent) => {
-      const { isAuthenticated, user } = event.detail;
-      
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { user, isAuthenticated }
-      });
-    };
-
-    // 注册事件监听器
-    window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
-
-    // 清理函数
-    return () => {
-      window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
-    };
-  }, []);
-
-  // 初始化认证状态
-  useEffect(() => {
-    // 添加调试日志，追踪sessionStorage中的认证数据
-    console.log('[AuthContext] 页面加载时的sessionStorage状态:', {
-      accessToken: sessionStorage.getItem('accessToken'),
-      refreshToken: sessionStorage.getItem('refreshToken'),
-      user: sessionStorage.getItem('user')
-    });
-
-    // 检查sessionStorage中是否已有认证数据，避免不必要的初始化
-    const userStr = sessionStorage.getItem('user');
-    
-    // 如果已经有用户数据且状态是初始状态，则检查令牌有效性后再设置状态
-    if (userStr && state.loadingStatus.state === LoadingState.IDLE) {
-      try {
-        const user = JSON.parse(userStr);
-        if (user && typeof user === 'object' && user.id && user.email) {
-          // 使用更新后的isAuthenticated函数检查令牌有效性
-          const authenticated = isAuthenticated();
-          if (authenticated) {
-            console.log('[AuthContext] 检测到有效的认证数据，设置为已认证', { userId: user.id, email: user.email });
-            dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
-            return;
-          } else {
-            console.log('[AuthContext] 检测到无效的认证数据，设置为未认证');
-            dispatch({ type: 'AUTH_FAILURE', payload: { error: '未登录' } });
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('[AuthContext] 解析已存在的用户数据失败:', error);
-      }
+    const user = getCurrentUser();
+    if (user) {
+      dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+    } else {
+      dispatch({ type: 'AUTH_FAILURE', payload: { error: '' } });
     }
+  }, []);
 
-    const initAuth = async () => {
-      try {
-        console.log('[AuthContext] 开始初始化认证状态');
-        dispatch({ type: 'AUTH_START' });
-        
-        // 添加短暂延迟，确保所有异步操作完成
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const user = getCurrentUser();
-        const authenticated = isAuthenticated();
-        console.log('[AuthContext] 认证状态检查结果:', { user, authenticated, userStr: sessionStorage.getItem('user') });
-        
-        if (authenticated && user) {
-          console.log('[AuthContext] 认证成功');
-          dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
-        } else {
-          console.log('[AuthContext] 认证失败');
-          dispatch({ type: 'AUTH_FAILURE', payload: { error: '未登录' } });
-        }
-      } catch (error) {
-        console.error('[AuthContext] 认证状态初始化失败:', error);
-        dispatch({ type: 'AUTH_FAILURE', payload: { error: '认证状态初始化失败' } });
+  useEffect(() => {
+    const handleAuthChange = (event: CustomEvent) => {
+      const { isAuthenticated: auth, user } = event.detail;
+      if (auth && user) {
+        dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
+      } else if (!auth && user === null) {
+        dispatch({ type: 'AUTH_FAILURE', payload: { error: '' } });
       }
     };
 
-    initAuth();
+    window.addEventListener('authStateChanged', handleAuthChange as EventListener);
+    return () => window.removeEventListener('authStateChanged', handleAuthChange as EventListener);
   }, []);
 
-  // 登录函数
-  const login = (tokens: AuthTokens) => {
-    dispatch({ type: 'AUTH_SUCCESS', payload: { user: tokens.user } });
+  const login = (user: User) => {
+    dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
   };
 
-  // 登出函数
   const logout = () => {
-    dispatch({ type: 'LOGOUT' });
+    dispatch({ type: 'AUTH_FAILURE', payload: { error: '' } });
   };
 
-  // 清除错误
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
-  // 更新用户信息
-  const updateUser = (user: User) => {
-    dispatch({ type: 'UPDATE_USER', payload: { user } });
-  };
-
-  const value: AuthContextType = {
-    ...state,
-    login,
-    logout,
-    clearError,
-    updateUser,
-    dispatch,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ ...state, login, logout, clearError }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-// 使用认证上下文的Hook
 export function useAuthContext() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuthContext must be used within AuthProvider');
   return context;
 }
