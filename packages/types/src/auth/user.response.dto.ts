@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { Role } from '../roles';
 
 export interface UserResponseDto {
@@ -8,6 +9,6 @@ export interface UserResponseDto {
 }
 
 // 扩展的请求接口，包含用户信息
-export interface RequestWithUser extends Request {
+export interface RequestWithUser {
   user: UserResponseDto;
 }
