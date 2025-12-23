@@ -1,8 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
-import { getAccessToken, refreshTokens, logout } from "./auth";
+import { refreshTokens, logout } from "./auth";
 import { getValidCsrfToken, refreshCsrfToken } from "./csrf";
 import { processResponse, isErrorResponse } from "@freemonitor/types";
 import { standardizeError } from "./error-handler";
+import { API_FULL_BASE_URL, API_TIMEOUTS, DEFAULT_HEADERS, DEFAULT_REQUEST_CONFIG } from "../config/api";
 
 /**
  * 简化的 API 客户端
@@ -13,12 +14,10 @@ export class ApiClient {
 
   constructor() {
     this.axiosInstance = axios.create({
-      baseURL: (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001") + "/api",
-      timeout: 30000,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      withCredentials: true,
+      baseURL: API_FULL_BASE_URL,
+      timeout: API_TIMEOUTS.EXTENDED,
+      headers: DEFAULT_HEADERS,
+      withCredentials: DEFAULT_REQUEST_CONFIG.withCredentials,
     });
 
     this.setupInterceptors();
@@ -30,11 +29,8 @@ export class ApiClient {
       async (config) => {
         config.withCredentials = true;
         
-        // 添加认证头
-        const token = getAccessToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        // 不再需要手动添加Authorization头，因为JWT令牌现在存储在httpOnly Cookie中
+        // 浏览器会自动在请求中包含Cookie
         
         // 为状态修改请求添加 CSRF 令牌
         const method = config.method?.toLowerCase();
@@ -61,17 +57,19 @@ export class ApiClient {
     // 响应拦截器 - 统一错误处理
     this.axiosInstance.interceptors.response.use(
       (response: AxiosResponse) => {
+        // 使用公共工具函数处理响应
         const data = response.data;
+        const processedData = processResponse(data);
         
-        // 处理统一错误响应格式
-        if (isErrorResponse(data)) {
-          throw new Error(data.message);
+        if (processedData !== null) {
+          return {
+            ...response,
+            data: processedData
+          };
         }
         
-        return {
-          ...response,
-          data: processResponse(data)
-        };
+        // 非标准格式，返回原始响应
+        return response;
       },
       async (error: AxiosError) => {
         const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
@@ -128,9 +126,10 @@ export class ApiClient {
     try {
       originalRequest._retry = true;
       
+      // 尝试刷新令牌
       const refreshed = await refreshTokens();
-      if (refreshed && originalRequest.headers) {
-        originalRequest.headers.Authorization = `Bearer ${refreshed.accessToken}`;
+      if (refreshed) {
+        // 不再需要手动添加Authorization头，因为新的访问令牌已存储在Cookie中
         return this.axiosInstance(originalRequest);
       } else {
         logout();
@@ -147,9 +146,9 @@ export class ApiClient {
     if (error.response?.data) {
       const errorData: any = error.response.data;
       if (isErrorResponse(errorData)) {
-        return { userMessage: errorData.message };
+        return { userMessage: errorData.error.message };
       }
-      return { userMessage: errorData.message || "请求失败" };
+      return { userMessage: errorData.error?.message || errorData.message || "请求失败" };
     }
     
     const standardizedError = standardizeError(error);
