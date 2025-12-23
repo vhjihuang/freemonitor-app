@@ -1,14 +1,13 @@
 // src/lib/api/deviceApi.ts
-import { apiClient } from '../api';
+import { api, apiClient } from '../../clients';
 import { Device, CreateDeviceDto, UpdateDeviceDto, Metric } from '@freemonitor/types';
-import { ApiHandlers } from '@freemonitor/types';
 
 /**
  * 获取所有设备
  * @returns Promise<Device[]> - 设备列表
  */
 export const getAllDevices = async (): Promise<Device[]> => {
-  return ApiHandlers.array(() => apiClient.get<Device[]>('devices'));
+  return api.devices.getAll();
 };
 
 /**
@@ -26,7 +25,7 @@ export const getDevices = async (params?: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }): Promise<Device[]> => {
-  return ApiHandlers.array(() => apiClient.get<Device[]>('devices', { params }));
+  return api.devices.get(params);
 };
 
 /**
@@ -35,7 +34,7 @@ export const getDevices = async (params?: {
  * @returns Promise<Device> - 设备详情
  */
 export const getDeviceById = async (id: string): Promise<Device> => {
-  return ApiHandlers.object(() => apiClient.get<Device>(`devices/${id}`));
+  return api.devices.getById(id);
 };
 
 /**
@@ -44,7 +43,7 @@ export const getDeviceById = async (id: string): Promise<Device> => {
  * @returns Promise<Device> - 创建的设备
  */
 export const createDevice = async (deviceData: CreateDeviceDto): Promise<Device> => {
-  return ApiHandlers.object(() => apiClient.post<Device>('devices', deviceData));
+  return api.devices.create(deviceData);
 };
 
 /**
@@ -54,7 +53,7 @@ export const createDevice = async (deviceData: CreateDeviceDto): Promise<Device>
  * @returns Promise<Device> - 更新后的设备
  */
 export const updateDevice = async (id: string, deviceData: UpdateDeviceDto): Promise<Device> => {
-  const updatedDevice = await ApiHandlers.object(() => apiClient.patch<Device>(`devices/${id}`, deviceData));
+  const updatedDevice = await api.devices.update(id, deviceData);
   
   // 触发设备更新事件，以便其他组件可以更新状态或清除缓存
   if (typeof window !== 'undefined') {
@@ -89,7 +88,7 @@ export const updateDevice = async (id: string, deviceData: UpdateDeviceDto): Pro
  * @returns Promise<void>
  */
 export const deleteDevice = async (id: string): Promise<void> => {
-  return ApiHandlers.void(() => apiClient.delete<void>(`devices/${id}`));
+  return api.devices.delete(id);
 };
 
 /**
@@ -109,12 +108,10 @@ export const createDeviceMetric = async (deviceId: string, metricData: {
   temperature?: number;
   custom?: any;
 }): Promise<any> => {
-  return ApiHandlers.generic(
-    () => apiClient.post<any>(`devices/${deviceId}/metrics`, {
-      ...metricData,
-      deviceId
-    })
-  );
+  return apiClient.post<any>(`devices/${deviceId}/metrics`, {
+    ...metricData,
+    deviceId
+  });
 };
 
 /**
@@ -124,12 +121,10 @@ export const createDeviceMetric = async (deviceId: string, metricData: {
  * @returns Promise<any> - 创建的告警
  */
 export const createDeviceAlert = async (deviceId: string, alertData: any): Promise<any> => {
-  return ApiHandlers.generic(
-    () => apiClient.post<any>(`devices/${deviceId}/alerts`, {
-      ...alertData,
-      deviceId
-    })
-  );
+  return apiClient.post<any>(`devices/${deviceId}/alerts`, {
+    ...alertData,
+    deviceId
+  });
 };
 
 /**
@@ -146,15 +141,11 @@ export const queryDeviceMetrics = async (params?: {
   startTime?: string;
   endTime?: string;
 }): Promise<{data: Metric[], total: number, page: number, limit: number}> => {
-  return ApiHandlers.generic(
-    () => apiClient.get<any>('devices/metrics/list', { 
-      params: {
-        page: params?.page || 1, // 添加默认页码
-        ...params
-      }
-    }),
-    { 
-      defaultValue: { data: [], total: 0, page: 1, limit: 10 } 
+  const response = await apiClient.get<any>('devices/metrics/list', { 
+    params: {
+      page: params?.page || 1, // 添加默认页码
+      ...params
     }
-  );
+  });
+  return response.data;
 };

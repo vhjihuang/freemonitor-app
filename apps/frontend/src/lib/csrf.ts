@@ -1,10 +1,19 @@
-import { getCookie, setCookie, removeCookie, getSessionId, isSessionValid as checkSessionValid } from './cookies';
+import { 
+  getCookie, 
+  setCookie, 
+  removeCookie, 
+  getSessionId, 
+  isSessionValid as checkSessionValid,
+  getCsrfToken as getCsrfCookie,
+  setCsrfToken as setCsrfCookie,
+  clearCsrfToken as clearCsrfCookie,
+} from './cookies';
 import { caches } from './cache';
 import { getStringPrefix } from './string-utils';
 
 /**
  * 简化的 CSRF 处理
- * 使用统一的缓存管理器，简化逻辑并提高可维护性
+ * 使用统一的Cookie管理和缓存管理，简化逻辑并提高可维护性
  */
 
 // 并发控制变量
@@ -13,7 +22,7 @@ let refreshPromise: Promise<string> | null = null;
 
 /**
  * 获取 CSRF 令牌
- * 优先从缓存获取，如果没有则刷新
+ * 优先从缓存获取，如果没有则从Cookie获取
  * @returns CSRF 令牌或 null
  */
 export function getCsrfToken(): string | null {
@@ -34,8 +43,8 @@ export function getCsrfToken(): string | null {
     return cachedToken;
   }
   
-  // 尝试从 Cookie 中读取作为备用
-  const cookieToken = getCookie('XSRF-TOKEN');
+  // 尝试从Cookie管理工具中获取
+  const cookieToken = getCsrfCookie();
   if (cookieToken && isTokenFormatValid(cookieToken)) {
     console.log('从 Cookie 中读取到 CSRF 令牌:', getStringPrefix(cookieToken, 10));
     // 缓存 cookie 中的令牌
@@ -100,32 +109,28 @@ async function performTokenRefresh(): Promise<string> {
       throw new Error('会话无效，无法刷新 CSRF 令牌');
     }
     
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/csrf/token`,
-      {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      }
-    );
-    
-    console.log('CSRF 令牌刷新响应状态:', response.status);
+    // 使用原生 fetch API 获取 CSRF 令牌
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    const response = await fetch(`${baseUrl}/api/v1/csrf/token`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
     
     if (!response.ok) {
-      throw new Error(`获取 CSRF 令牌失败: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
-    console.log('CSRF 令牌刷新响应数据:', { success: data.success, hasData: !!data.data });
+    const responseData = await response.json();
+    console.log('CSRF 令牌刷新响应数据:', { success: responseData.success, hasData: !!responseData.data });
     
-    if (!data || !data.success || !data.data || !data.data.csrfToken) {
+    if (!responseData.success || !responseData.data || !responseData.data.csrfToken) {
       throw new Error('CSRF 令牌响应格式错误');
     }
     
-    const newToken = data.data.csrfToken;
+    const newToken = responseData.data.csrfToken;
     
     // 验证新令牌格式
     if (!isTokenFormatValid(newToken)) {

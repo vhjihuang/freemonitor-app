@@ -20,7 +20,7 @@ export const passwordSchema = z.string()
 // 登录表单验证模式
 export const loginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, '密码不能为空'),
+  password: passwordSchema, // 使用与后端一致的密码验证规则
 });
 
 // 注册表单验证模式
