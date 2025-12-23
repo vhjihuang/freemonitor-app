@@ -207,6 +207,7 @@ export class NotificationService implements NotificationServiceInterface {
 
   /**
    * 根据告警级别发送相应的通知
+   * 直接处理通知发送，不再使用队列
    */
   async sendNotification(alert: Alert & { device: Device }, severity: AlertSeverity): Promise<NotificationResult[]> {
     if (!this.config.enabled) {
@@ -218,57 +219,55 @@ export class NotificationService implements NotificationServiceInterface {
     }
 
     const results: NotificationResult[] = [];
-    
-    // 根据告警级别决定通知方式
-    switch (severity) {
-      case 'CRITICAL':
-        // 关键告警发送所有通知方式
-        if (this.transporter) {
-          const emailResult = await this.sendEmail(alert, this.getCriticalEmailTemplate(alert));
-          results.push(emailResult);
-        }
-        
-        const smsResult = await this.sendSMS(alert, this.getCriticalSmsMessage(alert));
+
+    try {
+      // 根据告警级别决定通知方式
+      if (severity === 'CRITICAL') {
+        // 关键告警：发送邮件、短信和Webhook
+        const emailTemplate = this.getCriticalEmailTemplate(alert);
+        const emailResult = await this.sendEmail(alert, emailTemplate);
+        results.push(emailResult);
+
+        const smsMessage = this.getCriticalSmsMessage(alert);
+        const smsResult = await this.sendSMS(alert, smsMessage);
         results.push(smsResult);
-        
-        const webhookResult = await this.sendWebhook(alert, { notificationType: 'critical' });
+
+        const webhookResult = await this.sendWebhook(alert, { severity, type: 'critical' });
         results.push(webhookResult);
-        break;
-        
-      case 'ERROR':
-        // 错误告警发送邮件和Webhook
-        if (this.transporter) {
-          const emailResult = await this.sendEmail(alert, this.getErrorEmailTemplate(alert));
-          results.push(emailResult);
-        }
-        
-        const webhookResult2 = await this.sendWebhook(alert, { notificationType: 'error' });
-        results.push(webhookResult2);
-        break;
-        
-      case 'WARNING':
-        // 警告告警发送邮件
-        if (this.transporter) {
-          const emailResult = await this.sendEmail(alert, this.getWarningEmailTemplate(alert));
-          results.push(emailResult);
-        }
-        break;
-        
-      case 'INFO':
-        // 信息告警仅记录日志
-        this.logger.log(`信息告警已触发: ${alert.message}`, {
-          alertId: alert.id,
-          deviceId: alert.deviceId,
-        });
-        results.push({
-          success: true,
-          messageId: `info_${Date.now()}`,
-          timestamp: new Date(),
-        });
-        break;
+      } else if (severity === 'ERROR') {
+        // 错误告警：发送邮件和Webhook
+        const emailTemplate = this.getErrorEmailTemplate(alert);
+        const emailResult = await this.sendEmail(alert, emailTemplate);
+        results.push(emailResult);
+
+        const webhookResult = await this.sendWebhook(alert, { severity, type: 'error' });
+        results.push(webhookResult);
+      } else if (severity === 'WARNING') {
+        // 警告告警：只发送Webhook
+        const webhookResult = await this.sendWebhook(alert, { severity, type: 'warning' });
+        results.push(webhookResult);
+      }
+
+      this.logger.log(`通知发送完成`, {
+        alertId: alert.id,
+        severity,
+        results: results.map(r => ({ success: r.success, messageId: r.messageId })),
+      });
+
+      return results;
+    } catch (error) {
+      this.logger.error(`通知发送失败: ${error.message}`, {
+        alertId: alert.id,
+        severity,
+        error: error.message,
+      });
+
+      return [{
+        success: false,
+        error: `Failed to send notification: ${error.message}`,
+        timestamp: new Date(),
+      }];
     }
-    
-    return results;
   }
 
   /**
