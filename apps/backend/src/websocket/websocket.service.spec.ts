@@ -2,10 +2,66 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WebSocketService } from './websocket.service';
 import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Socket } from 'socket.io';
+
+// 创建模拟Socket的辅助函数
+function createMockSocket(id = 'socket-123'): Socket {
+  return {
+    id,
+    join: jest.fn(),
+    leave: jest.fn(),
+    emit: jest.fn(),
+    on: jest.fn(),
+    disconnect: jest.fn(),
+    connected: true,
+    // 添加Socket接口所需的其他基本属性
+    nsp: {} as any,
+    client: {} as any,
+    recovered: false,
+    handshake: {
+      query: {},
+      headers: {},
+      time: Date.now(),
+      issued: Date.now(),
+      url: '',
+      address: '',
+      xdomain: false,
+      secure: false,
+    },
+    rooms: new Set(),
+    data: {},
+    volatile: {} as any,
+    broadcast: {} as any,
+    to: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    send: jest.fn(),
+    write: jest.fn(),
+    request: {} as any,
+    conn: {} as any,
+    auth: {},
+    ack: jest.fn(),
+    ackTimeout: jest.fn(),
+    timeout: jest.fn(),
+    close: jest.fn(),
+    compress: jest.fn().mockReturnThis(),
+    disconnecting: false,
+    disconnected: false,
+  } as unknown as Socket;
+}
+
+// 创建模拟用户的辅助函数
+function createMockUser(overrides: Partial<{ id: string; email: string; role: string; isDevUser: boolean }> = {}) {
+  return {
+    id: 'user-123',
+    email: 'test@example.com',
+    role: 'user',
+    isDevUser: false,
+    ...overrides,
+  };
+}
 
 describe('WebSocketService', () => {
   let service: WebSocketService;
-  let prismaService: PrismaService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,13 +82,12 @@ describe('WebSocketService', () => {
     }).compile();
 
     service = module.get<WebSocketService>(WebSocketService);
-    prismaService = module.get<PrismaService>(PrismaService);
     
     // 模拟私有方法
-    jest.spyOn(service as any, 'validateDeviceAccess').mockResolvedValue(true);
-    jest.spyOn(service as any, 'validateAlertAccess').mockResolvedValue(true);
-    jest.spyOn(service as any, 'processMetricsData').mockResolvedValue(undefined);
-    jest.spyOn(service as any, 'processAlert').mockResolvedValue(undefined);
+    jest.spyOn(service as unknown as { validateDeviceAccess: () => Promise<boolean> }, 'validateDeviceAccess').mockResolvedValue(true);
+    jest.spyOn(service as unknown as { validateAlertAccess: () => Promise<boolean> }, 'validateAlertAccess').mockResolvedValue(true);
+    jest.spyOn(service as unknown as { processMetricsData: () => Promise<void> }, 'processMetricsData').mockResolvedValue(undefined);
+    jest.spyOn(service as unknown as { processAlert: () => Promise<void> }, 'processAlert').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -45,20 +100,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该处理用户设备连接', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       await service.handleConnection(mockSocket, mockUser, 'device-456');
 
@@ -77,20 +120,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该处理用户设备断开连接', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       // 先建立连接
       await service.handleConnection(mockSocket, mockUser, 'device-456');
@@ -111,20 +142,9 @@ describe('WebSocketService', () => {
 
   describe('设备指标处理', () => {
     it('应该处理有效的设备指标数据', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
+      const mockSocket = createMockSocket();
 
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockUser = createMockUser();
 
       const metricsData: DeviceMetricsDto = {
         deviceId: 'device-456',
@@ -149,20 +169,9 @@ describe('WebSocketService', () => {
     });
 
     it('应该拒绝无权限的设备指标数据', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
+      const mockSocket = createMockSocket();
 
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockUser = createMockUser();
 
       const metricsData: DeviceMetricsDto = {
         deviceId: 'device-456',
@@ -182,20 +191,8 @@ describe('WebSocketService', () => {
 
   describe('告警处理', () => {
     it('应该处理有效的告警触发', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const alertData: AlertNotificationDto = {
         alertId: 'alert-789',
@@ -219,20 +216,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该拒绝无权限的告警触发', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const alertData: AlertNotificationDto = {
         alertId: 'alert-789',
@@ -256,20 +241,8 @@ describe('WebSocketService', () => {
 
   describe('设备订阅管理', () => {
     it('应该处理设备订阅', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const deviceIds = ['device-456', 'device-789'];
 
@@ -285,20 +258,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该处理设备取消订阅', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const deviceIds = ['device-456', 'device-789'];
 
@@ -317,20 +278,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该拒绝无权限的设备订阅', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const deviceIds = ['device-456'];
 
@@ -345,20 +294,8 @@ describe('WebSocketService', () => {
 
   describe('消息发送', () => {
     it('应该向设备房间发送消息', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const deviceId = 'device-456';
       const event = 'status_update';
@@ -375,20 +312,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该向用户房间发送消息', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const deviceId = 'device-456';
       const userId = 'user-123';
@@ -408,38 +333,17 @@ describe('WebSocketService', () => {
 
   describe('连接统计', () => {
     it('应该返回正确的连接统计信息', async () => {
-      const mockSocket1 = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
+      const mockSocket1 = createMockSocket();
+      const mockSocket2 = createMockSocket();
+      const mockSocket3 = createMockSocket();
 
-      const mockSocket2 = {
-        id: 'socket-456',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockSocket3 = {
-        id: 'socket-789',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const user1 = { id: 'user-123', email: 'user1@example.com' };
-      const user2 = { id: 'user-456', email: 'user2@example.com' };
+      const user1 = createMockUser();
+      user1.id = 'user-123';
+      user1.email = 'user1@example.com';
+      
+      const user2 = createMockUser();
+      user2.id = 'user-456';
+      user2.email = 'user2@example.com';
 
       // 建立多个连接
       await service.handleConnection(mockSocket1, user1, 'device-1');
@@ -544,20 +448,11 @@ describe('WebSocketService', () => {
       
       // 模拟100个并发连接
       for (let i = 0; i < 100; i++) {
-        const mockSocket = {
-          id: `socket-${i}`,
-          join: jest.fn(),
-          leave: jest.fn(),
-          emit: jest.fn(),
-          on: jest.fn(),
-          disconnect: jest.fn(),
-          connected: true,
-        } as any;
+        const mockSocket = createMockSocket(`socket-${i}`);
         
-        const mockUser = {
-          id: `user-${i}`,
-          email: `user${i}@example.com`,
-        };
+        const mockUser = createMockUser();
+        mockUser.id = `user-${i}`;
+        mockUser.email = `user${i}@example.com`;
         
         await service.handleConnection(mockSocket, mockUser, `device-${i}`);
         connections.push({ socket: mockSocket, user: mockUser });
@@ -573,20 +468,8 @@ describe('WebSocketService', () => {
     });
 
     it('应该处理高频消息处理', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
-
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
       const metricsData: DeviceMetricsDto = {
         deviceId: 'device-456',
@@ -615,30 +498,18 @@ describe('WebSocketService', () => {
       const mockUser = null;
 
       await expect(
-        service.handleConnection(mockSocket as any, mockUser as any, 'device-456')
+        service.handleConnection(mockSocket, mockUser, 'device-456')
       ).rejects.toThrow();
     });
 
     it('应该处理无效的指标数据', async () => {
-      const mockSocket = {
-        id: 'socket-123',
-        join: jest.fn(),
-        leave: jest.fn(),
-        emit: jest.fn(),
-        on: jest.fn(),
-        disconnect: jest.fn(),
-        connected: true,
-      } as any;
+      const mockSocket = createMockSocket();
+      const mockUser = createMockUser();
 
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-      };
-
-      const invalidMetricsData = null;
+      const invalidMetricsData = {} as unknown as DeviceMetricsDto;
 
       await expect(
-        service.handleDeviceMetrics(mockSocket, mockUser, 'device-456', invalidMetricsData as any)
+        service.handleDeviceMetrics(mockSocket, mockUser, 'device-456', invalidMetricsData)
       ).rejects.toThrow();
     });
   });

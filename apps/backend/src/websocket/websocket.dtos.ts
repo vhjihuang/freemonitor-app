@@ -42,7 +42,7 @@ export class DeviceMetricsDto {
 
   @IsOptional()
   @IsObject()
-  custom?: Record<string, any>;
+  custom?: Record<string, unknown>;
 }
 
 // 告警通知DTO
@@ -83,7 +83,7 @@ export class AlertNotificationDto {
 
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // WebSocket事件类型

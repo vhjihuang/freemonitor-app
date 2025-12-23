@@ -4,7 +4,7 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { WebSocketModule } from './websocket.module';
 import { AppWebSocketGateway } from './websocket.gateway';
 import { WebSocketService } from './websocket.service';
@@ -13,19 +13,51 @@ import { AppLoggerService } from '../common/services/logger.service';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 
+// 扩展的Socket接口，用于测试
+interface TestSocket {
+  id: string;
+  connected: boolean;
+  events: Record<string, unknown[]>;
+  rooms: Set<string>;
+  listeners: Map<string, Function[]>;
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    isDevUser?: boolean;
+    iat?: number;
+    exp?: number;
+  };
+  deviceId?: string;
+  emit(event: string, data: unknown): void;
+  on(event: string, callback: (data: unknown) => void): void;
+  disconnect(): void;
+  join(room: string): void;
+  leave(room: string): void;
+}
+
 // Mock Socket客户端
-class MockSocket {
+class MockSocket implements TestSocket {
   id: string;
   connected: boolean = true;
-  events: Record<string, any[]> = {};
+  events: Record<string, unknown[]> = {};
   rooms: Set<string> = new Set(); // 添加房间管理
   listeners: Map<string, Function[]> = new Map(); // 添加监听器管理
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    isDevUser?: boolean;
+    iat?: number;
+    exp?: number;
+  };
+  deviceId?: string;
   
   constructor(id: string) {
     this.id = id;
   }
   
-  emit(event: string, data: any) {
+  emit(event: string, data: unknown) {
     if (!this.events[event]) {
       this.events[event] = [];
     }
@@ -36,7 +68,7 @@ class MockSocket {
     eventListeners.forEach(listener => listener(data));
   }
   
-  on(event: string, callback: (data: any) => void) {
+  on(event: string, callback: (data: unknown) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
@@ -61,9 +93,9 @@ class MockSocket {
 // 全局的socket管理器，用于模拟广播功能
 class MockSocketManager {
   private static sockets = new Map<string, MockSocket>();
-  private static server: { sockets: { sockets: Map<string, any> } } | null = null;
+  private static server: Server | null = null;
 
-  static setServer(server: { sockets: { sockets: Map<string, any> } }) {
+  static setServer(server: Server) {
     this.server = server;
   }
 
@@ -71,7 +103,7 @@ class MockSocketManager {
     this.sockets.set(socket.id, socket);
     // 将socket添加到server的sockets映射中
     if (this.server && this.server.sockets) {
-      this.server.sockets.sockets.set(socket.id, socket);
+      this.server.sockets.sockets.set(socket.id, socket as unknown as Socket);
     }
   }
 
@@ -82,7 +114,7 @@ class MockSocketManager {
     }
   }
 
-  static broadcastToRoom(room: string, event: string, data: any) {
+  static broadcastToRoom(room: string, event: string, data: unknown) {
     // 确保房间名称格式正确
     const roomName = room.startsWith('device:') ? room : `device:${room}`;
 
@@ -95,7 +127,7 @@ class MockSocketManager {
     }
   }
 
-  static broadcastToAll(event: string, data: any) {
+  static broadcastToAll(event: string, data: unknown) {
     for (const socket of this.sockets.values()) {
       socket.emit(event, data);
     }
@@ -232,7 +264,7 @@ describe('WebSocket Integration', () => {
     gateway = gatewayModule.get<AppWebSocketGateway>(AppWebSocketGateway);
     
     // 模拟authenticateWebSocketClient方法，使其在测试环境中直接通过认证
-    gateway['authenticateWebSocketClient'] = jest.fn().mockImplementation(async (client: any) => {
+    gateway['authenticateWebSocketClient'] = jest.fn().mockImplementation(async (client: TestSocket) => {
       // 直接使用测试中设置的user和deviceId，跳过认证逻辑
       if (!client.user) {
         client.user = { id: 'test-user-id', email: 'test@example.com', role: 'USER' };
@@ -246,12 +278,12 @@ describe('WebSocket Integration', () => {
     service = gatewayModule.get<WebSocketService>(WebSocketService);
     
     // 创建模拟的server对象
-    const mockEmit = jest.fn().mockImplementation((event: string, data: any) => {
+    const mockEmit = jest.fn().mockImplementation((event: string, data: unknown) => {
       MockSocketManager.broadcastToAll(event, data);
     });
     
     const mockTo = jest.fn().mockImplementation((room: string) => ({
-      emit: jest.fn().mockImplementation((event: string, data: any) => {
+      emit: jest.fn().mockImplementation((event: string, data: unknown) => {
         MockSocketManager.broadcastToRoom(room, event, data);
       })
     }));
@@ -260,12 +292,12 @@ describe('WebSocket Integration', () => {
       to: mockTo,
       emit: mockEmit,
       sockets: {
-        sockets: new Map<string, any>()
+        sockets: new Map<string, Socket>()
       }
     } as unknown as Server;
     
     // 替换网关的server对象为模拟对象
-    gateway['server'] = server as any;
+    gateway['server'] = server;
     
     // 初始化MockSocketManager
     MockSocketManager.clear();
@@ -287,14 +319,14 @@ describe('WebSocket Integration', () => {
     it('应该处理客户端连接', async () => {
       const mockSocket = new MockSocket('test-client-1');
       // 设置user对象
-      (mockSocket as any).user = { id: 'test-user-1', email: 'test1@example.com' };
-      (mockSocket as any).deviceId = 'test-device-1';
+      mockSocket.user = { id: 'test-user-1', email: 'test1@example.com', role: 'user' };
+      mockSocket.deviceId = 'test-device-1';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 验证连接确认消息被发送 - 直接检查mockSocket的events
       // 由于网关中的client.emit可能没有正确调用MockSocket的emit方法，我们直接验证连接处理逻辑
@@ -305,20 +337,20 @@ describe('WebSocket Integration', () => {
     it('应该处理客户端断开连接', async () => {
       const mockSocket = new MockSocket('test-client-2');
       // 设置user对象
-      (mockSocket as any).user = { id: 'test-user-2', email: 'test2@example.com' };
-      (mockSocket as any).deviceId = 'test-device-2';
+      mockSocket.user = { id: 'test-user-2', email: 'test2@example.com', role: 'user' };
+      mockSocket.deviceId = 'test-device-2';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 验证连接被记录
       expect(gateway['connectedClients'].has('test-client-2')).toBe(true);
       
       // 断开连接
-      await gateway.handleDisconnect(mockSocket as any);
+      await gateway.handleDisconnect(mockSocket as unknown as Socket);
       
       // 验证连接被清理
       expect(gateway['connectedClients'].has('test-client-2')).toBe(false);
@@ -330,31 +362,31 @@ describe('WebSocket Integration', () => {
       const client1 = new MockSocket('client-1');
       const client2 = new MockSocket('client-2');
       // 设置user对象
-      (client1 as any).user = { id: 'test-user-4', email: 'test4@example.com' };
-      (client1 as any).deviceId = 'test-device-2';
-      (client2 as any).user = { id: 'test-user-5', email: 'test5@example.com' };
-      (client2 as any).deviceId = 'test-device-2';
+      client1.user = { id: 'test-user-4', email: 'test4@example.com', role: 'user' };
+      client1.deviceId = 'test-device-2';
+      client2.user = { id: 'test-user-5', email: 'test5@example.com', role: 'user' };
+      client2.deviceId = 'test-device-2';
       
       MockSocketManager.addSocket(client1);
       MockSocketManager.addSocket(client2);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(client1 as any);
-      await gateway.handleConnection(client2 as any);
+      await gateway.handleConnection(client1 as unknown as Socket);
+      await gateway.handleConnection(client2 as unknown as Socket);
       
       // 订阅设备
-      gateway.handleDeviceSubscribe(client1 as any, { deviceId: 'test-device-2' });
-      gateway.handleDeviceSubscribe(client2 as any, { deviceId: 'test-device-2' });
+      gateway.handleDeviceSubscribe(client1 as unknown as Socket, { deviceId: 'test-device-2' });
+      gateway.handleDeviceSubscribe(client2 as unknown as Socket, { deviceId: 'test-device-2' });
       
       // 设置监听器
       let client1Received = false;
       let client2Received = false;
       
-      client1.on('metrics:realtime', (data) => {
+      client1.on('metrics:realtime', (_data) => {
         client1Received = true;
       });
       
-      client2.on('metrics:realtime', (data) => {
+      client2.on('metrics:realtime', (_data) => {
         client2Received = true;
       });
 
@@ -369,7 +401,7 @@ describe('WebSocket Integration', () => {
       };
       
       // 通过网关发送数据，触发广播
-      gateway.handleDeviceMetrics(client1 as any, metricsData);
+      gateway.handleDeviceMetrics(client1 as unknown as Socket, metricsData);
       
       // 验证广播方法被调用 - 直接调用广播方法进行测试
       gateway.broadcastDeviceMetrics('test-device-2', metricsData);
@@ -387,14 +419,14 @@ describe('WebSocket Integration', () => {
     it('应该处理告警通知', async () => {
       const mockSocket = new MockSocket('test-client-4');
       // 设置user对象
-      (mockSocket as any).user = { id: 'test-user-6', email: 'test6@example.com' };
-      (mockSocket as any).deviceId = 'test-device-1';
+      mockSocket.user = { id: 'test-user-6', email: 'test6@example.com', role: 'user' };
+      mockSocket.deviceId = 'test-device-1';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       const alertData: AlertNotificationDto = {
         alertId: 'alert-1',
@@ -408,7 +440,7 @@ describe('WebSocket Integration', () => {
       };
 
       // 模拟接收告警通知
-      gateway.handleAlertTrigger(mockSocket as any, alertData);
+      gateway.handleAlertTrigger(mockSocket as unknown as Socket, alertData);
       
       // 验证服务层处理了告警（通过日志验证）
       expect(gateway['logger']).toBeDefined();
@@ -418,29 +450,26 @@ describe('WebSocket Integration', () => {
       const client1 = new MockSocket('client-3');
       const client2 = new MockSocket('client-4');
       // 设置user对象
-      (client1 as any).user = { id: 'test-user-7', email: 'test7@example.com' };
-      (client1 as any).deviceId = 'test-device-3';
-      (client2 as any).user = { id: 'test-user-8', email: 'test8@example.com' };
-      (client2 as any).deviceId = 'test-device-3';
+      client1.user = { id: 'test-user-7', email: 'test7@example.com', role: 'user' };
+      client1.deviceId = 'test-device-3';
+      client2.user = { id: 'test-user-8', email: 'test8@example.com', role: 'user' };
+      client2.deviceId = 'test-device-3';
       
       // 将sockets添加到管理器
       MockSocketManager.addSocket(client1);
       MockSocketManager.addSocket(client2);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(client1 as any);
-      await gateway.handleConnection(client2 as any);
+      await gateway.handleConnection(client1 as unknown as Socket);
+      await gateway.handleConnection(client2 as unknown as Socket);
       
       // 设置监听器
-      let client1Received = false;
-      let client2Received = false;
-      
-      client1.on('alert:realtime', (data) => {
-        client1Received = true;
+      client1.on('alert:realtime', (_data) => {
+        // 监听告警事件
       });
       
-      client2.on('alert:realtime', (data) => {
-        client2Received = true;
+      client2.on('alert:realtime', (_data) => {
+        // 监听告警事件
       });
 
       const alertData: AlertNotificationDto = {
@@ -455,7 +484,7 @@ describe('WebSocket Integration', () => {
       };
       
       // 通过网关发送告警，触发广播
-      gateway.handleAlertTrigger(client1 as any, alertData);
+      gateway.handleAlertTrigger(client1 as unknown as Socket, alertData);
       
       // 验证广播方法被调用 - 直接调用广播方法进行测试
       gateway.broadcastAlert(alertData);
@@ -470,20 +499,20 @@ describe('WebSocket Integration', () => {
       const nonSubscriber = new MockSocket('non-subscriber-client');
       
       // 设置user对象
-      (subscriber as any).user = { id: 'subscriber-user', email: 'subscriber@example.com' };
-      (nonSubscriber as any).user = { id: 'non-subscriber-user', email: 'non-subscriber@example.com' };
+      subscriber.user = { id: 'subscriber-user', email: 'subscriber@example.com', role: 'user' };
+      nonSubscriber.user = { id: 'non-subscriber-user', email: 'non-subscriber@example.com', role: 'user' };
       
       // 设置不同的deviceId，这样连接时不会自动加入同一个房间
-      (subscriber as any).deviceId = 'subscriber-device';
-      (nonSubscriber as any).deviceId = 'non-subscriber-device';
+      subscriber.deviceId = 'subscriber-device';
+      nonSubscriber.deviceId = 'non-subscriber-device';
       
       // 将sockets添加到管理器
       MockSocketManager.addSocket(subscriber);
       MockSocketManager.addSocket(nonSubscriber);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(subscriber as any);
-      await gateway.handleConnection(nonSubscriber as any);
+      await gateway.handleConnection(subscriber as unknown as Socket);
+      await gateway.handleConnection(nonSubscriber as unknown as Socket);
       
       // 只有订阅者订阅目标设备 - 手动加入房间
       const targetDeviceId = 'test-device-3';
@@ -493,11 +522,11 @@ describe('WebSocket Integration', () => {
       let subscriberReceived = false;
       let nonSubscriberReceived = false;
       
-      subscriber.on('metrics:realtime', (data) => {
+      subscriber.on('metrics:realtime', (_data) => {
         subscriberReceived = true;
       });
       
-      nonSubscriber.on('metrics:realtime', (data) => {
+      nonSubscriber.on('metrics:realtime', (_data) => {
         nonSubscriberReceived = true;
       });
 
@@ -525,22 +554,22 @@ describe('WebSocket Integration', () => {
     it('应该处理高频消息发送', async () => {
       const mockSocket = new MockSocket('stress-client');
       // 设置user对象
-      (mockSocket as any).user = { id: 'stress-user', email: 'stress@example.com' };
-      (mockSocket as any).deviceId = 'stress-device';
+      mockSocket.user = { id: 'stress-user', email: 'stress@example.com', role: 'user' };
+      mockSocket.deviceId = 'stress-device';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 订阅设备
-      gateway.handleDeviceSubscribe(mockSocket as any, { deviceId: 'stress-device' });
+      gateway.handleDeviceSubscribe(mockSocket as unknown as Socket, { deviceId: 'stress-device' });
       
       let messageCount = 0;
       const totalMessages = 10; // 减少数量以避免性能问题
       
-      mockSocket.on('metrics:realtime', (data) => {
+      mockSocket.on('metrics:realtime', (_data) => {
         messageCount++;
       });
 
@@ -568,14 +597,14 @@ describe('WebSocket Integration', () => {
     it('应该处理无效的消息格式', async () => {
       const mockSocket = new MockSocket('error-client');
       // 设置user对象
-      (mockSocket as any).user = { id: 'error-user', email: 'error@example.com' };
-      (mockSocket as any).deviceId = 'test-device';
+      mockSocket.user = { id: 'error-user', email: 'error@example.com', role: 'user' };
+      mockSocket.deviceId = 'test-device';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 发送无效格式的消息（包含必要字段但格式错误）
       const invalidData = {
@@ -588,29 +617,29 @@ describe('WebSocket Integration', () => {
       
       // 应该不会崩溃
       expect(() => {
-        gateway.handleDeviceMetrics(mockSocket as any, invalidData as any);
+        gateway.handleDeviceMetrics(mockSocket as unknown as Socket, invalidData as unknown as DeviceMetricsDto);
       }).not.toThrow();
     });
 
     it('应该处理空数据', async () => {
       const mockSocket = new MockSocket('empty-client');
       // 设置user对象
-      (mockSocket as any).user = { id: 'empty-user', email: 'empty@example.com' };
-      (mockSocket as any).deviceId = 'test-device';
+      mockSocket.user = { id: 'empty-user', email: 'empty@example.com', role: 'user' };
+      mockSocket.deviceId = 'test-device';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 发送空数据
       expect(() => {
-        gateway.handleDeviceMetrics(mockSocket as any, null);
+        gateway.handleDeviceMetrics(mockSocket as unknown as Socket, null);
       }).not.toThrow();
       
       expect(() => {
-        gateway.handleAlertTrigger(mockSocket as any, null);
+        gateway.handleAlertTrigger(mockSocket as unknown as Socket, null);
       }).not.toThrow();
     });
   });
@@ -619,14 +648,14 @@ describe('WebSocket Integration', () => {
     it('应该正确处理网关到服务的消息传递', async () => {
       const mockSocket = new MockSocket('integration-client');
       // 设置user对象
-      (mockSocket as any).user = { id: 'integration-user', email: 'integration@example.com' };
-      (mockSocket as any).deviceId = 'integration-test-device';
+      mockSocket.user = { id: 'integration-user', email: 'integration@example.com', role: 'user' };
+      mockSocket.deviceId = 'integration-test-device';
       
       // 将socket添加到管理器
       MockSocketManager.addSocket(mockSocket);
       
       // 建立连接 - 使用await等待异步操作完成
-      await gateway.handleConnection(mockSocket as any);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       const metricsData: DeviceMetricsDto = {
         deviceId: 'integration-test-device',
@@ -650,7 +679,7 @@ describe('WebSocket Integration', () => {
       });
 
       // 通过网关发送消息
-      gateway.handleDeviceMetrics(mockSocket as any, metricsData);
+      gateway.handleDeviceMetrics(mockSocket as unknown as Socket, metricsData);
 
       // 验证服务层被调用
       expect(serviceCalled).toBe(true);

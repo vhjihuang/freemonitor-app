@@ -4,6 +4,16 @@ import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DatabaseFilters } from '@freemonitor/types';
 
+// 用户信息接口
+interface UserInfo {
+  id: string;
+  email: string;
+  role: string;
+  isDevUser?: boolean;
+  iat?: number;
+  exp?: number;
+}
+
 @Injectable()
 export class WebSocketService {
   private readonly logger = new Logger(WebSocketService.name);
@@ -23,7 +33,7 @@ export class WebSocketService {
   // 存储设备订阅关系
   private deviceSubscriptions = new Map<string, Set<string>>();
 
-  async handleConnection(client: Socket, user: any, deviceId: string) {
+  async handleConnection(client: Socket, user: UserInfo, deviceId: string) {
     const connectionId = this.generateConnectionId(user.id, deviceId);
     
     this.connections.set(connectionId, {
@@ -42,7 +52,7 @@ export class WebSocketService {
     this.logger.log(`用户 ${user.email} 的设备 ${deviceId} 已连接`);
   }
 
-  async handleDisconnection(client: Socket, user: any, deviceId: string) {
+  async handleDisconnection(client: Socket, user: UserInfo, deviceId: string) {
     try {
       // 验证参数有效性
       if (!user || !user.id) {
@@ -68,7 +78,7 @@ export class WebSocketService {
     }
   }
 
-  async handleDeviceMetrics(client: Socket, user: any, deviceId: string, data: DeviceMetricsDto) {
+  async handleDeviceMetrics(client: Socket, user: UserInfo, deviceId: string, data: DeviceMetricsDto) {
     // 验证输入数据
     if (!data) {
       throw new Error('指标数据不能为空');
@@ -87,7 +97,7 @@ export class WebSocketService {
     this.logger.log(`设备 ${deviceId} 上报指标: ${JSON.stringify(data)}`);
   }
 
-  async handleAlertTrigger(client: Socket, user: any, deviceId: string, data: AlertNotificationDto) {
+  async handleAlertTrigger(client: Socket, user: UserInfo, deviceId: string, data: AlertNotificationDto) {
     // 验证告警权限
     const hasAccess = await this.validateAlertAccess(user.id, deviceId, data.alertId);
     if (!hasAccess) {
@@ -100,7 +110,7 @@ export class WebSocketService {
     this.logger.log(`设备 ${deviceId} 触发告警: ${data.alertId}`);
   }
 
-  async subscribeToDevices(client: Socket, user: any, deviceIds: string[]) {
+  async subscribeToDevices(client: Socket, user: UserInfo, deviceIds: string[]) {
     for (const deviceId of deviceIds) {
       // 验证设备权限
       const hasAccess = await this.validateDeviceAccess(user.id, deviceId);
@@ -118,7 +128,7 @@ export class WebSocketService {
     this.logger.log(`用户 ${user.email} 订阅设备: ${deviceIds.join(', ')}`);
   }
 
-  async unsubscribeFromDevices(client: Socket, user: any, deviceIds: string[]) {
+  async unsubscribeFromDevices(client: Socket, user: UserInfo, deviceIds: string[]) {
     for (const deviceId of deviceIds) {
       // 离开设备房间
       client.leave(`device:${deviceId}`);
@@ -143,7 +153,7 @@ export class WebSocketService {
   }
 
   // 向特定设备发送消息
-  async sendToDevice(deviceId: string, event: string, data: any) {
+  async sendToDevice(deviceId: string, event: string, data: Record<string, unknown>) {
     const connections = Array.from(this.connections.values())
       .filter(c => c.deviceId === deviceId);
 
@@ -153,7 +163,7 @@ export class WebSocketService {
   }
 
   // 向特定用户发送消息
-  async sendToUser(userId: string, event: string, data: any) {
+  async sendToUser(userId: string, event: string, data: Record<string, unknown>) {
     const connections = Array.from(this.connections.values())
       .filter(c => c.userId === userId);
 
@@ -217,7 +227,7 @@ export class WebSocketService {
     }
   }
 
-  private async processMetricsData(deviceId: string, data: DeviceMetricsDto) {
+  private async processMetricsData(_deviceId: string, _data: DeviceMetricsDto) {
     // 处理指标数据的业务逻辑
     // 可以存储到数据库、触发告警检查等
     
@@ -225,7 +235,7 @@ export class WebSocketService {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
 
-  private async processAlert(data: AlertNotificationDto) {
+  private async processAlert(_data: AlertNotificationDto) {
     // 处理告警的业务逻辑
     // 可以发送邮件、短信通知等
     

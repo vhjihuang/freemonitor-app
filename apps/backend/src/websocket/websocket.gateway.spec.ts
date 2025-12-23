@@ -3,11 +3,51 @@ import { INestApplication } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Server } from 'socket.io';
+import { Socket } from 'socket.io';
 import { AppWebSocketGateway } from './websocket.gateway';
 import { WebSocketService } from './websocket.service';
-import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
+import { DeviceMetricsDto } from './websocket.dtos';
 import { AppLoggerService } from '../common/services/logger.service';
+
+// Mock Socket接口
+interface MockSocket {
+  id: string;
+  emit: jest.Mock;
+  on: jest.Mock;
+  off: jest.Mock;
+  removeListener: jest.Mock;
+  removeAllListeners: jest.Mock;
+  disconnect: jest.Mock;
+  join?: jest.Mock;
+  leave?: jest.Mock;
+  connected: boolean;
+  disconnected: boolean;
+  handshake: {
+    query: {
+      token?: string;
+      deviceId?: string;
+    };
+    headers: Record<string, string>;
+  };
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    isDevUser?: boolean;
+    iat?: number;
+    exp?: number;
+  };
+  deviceId?: string;
+}
+
+// Mock Server接口
+interface MockServer {
+  to?: jest.Mock;
+  emit?: jest.Mock;
+  sockets?: {
+    sockets: Map<string, MockSocket>;
+  };
+}
 
 // Mock WebSocket服务
 const mockWebSocketService = {
@@ -25,7 +65,6 @@ const mockWebSocketService = {
 describe('AppWebSocketGateway', () => {
   let app: INestApplication;
   let gateway: AppWebSocketGateway;
-  let io: Server;
 
   beforeEach(async () => {
     // 设置测试环境为开发环境
@@ -90,9 +129,6 @@ describe('AppWebSocketGateway', () => {
     
     gateway = module.get<AppWebSocketGateway>(AppWebSocketGateway);
     await app.init();
-
-    // 获取Socket.IO服务器实例
-    io = app.getHttpServer().listen().address();
   });
 
   afterEach(async () => {
@@ -114,7 +150,7 @@ describe('AppWebSocketGateway', () => {
     });
 
     it('应该处理客户端连接', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -131,9 +167,9 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       expect(mockSocket.emit).toHaveBeenCalledWith(
         'connection:established',
@@ -151,7 +187,7 @@ describe('AppWebSocketGateway', () => {
     });
 
     it('应该处理客户端断开连接', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -168,16 +204,16 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
       
       // 验证连接已添加
       expect(gateway['connectedClients'].has('test-client-1')).toBe(true);
       
       // 然后断开连接
-      await gateway.handleDisconnect(mockSocket);
+      await gateway.handleDisconnect(mockSocket as unknown as Socket);
       
       // 验证连接被正确清理
       expect(gateway['connectedClients'].has('test-client-1')).toBe(false);
@@ -186,7 +222,7 @@ describe('AppWebSocketGateway', () => {
 
   describe('消息处理', () => {
     it('应该处理设备指标数据', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -203,10 +239,10 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
 
       const metricsData: DeviceMetricsDto = {
         deviceId: 'device-123',
@@ -219,7 +255,7 @@ describe('AppWebSocketGateway', () => {
         temperature: 45,
       };
 
-      await gateway.handleDeviceMetrics(mockSocket, metricsData);
+      await gateway.handleDeviceMetrics(mockSocket as unknown as Socket, metricsData);
       
       // 验证活动时间被更新
       const clientInfo = gateway['connectedClients'].get('test-client-1');
@@ -228,7 +264,7 @@ describe('AppWebSocketGateway', () => {
     });
 
     it('应该处理告警触发', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -245,23 +281,23 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
 
       const alertData = {
         alertId: 'alert-123',
         deviceId: 'device-123',
-        alertType: 'cpu',
-        severity: 'critical',
+        alertType: 'cpu' as const,
+        severity: 'critical' as const,
         message: 'CPU使用率过高',
         threshold: 80,
         currentValue: 95,
         triggeredAt: new Date().toISOString(),
       };
 
-      await gateway.handleAlertTrigger(mockSocket, alertData);
+      await gateway.handleAlertTrigger(mockSocket as unknown as Socket, alertData);
       
       // 验证活动时间被更新
       const clientInfo = gateway['connectedClients'].get('test-client-1');
@@ -270,7 +306,7 @@ describe('AppWebSocketGateway', () => {
     });
 
     it('应该处理设备订阅', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -288,22 +324,22 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
 
       const subscribeData = {
         deviceId: 'device-123',
       };
 
-      gateway.handleDeviceSubscribe(mockSocket, subscribeData);
+      gateway.handleDeviceSubscribe(mockSocket as unknown as Socket, subscribeData);
       
       expect(mockSocket.join).toHaveBeenCalledWith('device:device-123');
     });
 
     it('应该处理设备取消订阅', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -321,16 +357,16 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
 
       const unsubscribeData = {
         deviceId: 'device-123',
       };
 
-      gateway.handleDeviceUnsubscribe(mockSocket, unsubscribeData);
+      gateway.handleDeviceUnsubscribe(mockSocket as unknown as Socket, unsubscribeData);
       
       expect(mockSocket.leave).toHaveBeenCalledWith('device:device-123');
     });
@@ -338,10 +374,6 @@ describe('AppWebSocketGateway', () => {
 
   describe('广播功能', () => {
     it('应该广播设备指标到特定房间', () => {
-      const mockSocket = {
-        id: 'test-client-1',
-      } as any;
-
       const metricsData = {
         deviceId: 'device-123',
         cpu: 75.5,
@@ -350,10 +382,11 @@ describe('AppWebSocketGateway', () => {
       };
 
       // 模拟服务器广播方法
-      gateway.server = {
+      const mockServer: MockServer = {
         to: jest.fn().mockReturnThis(),
         emit: jest.fn(),
-      } as any;
+      };
+      gateway.server = mockServer as unknown as typeof gateway.server;
 
       gateway.broadcastDeviceMetrics('device-123', metricsData);
       
@@ -365,13 +398,19 @@ describe('AppWebSocketGateway', () => {
       const alertData = {
         alertId: 'alert-123',
         deviceId: 'device-123',
+        alertType: 'memory' as const,
+        severity: 'warning' as const,
         message: '测试告警',
+        threshold: 80,
+        currentValue: 85,
+        triggeredAt: new Date().toISOString(),
       };
 
       // 模拟服务器广播方法
-      gateway.server = {
+      const mockServer: MockServer = {
         emit: jest.fn(),
-      } as any;
+      };
+      gateway.server = mockServer as unknown as typeof gateway.server;
 
       gateway.broadcastAlert(alertData);
       
@@ -381,10 +420,21 @@ describe('AppWebSocketGateway', () => {
 
   describe('连接清理', () => {
     it('应该清理不活跃的连接', () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         disconnect: jest.fn(),
-      } as any;
+        emit: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        removeListener: jest.fn(),
+        removeAllListeners: jest.fn(),
+        connected: true,
+        disconnected: false,
+        handshake: {
+          query: {},
+          headers: {}
+        }
+      };
 
       // 添加一个不活跃的连接
       gateway['connectedClients'].set('test-client-1', {
@@ -393,11 +443,12 @@ describe('AppWebSocketGateway', () => {
       });
 
       // 模拟服务器实例
-      gateway.server = {
+      const mockServer: MockServer = {
         sockets: {
           sockets: new Map([['test-client-1', mockSocket]]),
         },
-      } as any;
+      };
+      gateway.server = mockServer as unknown as typeof gateway.server;
 
       gateway['cleanupInactiveConnections']();
       
@@ -406,10 +457,21 @@ describe('AppWebSocketGateway', () => {
     });
 
     it('不应该清理活跃的连接', () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         disconnect: jest.fn(),
-      } as any;
+        emit: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        removeListener: jest.fn(),
+        removeAllListeners: jest.fn(),
+        connected: true,
+        disconnected: false,
+        handshake: {
+          query: {},
+          headers: {}
+        }
+      };
 
       // 添加一个活跃的连接
       gateway['connectedClients'].set('test-client-1', {
@@ -418,11 +480,12 @@ describe('AppWebSocketGateway', () => {
       });
 
       // 模拟服务器实例
-      gateway.server = {
+      const mockServer: MockServer = {
         sockets: {
           sockets: new Map([['test-client-1', mockSocket]]),
         },
-      } as any;
+      };
+      gateway.server = mockServer as unknown as typeof gateway.server;
 
       gateway['cleanupInactiveConnections']();
       
@@ -433,7 +496,7 @@ describe('AppWebSocketGateway', () => {
 
   describe('性能测试', () => {
     it('应该处理高频消息而不崩溃', async () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
         emit: jest.fn(),
         on: jest.fn(),
@@ -450,10 +513,10 @@ describe('AppWebSocketGateway', () => {
           },
           headers: {}
         }
-      } as any;
+      };
 
       // 先建立连接
-      await gateway.handleConnection(mockSocket);
+      await gateway.handleConnection(mockSocket as unknown as Socket);
 
       const metricsData: DeviceMetricsDto = {
         deviceId: 'device-123',
@@ -464,7 +527,7 @@ describe('AppWebSocketGateway', () => {
 
       // 发送100条消息
       for (let i = 0; i < 100; i++) {
-        await gateway.handleDeviceMetrics(mockSocket, metricsData);
+        await gateway.handleDeviceMetrics(mockSocket as unknown as Socket, metricsData);
       }
 
       // 验证系统稳定
@@ -476,7 +539,7 @@ describe('AppWebSocketGateway', () => {
       
       // 模拟100个并发连接
       for (let i = 0; i < 100; i++) {
-        const mockSocket = {
+        const mockSocket: MockSocket = {
           id: `test-client-${i}`,
           emit: jest.fn(),
           on: jest.fn(),
@@ -493,9 +556,9 @@ describe('AppWebSocketGateway', () => {
             },
             headers: {}
           }
-        } as any;
+        };
         
-        await gateway.handleConnection(mockSocket);
+        await gateway.handleConnection(mockSocket as unknown as Socket);
         connections.push(mockSocket);
       }
 
@@ -510,9 +573,21 @@ describe('AppWebSocketGateway', () => {
 
   describe('错误处理', () => {
     it('应该处理无效的消息格式', () => {
-      const mockSocket = {
+      const mockSocket: MockSocket = {
         id: 'test-client-1',
-      } as any;
+        emit: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        removeListener: jest.fn(),
+        removeAllListeners: jest.fn(),
+        disconnect: jest.fn(),
+        connected: true,
+        disconnected: false,
+        handshake: {
+          query: {},
+          headers: {}
+        }
+      };
 
       const invalidData = {
         // 缺少必要字段
@@ -521,7 +596,7 @@ describe('AppWebSocketGateway', () => {
 
       // 验证不会抛出异常
       expect(() => {
-        gateway.handleDeviceMetrics(mockSocket, invalidData as any);
+        gateway.handleDeviceMetrics(mockSocket as unknown as Socket, invalidData as unknown as DeviceMetricsDto);
       }).not.toThrow();
     });
 
@@ -539,7 +614,7 @@ describe('AppWebSocketGateway', () => {
         emit: jest.fn().mockImplementation(() => {
           throw new Error('广播失败');
         }),
-      } as any;
+      } as unknown as typeof gateway.server;
 
       // 验证不会抛出异常到外部
       expect(() => {

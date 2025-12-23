@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useAuth } from '@/hooks/useAuth';
 import { getAccessToken } from '@/lib/auth';
@@ -25,6 +25,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string>();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const lastAuthStateRef = useRef<{ isAuthenticated: boolean; user: any } | null>(null);
 
   const {
     connect,
@@ -36,7 +38,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     isConnected: isWsConnected,
     getConnectionStats,
   } = useWebSocket({
-    token: getAccessToken() || '',
+    token: 'cookie-auth', // 使用Cookie认证机制
     onConnect: () => {
       console.log('WebSocket Provider: 连接已建立');
       setIsConnected(true);
@@ -62,36 +64,40 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     },
   });
 
+  // 初始化认证状态
   useEffect(() => {
-    const token = getAccessToken();
-    const authenticated = token && user;
-    
-    console.log('WebSocket Provider: 检查初始连接状态', {
-      hasToken: !!token,
+    const authenticated = !!user;
+    console.log('WebSocket Provider: 初始化认证状态', {
       hasUser: !!user,
-      authenticated,
-      token: token ? `${token.substring(0, 10)}...` : 'null'
+      authenticated
     });
+    
+    lastAuthStateRef.current = { isAuthenticated: authenticated, user };
+    setIsInitialized(true);
     
     if (authenticated) {
       console.log('初始化 WebSocket 连接');
       connect();
-    } else {
-      console.log('用户未认证，断开 WebSocket 连接');
-      disconnect();
     }
+  }, []);
 
-    return () => {
-      console.log('清理 WebSocket 连接');
-      disconnect();
-    };
-  }, [user, getAccessToken()]);
-  
   // 监听全局认证状态变化
   useEffect(() => {
     const handleAuthStateChange = (event: CustomEvent) => {
       const { isAuthenticated, user } = event.detail;
       console.log('WebSocket Provider: 收到认证状态变化', { isAuthenticated, hasUser: !!user });
+      
+      // 检查认证状态是否真的发生了变化
+      const prevState = lastAuthStateRef.current;
+      if (prevState && 
+          prevState.isAuthenticated === isAuthenticated && 
+          (prevState.user?.id === user?.id)) {
+        console.log('WebSocket Provider: 认证状态未实际变化，跳过处理');
+        return;
+      }
+      
+      // 更新最后的状态
+      lastAuthStateRef.current = { isAuthenticated, user };
       
       if (isAuthenticated && user) {
         // 用户已认证，建立连接
@@ -114,6 +120,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
     };
   }, [connect, disconnect]);
+
+  // 清理连接
+  useEffect(() => {
+    return () => {
+      console.log('清理 WebSocket 连接');
+      disconnect();
+    };
+  }, [disconnect]);
 
   const value: WebSocketContextType = {
     isConnected: isWsConnected(),

@@ -1,14 +1,73 @@
-import { Injectable, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
+import { UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
 import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Throttle } from '@nestjs/throttler';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AppLoggerService } from '../common/services/logger.service';
 import { WebSocketService } from './websocket.service';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
+import { DeviceMetricsDto } from './websocket.dtos';
+
+// 类型定义
+type Timeout = ReturnType<typeof setTimeout>;
+
+// 扩展Socket接口以包含用户和设备信息
+interface ExtendedSocket extends Socket {
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    isDevUser?: boolean;
+    iat?: number;
+    exp?: number;
+  };
+  deviceId?: string;
+}
+
+// JWT载荷类型
+interface JWTPayload {
+  id: string;
+  sub: string;
+  email: string;
+  role: string;
+  iat?: number;
+  exp?: number;
+}
+
+// 告警数据类型
+interface AlertData {
+  alertId: string;
+  deviceId: string;
+  alertType: 'cpu' | 'memory' | 'disk' | 'network' | 'custom';
+  severity: 'critical' | 'warning' | 'info';
+  message: string;
+  threshold: number;
+  currentValue: number;
+  triggeredAt: string;
+  resolvedAt?: string;
+  acknowledgedBy?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// 设备指标数据类型
+interface DeviceMetricsData {
+  deviceId: string;
+  cpu: number;
+  memory: number;
+  disk: number;
+  networkIn?: number;
+  networkOut?: number;
+  uptime?: number;
+  temperature?: number;
+  custom?: Record<string, unknown>;
+}
+
+// 订阅数据类型
+interface SubscribeData {
+  deviceId?: string;
+  [key: string]: unknown;
+}
 
 @WebSocketGateway({
   cors: {
@@ -36,9 +95,9 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   server: Server;
 
   private connectedClients = new Map<string, { connectedAt: Date; lastActivity: Date }>();
-  private cleanupInterval: NodeJS.Timeout;
+  private cleanupInterval: Timeout;
 
-  afterInit(server: Server) {
+  afterInit(_server: Server) {
     this.logger.log('WebSocket Gateway initialized');
     
     // 定期清理过期连接
@@ -61,7 +120,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
       this.logger.log(`Client connected: ${client.id}, current connections: ${this.connectedClients.size}`);
       
       // 使用WebSocketService处理连接逻辑
-      await this.webSocketService.handleConnection(client, (client as any).user, (client as any).deviceId);
+      await this.webSocketService.handleConnection(client, (client as ExtendedSocket).user, (client as ExtendedSocket).deviceId);
       
       // 发送连接确认
       client.emit('connection:established', { 
@@ -79,8 +138,8 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     this.logger.log(`Client disconnected: ${client.id}, remaining connections: ${this.connectedClients.size}`);
     
     // 获取用户和设备信息，处理可能的undefined情况
-    const user = (client as any).user;
-    const deviceId = (client as any).deviceId;
+    const user = (client as ExtendedSocket).user;
+    const deviceId = (client as ExtendedSocket).deviceId;
     
     // 只有在用户信息存在时才调用断开处理逻辑
     if (user && deviceId) {
@@ -139,6 +198,46 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     }
 
     try {
+      // 检查是否使用Cookie认证机制
+      if (token === 'cookie-auth') {
+        // 对于Cookie认证，从请求头中获取Cookie并验证
+        const cookies = client.handshake.headers.cookie;
+        if (!cookies) {
+          throw new Error('Cookie认证需要Cookie');
+        }
+        
+        // 解析Cookie以获取访问令牌
+        const accessToken = this.extractTokenFromCookies(cookies, 'access_token');
+        if (!accessToken) {
+          throw new Error('Cookie中未找到访问令牌');
+        }
+        
+        // 验证JWT令牌
+        const payload = this.jwtService.verify(accessToken, {
+          secret: this.configService.get<string>('JWT_SECRET') || 'default-secret',
+        });
+        
+        // 验证用户信息
+        const user = await this.validateUserFromPayload(payload);
+        
+        if (!user) {
+          throw new Error('用户验证失败');
+        }
+        
+        // 将用户信息附加到socket对象
+        (client as ExtendedSocket).user = {
+          id: user.id,
+          email: user.email,
+          role: user.role || 'USER',
+        };
+        
+        // 从查询参数中获取设备ID
+        (client as ExtendedSocket).deviceId = this.extractDeviceId(client);
+        
+        this.logger.debug(`WebSocket认证成功: ${user.email} (Cookie认证)`);
+        return;
+      }
+      
       // 使用与HTTP API相同的JWT验证逻辑
       const payload = this.jwtService.verify(token, {
         secret: this.configService.get<string>('JWT_SECRET') || 'default-secret',
@@ -152,16 +251,16 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
       }
 
       // 将用户信息附加到socket对象
-      (client as any).user = {
+      (client as ExtendedSocket).user = {
         id: user.id,
         email: user.email,
         role: user.role || 'USER',
       };
 
       // 从查询参数中获取设备ID
-      (client as any).deviceId = this.extractDeviceId(client);
+      (client as ExtendedSocket).deviceId = this.extractDeviceId(client);
 
-      this.logger.debug(`WebSocket认证成功: ${user.email} (真实用户)`);
+      this.logger.debug(`WebSocket认证成功: ${user.email} (JWT令牌认证)`);
     } catch (error) {
       // 开发环境下，认证失败时使用模拟用户
       if (this.isDevelopment()) {
@@ -175,7 +274,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   }
 
   /**
-   * 从Socket连接中提取JWT令牌
+   * 从Socket连接中提取JWT令牌或验证Cookie认证
    */
   private extractTokenFromSocket(client: Socket): string | null {
     // 支持查询参数方式: ws://localhost?token=xxx
@@ -194,6 +293,28 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
       }
     }
 
+    // 检查是否使用Cookie认证机制
+    if (client.handshake.query?.auth === 'cookie') {
+      // 对于Cookie认证，返回特殊标识，让认证方法知道使用Cookie验证
+      return 'cookie-auth';
+    }
+
+    return null;
+  }
+
+  /**
+   * 从Cookie字符串中提取指定名称的令牌
+   */
+  private extractTokenFromCookies(cookies: string, tokenName: string): string | null {
+    const cookiePairs = cookies.split(';');
+    
+    for (const pair of cookiePairs) {
+      const [name, value] = pair.trim().split('=');
+      if (name === tokenName) {
+        return value;
+      }
+    }
+    
     return null;
   }
 
@@ -201,7 +322,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
    * 从JWT payload验证用户信息
    * 这里可以进一步集成您现有的用户服务
    */
-  private async validateUserFromPayload(payload: any): Promise<any> {
+  private async validateUserFromPayload(payload: JWTPayload): Promise<JWTPayload> {
     // 这里应该调用您现有的用户服务进行验证
     // 目前简化实现，直接使用payload中的信息
     if (!payload.sub || !payload.email) {
@@ -210,6 +331,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
 
     return {
       id: payload.sub,
+      sub: payload.sub,
       email: payload.email,
       role: payload.role || 'USER',
     };
@@ -233,7 +355,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
    * 开发环境下附加模拟用户信息
    */
   private attachDevUser(client: Socket): void {
-    (client as any).user = {
+    (client as ExtendedSocket).user = {
       id: 'dev-user-id',
       email: 'dev@freemonitor.dev',
       role: 'USER',
@@ -241,12 +363,11 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     };
 
     // 开发环境默认设备ID
-    (client as any).deviceId = 'dev-device-id';
+    (client as ExtendedSocket).deviceId = 'dev-device-id';
 
     this.logger.debug('开发环境: 附加模拟用户和设备信息');
   }
 
-  @Throttle({ default: { limit: 1000, ttl: 60000 } })
   @SubscribeMessage('device:metrics')
   async handleDeviceMetrics(client: Socket, data: DeviceMetricsDto): Promise<void> {
     this.updateClientActivity(client.id);
@@ -266,14 +387,13 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     this.logger.log(`收到设备指标数据: ${data.deviceId}`);
     
     // 使用WebSocketService处理业务逻辑
-    await this.webSocketService.handleDeviceMetrics(client, (client as any).user, (client as any).deviceId, data);
+    await this.webSocketService.handleDeviceMetrics(client, (client as ExtendedSocket).user, (client as ExtendedSocket).deviceId, data);
     
     this.broadcastDeviceMetrics(data.deviceId, data);
   }
 
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @SubscribeMessage('alert:trigger')
-  async handleAlertTrigger(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+  async handleAlertTrigger(@ConnectedSocket() client: Socket, @MessageBody() data: AlertData) {
     this.updateClientActivity(client.id);
     
     // 检查数据是否为空
@@ -285,15 +405,14 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     this.logger.log('Received alert trigger');
     
     // 使用WebSocketService处理业务逻辑
-    await this.webSocketService.handleAlertTrigger(client, (client as any).user, (client as any).deviceId, data);
+    await this.webSocketService.handleAlertTrigger(client, (client as ExtendedSocket).user, (client as ExtendedSocket).deviceId, data);
     
     this.server.emit('alert:notification', data);
     return { event: 'alert:trigger', data: 'success' };
   }
 
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @SubscribeMessage('device:subscribe')
-  handleDeviceSubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+  handleDeviceSubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: SubscribeData) {
     this.updateClientActivity(client.id);
     const { deviceId } = data;
     if (deviceId) {
@@ -303,9 +422,8 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     return { event: 'device:subscribe', data: 'success' };
   }
 
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   @SubscribeMessage('device:unsubscribe')
-  handleDeviceUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+  handleDeviceUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: SubscribeData) {
     this.updateClientActivity(client.id);
     const { deviceId } = data;
     if (deviceId) {
@@ -316,12 +434,16 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   }
 
   @SubscribeMessage('ping')
-  handlePing(@ConnectedSocket() client: Socket, @MessageBody() _data: any, callback: Function) {
+  handlePing(@ConnectedSocket() client: Socket, @MessageBody() _data: unknown, callback: (response: { event: string; data: string; timestamp: string }) => void) {
     this.updateClientActivity(client.id);
     try {
       // 1. 首先调用callback响应，这是前端socket.timeout机制依赖的
       if (typeof callback === 'function') {
-        callback();
+        callback({
+          event: 'pong',
+          data: 'pong',
+          timestamp: new Date().toISOString()
+        });
       }
       // 2. 同时发送pong事件，兼容可能的事件监听方式
       client.emit('pong');
@@ -337,7 +459,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   }
 
   // 服务端主动推送方法
-  broadcastDeviceMetrics(deviceId: string, metrics: any) {
+  broadcastDeviceMetrics(deviceId: string, metrics: DeviceMetricsData) {
     try {
       const startTime = Date.now();
       
@@ -353,7 +475,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     }
   }
 
-  broadcastAlert(alert: any) {
+  broadcastAlert(alert: AlertData) {
     try {
       const startTime = Date.now();
       
