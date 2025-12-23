@@ -8,6 +8,7 @@ import { DeviceSearchFilter } from '@/components/devices/DeviceSearchFilter';
 import { Device } from '@freemonitor/types';
 import { Role } from '@freemonitor/types';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { useAuth } from '@/hooks/useAuth';
 import { useDevices } from '@/hooks/useDevices';
 import { AddDeviceDialog } from '@/components/devices/AddDeviceDialog';
 import { EditDeviceDialog } from '@/components/devices/EditDeviceDialog';
@@ -23,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 
 
 
@@ -39,8 +39,12 @@ export default function DevicesPage() {
   const [deviceToDelete, setDeviceToDelete] = useState<Device | null>(null);
   const { addToast } = useToastContext();
   
-  // 检查用户是否有权限创建设备
-  const { isAllowed: canAddDevice } = usePermissionCheck([Role.ADMIN, Role.OPERATOR, Role.USER], false);
+  // 直接使用 useAuth 获取用户信息
+  const { user } = useAuth();
+  
+  // 由于页面已经通过 DashboardLayout 的 AuthGuard 保护，这里只需要检查特定UI权限
+  // DashboardLayout 已经确保用户至少有 USER 权限，所以只需要检查更细粒度的权限
+  const canAddDevice = !!user; // 所有能访问此页面的用户都可以添加设备
   
   const { data: devicesResponse, isLoading, error, refetch } = useDevices({ 
     search: search || undefined,
