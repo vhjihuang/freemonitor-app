@@ -1,32 +1,26 @@
 {
   "name": "freemonitor-app",
   "private": true,
+  "type": "module",
   "scripts": {
-    "docs:sync": "python scripts/document_sync.py full",
-    "docs:tasks": "python scripts/document_sync.py tasks",
-    "docs:changelog": "python scripts/document_sync.py changelog",
-    "docs:bidirectional": "python scripts/document_sync.py bidirectional",
-    "docs:preview": "cd docs && python -m http.server 8000",
-    "dev:sync": "npm run docs:sync && echo '开发文档已同步'",
-    "preinstall": "npx only-allow pnpm",
     "dev": "kill-port 3001 && turbo run dev",
     "build": "turbo run build",
-    "start": "node scripts/start-production.js",
-    "start:legacy": "turbo run start",
+    "start": "turbo run start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "docs:api": "cd apps/backend && npm run docs:generate",
+    "docs:serve": "cd apps/backend && npm run docs:serve",
+    "docs:all": "node scripts/update-all-docs.cjs",
     "clean": "rimraf node_modules pnpm-lock.yaml && pnpm -r exec -- rimraf node_modules || true"
   },
   "devDependencies": {
-    "@freemonitor/eslint-config": "workspace:*",
+    "@eslint/js": "^9.39.2",
     "@types/node": "^20.19.11",
-    "autoprefixer": "^10.4.21",
+    "@typescript-eslint/eslint-plugin": "^8.50.0",
+    "@typescript-eslint/parser": "^8.50.0",
     "eslint": "^9.34.0",
     "kill-port": "^2.0.1",
-    "only-allow": "^1.0.0",
-    "postcss": "^8.5.6",
     "rimraf": "^5.0.0",
-    "tailwindcss": "^3.4.17",
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },
@@ -45,6 +39,7 @@
     }
   },
   "dependencies": {
-    "critters": "^0.0.25"
+    "critters": "^0.0.25",
+    "glob": "^10.3.10"
   }
 }
