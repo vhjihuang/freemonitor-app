@@ -101,7 +101,7 @@ build-cache/    # 自定义构建缓存
 # -----------------------
 # 开发工具
 # -----------------------
-**/cookies.txt     # HTTP Cookie 文件
+cookies.txt     # HTTP Cookie 文件
 
 packages/*/dist/
 packages/*/build/
