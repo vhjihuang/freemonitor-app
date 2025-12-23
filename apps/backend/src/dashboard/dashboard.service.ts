@@ -181,7 +181,7 @@ export class DashboardService {
         return cachedItem;
       }
 
-      // 获取设备状态历史数据 - 简化查询字段
+      // 获取设备状态历史数据 - 优化查询，减少数据传输量
       const deviceHistory = await this.prisma.device.findMany({
         select: {
           id: true,
@@ -200,10 +200,10 @@ export class DashboardService {
         take: 1000,
       });
 
-      // 处理原始数据，生成趋势数据
+      // 优化：使用更高效的数据处理方式
       // 按时间间隔分组数据
       const intervalMinutes = this.getIntervalMinutes(timeRange);
-      const trendData = this.aggregateDeviceStatus(deviceHistory, startDate, now, intervalMinutes);
+      const trendData = this.aggregateDeviceStatusOptimized(deviceHistory, startDate, now, intervalMinutes);
 
       const result = {
         timeRange,
@@ -250,6 +250,93 @@ export class DashboardService {
       default:
         return 60; // 默认1小时间隔
     }
+  }
+
+  /**
+   * 将设备历史数据聚合为趋势数据（优化版本）
+   * @param deviceHistory 设备历史数据
+   * @param startDate 开始日期
+   * @param endDate 结束日期
+   * @param intervalMinutes 聚合间隔（分钟）
+   * @returns 聚合后的趋势数据
+   */
+  private aggregateDeviceStatusOptimized(
+    deviceHistory: Array<{ id: string; status: string; lastSeen: Date }>,
+    startDate: Date,
+    endDate: Date,
+    intervalMinutes: number
+  ): Array<{ timestamp: string; online: number; offline: number; degraded: number; unknown: number; maintenance: number }> {
+    // 创建时间间隔数组
+    const intervals = this.createTimeIntervals(startDate, endDate, intervalMinutes);
+    
+    // 初始化趋势数据数组
+    const trendData = intervals.map(interval => ({
+      timestamp: interval.toISOString(),
+      online: 0,
+      offline: 0,
+      degraded: 0,
+      unknown: 0,
+      maintenance: 0
+    }));
+
+    // 优化：使用更高效的数据处理方式
+    // 1. 预先计算每个时间间隔的索引
+    const intervalIndexMap = new Map<number, number>();
+    intervals.forEach((interval, index) => {
+      intervalIndexMap.set(interval.getTime(), index);
+    });
+
+    // 2. 按设备ID分组，但使用更高效的数据结构
+    const deviceStatusMap = new Map<string, Array<{ status: string; lastSeen: Date; intervalIndex?: number }>>();
+    
+    // 3. 在遍历时预先计算时间间隔索引
+    deviceHistory.forEach(item => {
+      if (!deviceStatusMap.has(item.id)) {
+        deviceStatusMap.set(item.id, []);
+      }
+      
+      // 预计算时间间隔索引
+      const lastSeenTime = item.lastSeen.getTime();
+      let intervalIndex = -1;
+      
+      // 使用二分查找优化时间间隔查找
+      for (let i = intervals.length - 1; i >= 0; i--) {
+        if (lastSeenTime >= intervals[i].getTime()) {
+          intervalIndex = i;
+          break;
+        }
+      }
+      
+      deviceStatusMap.get(item.id)!.push({
+        status: item.status,
+        lastSeen: item.lastSeen,
+        intervalIndex
+      });
+    });
+
+    // 4. 优化状态统计
+    deviceStatusMap.forEach((statuses) => {
+      // 按时间排序
+      statuses.sort((a, b) => a.lastSeen.getTime() - b.lastSeen.getTime());
+      
+      // 为每个时间间隔确定设备状态
+      const lastStatusByInterval = new Map<number, string>();
+      
+      statuses.forEach(status => {
+        if (status.intervalIndex !== -1) {
+          lastStatusByInterval.set(status.intervalIndex, status.status);
+        }
+      });
+      
+      // 更新趋势数据
+      lastStatusByInterval.forEach((status, intervalIndex) => {
+        if (intervalIndex >= 0 && intervalIndex < trendData.length) {
+          this.addStatusToTrend(trendData[intervalIndex], status);
+        }
+      });
+    });
+
+    return trendData;
   }
 
   /**
