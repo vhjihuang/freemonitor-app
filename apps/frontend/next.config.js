@@ -28,9 +28,6 @@ const nextConfig = {
     ], // 优化包导入
     optimizeServerReact: true, // 服务端React优化
     scrollRestoration: true,   // 滚动恢复
-    turbo: {
-      resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.md', '.mdx', '.json'],
-    },
   },
   
   // 生产环境专项优化
@@ -47,9 +44,7 @@ const nextConfig = {
   // 生成独立的 CSS 文件
   cssChunking: true,
 
-  compiler: {
-    reactRemoveProperties: true,
-  },
+  compiler: {},
   
   // Webpack优化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
