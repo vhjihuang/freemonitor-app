@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Role } from '@freemonitor/types';
 import { useAuth } from '@/hooks/useAuth';
+import { getCurrentUser } from '@/lib/auth';
 
 interface RootAuthGuardProps {
   children: React.ReactNode;
@@ -31,7 +32,7 @@ function getStoredUser(): StoredUser | null {
 export function RootAuthGuard({ children }: RootAuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user: contextUser, isLoading: contextLoading, isAuthenticated: contextAuthenticated } = useAuth();
   const initializedRef = useRef(false);
   const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
 
@@ -39,13 +40,13 @@ export function RootAuthGuard({ children }: RootAuthGuardProps) {
     setStoredUser(getStoredUser());
   }, []);
 
-  const effectiveIsLoading = isLoading && !storedUser;
-  const effectiveIsAuthenticated = isAuthenticated || !!storedUser;
+  const effectiveIsLoading = contextLoading && !storedUser;
+  const effectiveIsAuthenticated = contextAuthenticated || !!storedUser || !!contextUser;
+
+  const isPublicPath = useMemo(() => PUBLIC_PATHS.some(path => pathname.startsWith(path)), [pathname]);
 
   useEffect(() => {
     if (effectiveIsLoading) return;
-
-    const isPublicPath = PUBLIC_PATHS.some(path => pathname.startsWith(path));
 
     if (!initializedRef.current) {
       initializedRef.current = true;
@@ -56,13 +57,11 @@ export function RootAuthGuard({ children }: RootAuthGuardProps) {
         router.replace('/dashboard');
       }
     }
-  }, [effectiveIsAuthenticated, effectiveIsLoading, pathname, router]);
+  }, [effectiveIsAuthenticated, effectiveIsLoading, isPublicPath, router]);
 
   if (effectiveIsLoading) {
     return null;
   }
-
-  const isPublicPath = PUBLIC_PATHS.some(path => pathname.startsWith(path));
 
   if (!effectiveIsAuthenticated && !isPublicPath) {
     return null;
@@ -73,12 +72,20 @@ export function RootAuthGuard({ children }: RootAuthGuardProps) {
 
 export function useAuthCheck(requiredRoles?: Role[]): { isAllowed: boolean; isLoading: boolean } {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [storedUser, setStoredUser] = useState<StoredUser | null>(null);
+
+  useEffect(() => {
+    setStoredUser(getStoredUser());
+  }, []);
+
+  const effectiveIsLoading = isLoading && !storedUser;
+  const effectiveIsAuthenticated = isAuthenticated || !!storedUser || !!user;
 
   const hasRequiredRole = !requiredRoles || requiredRoles.length === 0 ||
     (!!user?.role && requiredRoles.some((role) => user.role === role));
 
   return {
-    isAllowed: isAuthenticated && hasRequiredRole,
-    isLoading,
+    isAllowed: effectiveIsAuthenticated && hasRequiredRole,
+    isLoading: effectiveIsLoading,
   };
 }
