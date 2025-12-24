@@ -47,13 +47,9 @@ const nextConfig = {
   // 生成独立的 CSS 文件
   cssChunking: true,
 
-  // 生产环境更激进的优化
-  ...(process.env.NODE_ENV === 'production' && {
-    compiler: {
-      ...nextConfig.compiler,
-      reactRemoveProperties: true,
-    },
-  }),
+  compiler: {
+    reactRemoveProperties: true,
+  },
   
   // Webpack优化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {

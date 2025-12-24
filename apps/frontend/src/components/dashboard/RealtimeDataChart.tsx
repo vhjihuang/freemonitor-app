@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -15,10 +15,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useDevices } from '@/hooks/useDevices';
 import { useMetrics } from '@/hooks/useMetrics';
+import { useWebSocketContext } from '@/components/websocket/websocket-provider';
 import { Metric } from '@freemonitor/types';
 import { subHours, subDays, format } from 'date-fns';
 
@@ -29,12 +30,13 @@ interface ChartDataPoint {
   disk: number;
   networkIn?: number;
   networkOut?: number;
+  source: 'api' | 'websocket';
 }
 
 interface TimeRangeOption {
   value: '1h' | '6h' | '24h' | '7d' | '30d';
   label: string;
-  interval: number; // in minutes
+  interval: number;
 }
 
 const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
@@ -45,16 +47,94 @@ const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
   { value: '30d', label: '最近30天', interval: 1440 },
 ];
 
+const MAX_DATA_POINTS = 100;
+const LOCAL_DEVICE_ID = 'local-dev-machine';
+
 export function RealtimeDataChart() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(LOCAL_DEVICE_ID);
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'disk'>('cpu');
   const [timeRange, setTimeRange] = useState<'1h' | '6h' | '24h' | '7d' | '30d'>('1h');
   const [page, setPage] = useState(1);
-  const [limit] = useState(100); // 后端限制每页条数不能超过100
+  const [limit] = useState(100);
+  const [isWsConnected, setIsWsConnected] = useState(false);
   
   const { data: devices = [], isLoading: devicesLoading } = useDevices();
+  const {
+    isConnected: wsIsConnected,
+    connect,
+    subscribeToDevices,
+    unsubscribeFromDevices,
+    onMetrics,
+  } = useWebSocketContext();
   
+  const subscribedRef = useRef(false);
+  const currentDeviceRef = useRef<string>(LOCAL_DEVICE_ID);
+  
+  // WebSocket 连接和订阅管理
+  useEffect(() => {
+    if (!wsIsConnected) {
+      connect();
+    }
+  }, [wsIsConnected, connect]);
+
+  useEffect(() => {
+    currentDeviceRef.current = selectedDeviceId;
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    if (wsIsConnected && selectedDeviceId === LOCAL_DEVICE_ID && !subscribedRef.current) {
+      subscribeToDevices([LOCAL_DEVICE_ID]);
+      subscribedRef.current = true;
+    }
+
+    return () => {
+      if (subscribedRef.current) {
+        unsubscribeFromDevices([LOCAL_DEVICE_ID]);
+        subscribedRef.current = false;
+      }
+    };
+  }, [wsIsConnected, selectedDeviceId, subscribeToDevices, unsubscribeFromDevices]);
+
+  // 处理 WebSocket 实时指标数据
+  useEffect(() => {
+    if (!wsIsConnected) return;
+
+    const handleWsMetrics = (data: {
+      deviceId: string;
+      cpu?: number;
+      memory?: number;
+      disk?: number;
+      networkIn?: number;
+      networkOut?: number;
+      timestamp: string;
+    }) => {
+      if (data.deviceId === selectedDeviceId || selectedDeviceId === LOCAL_DEVICE_ID) {
+        const newDataPoint: ChartDataPoint = {
+          timestamp: format(new Date(data.timestamp), 'HH:mm:ss'),
+          cpu: data.cpu || 0,
+          memory: data.memory || 0,
+          disk: data.disk || 0,
+          networkIn: data.networkIn,
+          networkOut: data.networkOut,
+          source: 'websocket',
+        };
+
+        setChartData(prev => {
+          const newData = [...prev, newDataPoint];
+          if (newData.length > MAX_DATA_POINTS) {
+            return newData.slice(-MAX_DATA_POINTS);
+          }
+          return newData;
+        });
+        setIsWsConnected(true);
+      }
+    };
+
+    const unsubscribe = onMetrics(handleWsMetrics);
+    return unsubscribe;
+  }, [wsIsConnected, selectedDeviceId, onMetrics]);
+
   // 计算时间范围 - 使用 date-fns 简化时间计算
   const { startTime, endTime } = useMemo(() => {
     const now = new Date();
@@ -136,7 +216,8 @@ export function RealtimeDataChart() {
         memory: metric.memory,
         disk: metric.disk,
         networkIn: metric.networkIn,
-        networkOut: metric.networkOut
+        networkOut: metric.networkOut,
+        source: 'api'
       }));
       
       setChartData(formattedData);
