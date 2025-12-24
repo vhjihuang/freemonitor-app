@@ -11,6 +11,7 @@ import { ToastContainer } from '@/components/ui/toast-container';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { WebSocketProvider } from '@/components/websocket/websocket-provider';
 import { AuthProviderWrapper } from '@/contexts/AuthProviderWrapper';
+import { RootAuthGuard } from '@/components/auth/RootAuthGuard';
 
 export const metadata: Metadata = {
   title: 'FreeMonitor - 免费设备监控平台',
@@ -55,7 +56,9 @@ export default function RootLayout({
                       enableSystem
                       disableTransitionOnChange
                     >
-                      {children}
+                      <RootAuthGuard>
+                        {children}
+                      </RootAuthGuard>
                       <Toaster />
                       <ToastContainer />
                     </ThemeProvider>
