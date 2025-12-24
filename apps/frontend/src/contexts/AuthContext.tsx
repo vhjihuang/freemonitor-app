@@ -64,8 +64,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const handleAuthChange = (event: CustomEvent) => {
-      const { isAuthenticated: auth, user } = event.detail;
-      if (auth && user) {
+      const { isAuthenticated: auth, user, loading } = event.detail;
+      if (loading === true) {
+        dispatch({ type: 'AUTH_START' });
+      } else if (auth && user) {
         dispatch({ type: 'AUTH_SUCCESS', payload: { user } });
       } else if (!auth && user === null) {
         dispatch({ type: 'AUTH_FAILURE', payload: { error: '' } });
