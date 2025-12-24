@@ -14,13 +14,8 @@ export default function LoginPage() {
   const handleLogin = async (email: string, password: string) => {
     try {
       setError(null);
-      
-      // 使用 auth.ts 中的 login 函数
       await login(email, password);
-
-      // 重定向到仪表板（使用 replace 防止回退到登录页）
       router.replace('/dashboard');
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : '登录失败');
     }

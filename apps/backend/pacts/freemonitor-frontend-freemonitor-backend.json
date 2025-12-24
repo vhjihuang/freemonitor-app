@@ -1,0 +1,535 @@
+{
+  "consumer": {
+    "name": "freemonitor-frontend"
+  },
+  "interactions": [
+    {
+      "description": "a request to delete a device",
+      "providerStates": [
+        {
+          "name": "device exists and belongs to user"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "access_token=jwt-token"
+        },
+        "matchingRules": {
+          "header": {
+            "Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "DELETE",
+        "path": "/api/v1/devices/device-id-123"
+      },
+      "response": {
+        "body": {
+          "message": "Device deleted successfully",
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to get dashboard overview",
+      "providerStates": [
+        {
+          "name": "user has devices and alerts"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "access_token=jwt-token"
+        },
+        "matchingRules": {
+          "header": {
+            "Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/api/v1/dashboard/overview"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "criticalAlerts": 1,
+            "degradedDevices": 1,
+            "infoAlerts": 1,
+            "offlineDevices": 2,
+            "onlineDevices": 7,
+            "totalAlerts": 5,
+            "totalDevices": 10,
+            "warningAlerts": 3
+          },
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.criticalAlerts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.degradedDevices": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.infoAlerts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.offlineDevices": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.onlineDevices": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.totalAlerts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.totalDevices": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.warningAlerts": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to get device status trend",
+      "providerStates": [
+        {
+          "name": "user has devices with status history"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "access_token=jwt-token"
+        },
+        "matchingRules": {
+          "header": {
+            "Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/api/v1/dashboard/device-status-trend",
+        "query": {
+          "interval": [
+            "1h"
+          ],
+          "period": [
+            "24h"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "data": {
+            "interval": "1h",
+            "period": "24h",
+            "trend": [
+              {
+                "degraded": 1,
+                "maintenance": 0,
+                "offline": 2,
+                "online": 7,
+                "timestamp": "2023-01-01T00:00:00Z",
+                "unknown": 0
+              }
+            ]
+          },
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.trend": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.data.trend[*].degraded": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.trend[*].maintenance": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.trend[*].offline": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.trend[*].online": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.trend[*].timestamp": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "iso8601",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.data.trend[*].unknown": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to get recent alerts",
+      "providerStates": [
+        {
+          "name": "user has recent alerts"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "access_token=jwt-token"
+        },
+        "matchingRules": {
+          "header": {
+            "Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/api/v1/dashboard/recent-alerts",
+        "query": {
+          "limit": [
+            "5"
+          ]
+        }
+      },
+      "response": {
+        "body": {
+          "data": {
+            "items": [
+              {
+                "createdAt": "2023-01-01T00:00:00Z",
+                "deviceId": "device-id",
+                "deviceName": "device-name",
+                "id": "alert-id",
+                "message": "Alert message",
+                "resolved": false,
+                "severity": "warning",
+                "type": "warning",
+                "updatedAt": "2023-01-01T00:00:00Z"
+              }
+            ],
+            "pagination": {
+              "hasNext": false,
+              "hasPrev": false,
+              "next": null,
+              "prev": null,
+              "total": 5
+            }
+          },
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.items": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type",
+                  "min": 1
+                }
+              ]
+            },
+            "$.data.items[*].createdAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "iso8601",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.data.items[*].deviceId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].deviceName": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].message": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].resolved": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].severity": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.items[*].updatedAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "format": "iso8601",
+                  "match": "datetime"
+                }
+              ]
+            },
+            "$.data.pagination.hasNext": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.pagination.hasPrev": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.pagination.next": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "null"
+                }
+              ]
+            },
+            "$.data.pagination.prev": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "null"
+                }
+              ]
+            },
+            "$.data.pagination.total": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "a request to logout",
+      "providerStates": [
+        {
+          "name": "user is authenticated"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "access_token=jwt-token"
+        },
+        "matchingRules": {
+          "header": {
+            "Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/v1/auth/logout"
+      },
+      "response": {
+        "body": {
+          "message": "Logout successful",
+          "success": true
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Set-Cookie": "access_token=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict"
+        },
+        "matchingRules": {
+          "header": {
+            "Set-Cookie": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.4.28",
+      "models": "1.3.5"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "freemonitor-backend"
+  }
+}

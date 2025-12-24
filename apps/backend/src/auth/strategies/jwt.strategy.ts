@@ -30,7 +30,21 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     const jwtConfig = configService.get<JwtConfig>('jwt');
     
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // 优先从Cookie中提取JWT令牌，如果没有则从Authorization头中提取
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (request) => {
+          // 尝试从Cookie中获取JWT令牌
+          if (request && request.cookies) {
+            const token = request.cookies['accessToken'];
+            if (token) {
+              return token;
+            }
+          }
+          
+          // 如果Cookie中没有，则尝试从Authorization头中获取
+          return ExtractJwt.fromAuthHeaderAsBearerToken()(request);
+        }
+      ]),
       ignoreExpiration: false,
       secretOrKey: jwtConfig.secret,
       // 通过passReqToCallback选项来获取请求对象
@@ -59,7 +73,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       this.logger.debug(`开始JWT令牌验证: ${JSON.stringify(requestInfo)}`);
       
       // 1. 获取请求中的原始令牌
-      const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+      let token = null;
+      
+      // 优先从Cookie中获取令牌
+      if (req.cookies && req.cookies['accessToken']) {
+        token = req.cookies['accessToken'];
+        this.logger.debug('从Cookie中获取JWT令牌');
+      } else {
+        // 如果Cookie中没有，则尝试从Authorization头中获取
+        token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+        this.logger.debug('从Authorization头中获取JWT令牌');
+      }
       
       // 如果没有提供令牌，则验证失败
       if (!token) {

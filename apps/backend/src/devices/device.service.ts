@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDeviceDto } from './dto/create-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
+import { QueryDeviceCursorDto, QueryAlertCursorDto, QueryMetricCursorDto } from './dto/query-cursor.dto';
 import { User, Prisma, AlertSeverity, AlertType, DeviceStatus, DeviceType, AlertStatus } from '@prisma/client';
 import { NotFoundException, BusinessException } from '../common/exceptions/app.exception';
 import { DatabaseFilters } from '@freemonitor/types';
@@ -12,7 +13,8 @@ import { QueryMetricDto } from './dto/query-metric.dto';
 import { ResolveAlertDto, BulkResolveAlertDto, AcknowledgeAlertDto, BulkAcknowledgeAlertDto } from './dto/acknowledge-alert.dto';
 import { Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { NotificationService } from '../notification/notification.service';
+import { NotificationQueueService } from '../notification/notification-queue.service';
+import { QueueService } from '../queue/queue.service';
 
 @Injectable()
 export class DeviceService {
@@ -54,7 +56,8 @@ export class DeviceService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notificationService: NotificationService
+    private readonly notificationQueueService: NotificationQueueService,
+    private readonly queueService: QueueService
   ) {}
 
   async createAlert(createAlertDto: CreateAlertDto, userId: string) {
@@ -101,14 +104,14 @@ export class DeviceService {
           device: device
         };
         
-        const notificationResults = await this.notificationService.sendNotification(
+        const notificationResult = await this.notificationQueueService.queueNotification(
           alertWithDevice, 
           createAlertDto.severity as AlertSeverity
         );
         
         this.logger.log(`告警通知发送完成`, {
           alertId: alert.id,
-          results: notificationResults,
+          results: [notificationResult],
         });
       } catch (notificationError) {
         this.logger.error(`告警通知发送失败: ${notificationError.message}`, {
@@ -462,6 +465,108 @@ export class DeviceService {
     return devices;
   }
 
+  /**
+   * 使用游标分页查询用户设备
+   * @param userId 用户ID
+   * @param query 查询参数
+   * @returns 设备列表和分页信息
+   */
+  async findDevicesByCursor(userId: string, query: QueryDeviceCursorDto) {
+    const startTime = Date.now();
+    const { 
+      cursor, 
+      limit = 10, 
+      search, 
+      status, 
+      type, 
+      deviceGroupId, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = query;
+
+    const where: Prisma.DeviceWhereInput = {
+      userId,
+      isActive: true,
+    };
+
+    // 添加搜索条件
+    if (search) {
+      // 检查是否是IP地址搜索
+      const isIpSearch = /^\d{1,3}(\.\d{1,3}){0,3}$/.test(search);
+
+      if (isIpSearch) {
+        // IP地址搜索：支持精确匹配和IP段搜索
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { hostname: { contains: search, mode: "insensitive" } },
+          { ipAddress: { startsWith: search } },
+          { ipAddress: { equals: search } },
+        ];
+      } else {
+        // 普通文本搜索：设备名称和主机名模糊匹配
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } }, 
+          { hostname: { contains: search, mode: "insensitive" } }, 
+          { ipAddress: { contains: search, mode: "insensitive" } }
+        ];
+      }
+    }
+
+    // 添加状态过滤
+    if (status && status !== "all") {
+      where.status = status as DeviceStatus;
+    }
+
+    // 添加设备组过滤
+    if (deviceGroupId) {
+      where.deviceGroupId = deviceGroupId;
+    }
+
+    // 添加类型过滤
+    if (type && type !== "all") {
+      where.type = type as DeviceType;
+    }
+
+    // 构建排序选项
+    const validSortFields = ["name", "hostname", "ipAddress", "status", "type", "createdAt", "updatedAt"];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : "createdAt";
+    const orderBy: Prisma.DeviceOrderByWithRelationInput = { [sortField]: sortOrder };
+
+    // 使用游标分页
+    const devices = await this.prisma.device.findMany({
+      where,
+      orderBy,
+      take: limit + 1, // 多取一条判断是否有下一页
+      cursor: cursor ? { id: cursor } : undefined,
+      select: DeviceService.SELECT,
+    });
+
+    // 判断是否有更多数据
+    const hasMore = devices.length > limit;
+    const items = hasMore ? devices.slice(0, -1) : devices;
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    // 记录查询性能
+    const queryTime = Date.now() - startTime;
+    if (queryTime > 300) {
+      this.logger.warn(`设备游标查询耗时较长: ${queryTime}ms`, {
+        userId,
+        search,
+        status,
+        type,
+        limit,
+        deviceGroupId,
+        queryTime,
+      });
+    }
+
+    return {
+      items,
+      nextCursor,
+      hasMore,
+    };
+  }
+
   async findOne(id: string, userId: string) {
     const device = await this.prisma.device.findFirst({
       where: { id, userId, isActive: true },
@@ -698,6 +803,160 @@ export class DeviceService {
       total,
       page,
       limit,
+      stats: stats.map(s => ({
+        severity: s.severity,
+        _count: {
+          id: s._count._all
+        }
+      }))
+    };
+  }
+
+  /**
+   * 使用游标分页查询告警
+   * @param query 查询参数
+   * @param userId 用户ID
+   * @returns 告警列表和分页信息
+   */
+  async queryAlertsByCursor(query: QueryAlertCursorDto, userId: string) {
+    const { 
+      cursor, 
+      limit = 10, 
+      severity, 
+      deviceId, 
+      deviceName, 
+      type, 
+      isResolved,
+      status,
+      startTime,
+      endTime,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = query as any;
+
+    // 构建查询条件
+    const where: Prisma.AlertWhereInput = {
+      device: {
+        userId: userId,
+        ...DatabaseFilters.activeDevice()
+      }
+    };
+
+    // 添加严重程度过滤
+    if (severity) {
+      where.severity = severity as AlertSeverity;
+    }
+
+    // 添加设备ID过滤
+    if (deviceId) {
+      where.deviceId = deviceId;
+    }
+
+    // 添加设备名称过滤
+    if (deviceName) {
+      if (where.device) {
+        where.device.name = {
+          contains: deviceName,
+          mode: 'insensitive'
+        };
+      }
+    }
+
+    // 添加类型过滤
+    if (type) {
+      where.type = type as AlertType;
+    }
+
+    // 添加解决状态过滤
+    if (isResolved !== undefined) {
+      where.isResolved = isResolved === 'true';
+    }
+    
+    // 如果没有明确设置isResolved，但前端传了status参数，则根据status设置过滤条件
+    if (isResolved === undefined && status) {
+      if (status === 'resolved') {
+        where.isResolved = true;
+      } else if (status === 'unacknowledged') {
+        where.status = 'UNACKNOWLEDGED';
+      } else if (status === 'acknowledged') {
+        where.status = 'ACKNOWLEDGED';
+      } else if (status === 'in_progress') {
+        where.status = 'IN_PROGRESS';
+      }
+    }
+
+    // 添加时间范围过滤
+    if (startTime || endTime) {
+      where.createdAt = {};
+      if (startTime) {
+        const start = new Date(startTime);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestException('无效的开始时间格式');
+        }
+        where.createdAt.gte = start;
+      }
+      if (endTime) {
+        const end = new Date(endTime);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestException('无效的结束时间格式');
+        }
+        where.createdAt.lte = end;
+      }
+    }
+
+    // 构建排序参数
+    let orderBy: Prisma.AlertOrderByWithRelationInput = {};
+    switch (sortBy) {
+      case 'severity':
+        orderBy = { severity: sortOrder };
+        break;
+      case 'type':
+        orderBy = { type: sortOrder };
+        break;
+      case 'deviceName':
+        orderBy = { device: { name: sortOrder } };
+        break;
+      default:
+        orderBy = { createdAt: sortOrder };
+        break;
+    }
+
+    // 使用游标分页执行查询
+    const alerts = await this.prisma.alert.findMany({
+      where,
+      take: limit + 1, // 多取一条判断是否有下一页
+      cursor: cursor ? { id: cursor } : undefined,
+      orderBy,
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            hostname: true,
+            ipAddress: true
+          }
+        }
+      }
+    });
+
+    // 判断是否有更多数据
+    const hasMore = alerts.length > limit;
+    const items = hasMore ? alerts.slice(0, -1) : alerts;
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    // 获取统计信息
+    const stats = await this.prisma.alert.groupBy({
+      by: ['severity'],
+      where,
+      _count: {
+        _all: true
+      }
+    });
+
+    return {
+      items,
+      nextCursor,
+      hasMore,
       stats: stats.map(s => ({
         severity: s.severity,
         _count: {
@@ -991,6 +1250,7 @@ export class DeviceService {
     }
 
     // 执行查询（先查询实时数据，如果不够再查询历史数据）
+    // 优化：使用单个查询获取所有需要的数据，避免N+1问题
     const [realtimeData, realtimeTotal] = await this.prisma.$transaction([
       this.prisma.metric.findMany({
         where,
@@ -1051,7 +1311,7 @@ export class DeviceService {
         }
       }
       
-      // 查询历史数据
+      // 优化：使用单个查询获取历史数据和总数，避免N+1问题
       const [historyData, historyTotal] = await this.prisma.$transaction([
         this.prisma.metricHistory.findMany({
           where: historyWhere,
@@ -1085,135 +1345,204 @@ export class DeviceService {
   }
 
   /**
+   * 使用游标分页查询指标数据
+   * @param query 查询参数
+   * @param userId 用户ID
+   * @returns 指标数据列表和分页信息
+   */
+  async queryMetricsByCursor(query: QueryMetricCursorDto, userId: string) {
+    const { 
+      cursor, 
+      limit = 20, 
+      sortBy = 'timestamp',
+      sortOrder = 'desc',
+      deviceId,
+      startTime,
+      endTime
+    } = query;
+
+    // 构建查询条件
+    const where: Prisma.MetricWhereInput = {
+      device: {
+        userId: userId,
+        ...DatabaseFilters.activeDevice()
+      }
+    };
+
+    // 添加设备ID过滤
+    if (deviceId) {
+      where.deviceId = deviceId;
+    }
+
+    // 添加时间范围过滤
+    if (startTime || endTime) {
+      where.timestamp = {};
+      if (startTime) {
+        const start = new Date(startTime);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestException('无效的开始时间格式');
+        }
+        where.timestamp.gte = start;
+      }
+      if (endTime) {
+        const end = new Date(endTime);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestException('无效的结束时间格式');
+        }
+        where.timestamp.lte = end;
+      }
+    }
+
+    // 构建排序参数
+    let orderBy: Prisma.MetricOrderByWithRelationInput = {};
+    switch (sortBy) {
+      case 'cpu':
+        orderBy = { cpu: sortOrder };
+        break;
+      case 'memory':
+        orderBy = { memory: sortOrder };
+        break;
+      case 'disk':
+        orderBy = { disk: sortOrder };
+        break;
+      default:
+        orderBy = { timestamp: sortOrder };
+        break;
+    }
+
+    // 使用游标分页执行查询
+    const metrics = await this.prisma.metric.findMany({
+      where,
+      take: limit + 1, // 多取一条判断是否有下一页
+      cursor: cursor ? { id: cursor } : undefined,
+      orderBy,
+      include: {
+        device: {
+          select: {
+            id: true,
+            name: true,
+            hostname: true,
+            ipAddress: true
+          }
+        }
+      }
+    });
+
+    // 判断是否有更多数据
+    const hasMore = metrics.length > limit;
+    const items = hasMore ? metrics.slice(0, -1) : metrics;
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    return {
+      items,
+      nextCursor,
+      hasMore
+    };
+  }
+
+  /**
    * 归档历史数据
    * 将超过7天的指标数据从metric表迁移到metric_history表
+   * 现在使用消息队列异步处理
    */
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async archiveMetrics() {
-    this.logger.log('开始执行指标数据归档任务');
+    this.logger.log('开始调度指标数据归档任务到消息队列');
     
     try {
       // 计算7天前的时间
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - 7);
       
-      // 查找需要归档的数据
-      const metricsToArchive = await this.prisma.metric.findMany({
-        where: {
-          timestamp: {
-            lt: cutoffDate
-          }
-        }
+      // 添加归档任务到队列
+      const job = await this.queueService.addArchiveMetricsJob(cutoffDate, {
+        batchSize: 1000, // 每批处理1000条记录
       });
       
-      if (metricsToArchive.length === 0) {
-        this.logger.log('没有需要归档的指标数据');
-        return { archivedCount: 0 };
-      }
-      
-      // 将数据迁移到历史表
-      const archivePromises = metricsToArchive.map(metric => 
-        this.prisma.metricHistory.create({
-          data: {
-            ...metric,
-            aggregationLevel: 'raw'
-          },
-          select: DeviceService.METRIC_HISTORY_SELECT
-        })
-      );
-      
-      await Promise.all(archivePromises);
-      
-      // 删除已归档的数据
-      await this.prisma.metric.deleteMany({
-        where: {
-          timestamp: {
-            lt: cutoffDate
-          }
-        }
-      });
-      
-      this.logger.log(`成功归档 ${metricsToArchive.length} 条指标数据`);
-      return { archivedCount: metricsToArchive.length };
+      this.logger.log(`指标数据归档任务已添加到队列，任务ID: ${job.id}`);
+      return { jobId: job.id, status: 'queued' };
     } catch (error) {
-      this.logger.error('指标数据归档任务失败', error);
-      throw new BusinessException('数据归档失败');
+      this.logger.error('添加指标数据归档任务到队列失败', error);
+      throw new BusinessException('数据归档任务调度失败');
     }
   }
 
   /**
    * 压缩历史数据
    * 将超过30天的历史数据按小时聚合压缩
+   * 现在使用消息队列异步处理
    */
-  @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async compressHistoricalMetrics() {
-    this.logger.log('开始执行历史数据压缩任务');
+    this.logger.log('开始调度历史数据压缩任务到消息队列');
     
     try {
       // 计算30天前的时间
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - 30);
       
-      // 查找需要压缩的数据
-      const metricsToCompress = await this.prisma.metricHistory.findMany({
-        where: {
-          timestamp: {
-            lt: cutoffDate
-          },
-          aggregationLevel: 'raw'
-        }
+      // 添加压缩任务到队列
+      const job = await this.queueService.addCompressMetricsJob(cutoffDate, {
+        batchSize: 1000, // 每批处理1000条记录
       });
       
-      if (metricsToCompress.length === 0) {
-        this.logger.log('没有需要压缩的历史数据');
-        return { compressedCount: 0 };
-      }
-      
-      // 按设备和小时分组数据
-      const groupedMetrics = this.groupMetricsByHour(metricsToCompress);
-      
-      // 创建压缩后的数据
-      const compressedMetrics = [];
-      for (const [key, metrics] of Object.entries(groupedMetrics)) {
-        const compressedMetric = this.compressMetrics(metrics);
-        compressedMetrics.push(compressedMetric);
-      }
-      
-      // 插入压缩后的数据
-      const insertPromises = compressedMetrics.map(metric => 
-        this.prisma.metricHistory.create({
-          data: {
-            ...metric,
-            aggregationLevel: 'hour'
-          },
-          select: DeviceService.METRIC_HISTORY_SELECT
-        })
-      );
-      
-      await Promise.all(insertPromises);
-      
-      // 删除已压缩的原始数据
-      const deviceIds = [...new Set(metricsToCompress.map(m => m.deviceId))];
-      for (const deviceId of deviceIds) {
-        await this.prisma.metricHistory.deleteMany({
-          where: {
-            deviceId,
-            timestamp: {
-              lt: cutoffDate
-            },
-            aggregationLevel: 'raw'
-          }
-        });
-      }
-      
-      this.logger.log(`成功压缩 ${metricsToCompress.length} 条历史数据为 ${compressedMetrics.length} 条聚合数据`);
-      return { 
-        originalCount: metricsToCompress.length, 
-        compressedCount: compressedMetrics.length 
-      };
+      this.logger.log(`历史数据压缩任务已添加到队列，任务ID: ${job.id}`);
+      return { jobId: job.id, status: 'queued' };
     } catch (error) {
-      this.logger.error('历史数据压缩任务失败', error);
-      throw new BusinessException('数据压缩失败');
+      this.logger.error('添加历史数据压缩任务到队列失败', error);
+      throw new BusinessException('数据压缩任务调度失败');
+    }
+  }
+
+  /**
+   * 定时调度数据归档任务到消息队列
+   * 每天凌晨2点执行
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async scheduleArchiveMetricsJob() {
+    this.logger.log('开始定时调度数据归档任务');
+    
+    try {
+      // 计算7天前的时间
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
+      
+      // 添加归档任务到队列，延迟1小时执行，避免高峰期
+      const job = await this.queueService.addArchiveMetricsJob(cutoffDate, {
+        batchSize: 1000,
+        delay: 3600000, // 延迟1小时，单位毫秒
+      });
+      
+      this.logger.log(`数据归档任务已定时调度到队列，任务ID: ${job.id}`);
+      return { jobId: job.id, status: 'scheduled' };
+    } catch (error) {
+      this.logger.error('定时调度数据归档任务失败', error);
+      // 不抛出异常，避免影响后续定时任务
+    }
+  }
+
+  /**
+   * 定时调度数据压缩任务到消息队列
+   * 每天凌晨3点执行
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async scheduleCompressMetricsJob() {
+    this.logger.log('开始定时调度数据压缩任务');
+    
+    try {
+      // 计算30天前的时间
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
+      
+      // 添加压缩任务到队列，延迟1小时执行，避免高峰期
+      const job = await this.queueService.addCompressMetricsJob(cutoffDate, {
+        batchSize: 1000,
+        delay: 3600000, // 延迟1小时，单位毫秒
+      });
+      
+      this.logger.log(`数据压缩任务已定时调度到队列，任务ID: ${job.id}`);
+      return { jobId: job.id, status: 'scheduled' };
+    } catch (error) {
+      this.logger.error('定时调度数据压缩任务失败', error);
+      // 不抛出异常，避免影响后续定时任务
     }
   }
 

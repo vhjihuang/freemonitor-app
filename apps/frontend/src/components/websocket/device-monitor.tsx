@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useWebSocket } from '@/lib/websocket';
-import { getAccessToken } from '@/lib/auth';
+import { useWebSocketContext } from './websocket-provider';
 
 interface DeviceMonitorProps {
   deviceId: string;
@@ -25,29 +24,47 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({
   className = '' 
 }) => {
   const [metrics, setMetrics] = useState<MetricData[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
 
   const {
+    isConnected,
     connect,
     disconnect,
     subscribeToDevices,
     unsubscribeFromDevices,
-    isConnected: checkConnected,
-  } = useWebSocket({
-    token: getAccessToken() || '',
-    onConnect: () => {
-      console.log('DeviceMonitor: WebSocket 连接已建立');
-      setIsConnected(true);
-    },
-    onDisconnect: (reason) => {
-      console.log('DeviceMonitor: WebSocket 断开连接，原因:', reason);
-      setIsConnected(false);
-    },
-    onError: (error) => {
-      console.error('DeviceMonitor: WebSocket 错误:', error);
-    },
-    onMetricsUpdate: (data) => {
-      // 只处理当前设备的指标数据
+    onMetrics,
+  } = useWebSocketContext();
+
+  useEffect(() => {
+    console.log('DeviceMonitor: 建立连接');
+    connect();
+
+    return () => {
+      console.log('DeviceMonitor: 断开连接');
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
+  useEffect(() => {
+    if (isConnected && !subscribed) {
+      console.log(`订阅设备 ${deviceId} 的实时数据`);
+      subscribeToDevices([deviceId]);
+      setSubscribed(true);
+    }
+
+    return () => {
+      if (subscribed) {
+        console.log(`取消订阅设备 ${deviceId} 的实时数据`);
+        unsubscribeFromDevices([deviceId]);
+        setSubscribed(false);
+      }
+    };
+  }, [isConnected, deviceId, subscribeToDevices, unsubscribeFromDevices, subscribed]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleMetrics = (data: { deviceId: string; metrics?: { cpu?: number; memory?: number; disk?: number; network?: { in: number; out: number } }; timestamp: string }) => {
       if (data.deviceId === deviceId) {
         const metric: MetricData = {
           deviceId: data.deviceId,
@@ -60,36 +77,15 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({
 
         setMetrics(prev => {
           const newMetrics = [...prev, metric];
-          // 只保留最近10条数据
           return newMetrics.slice(-10);
         });
       }
-    },
-  });
-
-  useEffect(() => {
-    console.log('初始化 DeviceMonitor WebSocket 连接');
-    connect();
-
-    return () => {
-      console.log('清理 DeviceMonitor WebSocket 连接');
-      disconnect();
     };
-  }, []);
 
-  useEffect(() => {
-    if (isConnected) {
-      console.log(`订阅设备 ${deviceId} 的实时数据`);
-      subscribeToDevices([deviceId]);
-    }
+    const unsubscribe = onMetrics(handleMetrics);
 
-    return () => {
-      if (isConnected) {
-        console.log(`取消订阅设备 ${deviceId} 的实时数据`);
-        unsubscribeFromDevices([deviceId]);
-      }
-    };
-  }, [isConnected, deviceId]);
+    return unsubscribe;
+  }, [isConnected, deviceId, onMetrics]);
 
   const latestMetric = metrics[metrics.length - 1];
 

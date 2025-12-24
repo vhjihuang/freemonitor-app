@@ -1,357 +1,107 @@
-import { apiClient } from './api';
-import { refreshCsrfToken } from './csrf';
-import { TokenResponse, UserResponseDto } from '@freemonitor/types';
-import { ApiHandlers } from '@freemonitor/types';
-import { standardizeError, formatUserErrorMessage } from './error-handler';
-import { parseJWT } from './string-utils';
+import { authApi } from '../clients/auth-client';
+import { UserResponseDto } from '@freemonitor/types';
+import { standardizeError } from './error-handler';
+export { getAccessToken } from './cookies';
 
-// 认证相关类型
-export interface User extends UserResponseDto {}
+export type User = UserResponseDto;
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken?: string;
-  user: User;
+type AuthEventDetail = {
+  isAuthenticated: boolean;
+  user: User | null;
+  loading?: boolean;
+  error?: string;
+  message?: string;
+};
+
+function dispatchAuthEvent(detail: AuthEventDetail): void {
+  window.dispatchEvent(new CustomEvent('authStateChanged', { detail }));
 }
 
-// 登录函数
-export async function login(email: string, password: string): Promise<AuthTokens> {
-  try {
-    // 触发认证开始事件
-    const authStartEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: false,
-        user: null,
-        loading: true,
-        message: '正在登录...'
-      } 
-    });
-    window.dispatchEvent(authStartEvent);
-    
-    const data = await ApiHandlers.generic<TokenResponse>(
-      () => apiClient.post('/auth/login', { email, password })
-    );
-    
-    if (!data.accessToken) {
-      throw new Error('登录响应缺少访问令牌');
-    }
-    
-    if (!data.user) {
-      throw new Error('登录响应缺少用户信息');
-    }
-    
-    const tokens: AuthTokens = {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user
-    };
-    
-    saveAuthData(tokens);
-    
-    // 登录成功后同步获取CSRF令牌
-    try {
-      // 等待CSRF令牌获取完成，确保后续API调用可以使用
-      await refreshCsrfToken();
-      console.log('登录后CSRF令牌刷新成功');
-    } catch (error) {
-      console.warn('登录后获取CSRF令牌失败:', error);
-      // 即使CSRF令牌获取失败，也不影响登录流程
-    }
-    
-    return tokens;
-  } catch (error: any) {
-    console.error('登录错误:', error);
-    const standardizedError = standardizeError(error);
-    
-    // 触发认证失败事件
-    const authErrorEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: false,
-        user: null,
-        loading: false,
-        error: standardizedError.userMessage || '登录失败，请检查邮箱和密码'
-      } 
-    });
-    window.dispatchEvent(authErrorEvent);
-    
-    throw new Error(standardizedError.userMessage || '登录失败，请检查邮箱和密码');
-  }
+function dispatchError(error: string, userMessage: string): never {
+  dispatchAuthEvent({ isAuthenticated: false, user: null, loading: false, error: userMessage });
+  throw new Error(error);
 }
 
-// 注册函数
-export async function register(email: string, password: string, name: string): Promise<AuthTokens> {
-  try {
-    // 触发认证开始事件
-    const authStartEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: false,
-        user: null,
-        loading: true,
-        message: '正在注册...'
-      } 
-    });
-    window.dispatchEvent(authStartEvent);
-    
-    const data = await ApiHandlers.generic<TokenResponse>(
-        () => apiClient.post('/auth/register', { email, password, name })
-      );
-    
-    if (!data.accessToken) {
-      throw new Error('注册响应缺少访问令牌');
-    }
-    
-    if (!data.user) {
-      throw new Error('注册响应缺少用户信息');
-    }
-    
-    const tokens: AuthTokens = {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-      user: data.user
-    };
-    
-    saveAuthData(tokens);
-    
-    // 注册成功后同步获取CSRF令牌
-    try {
-      // 等待CSRF令牌获取完成，确保后续API调用可以使用
-      await refreshCsrfToken();
-      console.log('注册后CSRF令牌刷新成功');
-    } catch (error) {
-      console.warn('注册后获取CSRF令牌失败:', error);
-      // 即使CSRF令牌获取失败，也不影响注册流程
-    }
-    
-    return tokens;
-  } catch (error: any) {
-    console.error('注册错误:', error);
-    const standardizedError = standardizeError(error);
-    
-    // 触发认证失败事件
-    const authErrorEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: false,
-        user: null,
-        loading: false,
-        error: standardizedError.userMessage || '注册失败'
-      } 
-    });
-    window.dispatchEvent(authErrorEvent);
-    
-    throw new Error(standardizedError.userMessage || '注册失败');
-  }
+async function saveAuthData(user: User): Promise<void> {
+  sessionStorage.setItem('user', JSON.stringify(user));
+  dispatchAuthEvent({ isAuthenticated: true, user });
 }
 
-// 保存认证数据
-function saveAuthData(data: AuthTokens): void {
+export async function login(email: string, password: string): Promise<{ user: User }> {
+  dispatchAuthEvent({ isAuthenticated: false, user: null, loading: true, message: '正在登录...' });
+
   try {
-    console.log('[auth] 保存认证数据:', { 
-      hasAccessToken: !!data.accessToken, 
-      hasRefreshToken: !!data.refreshToken, 
-      hasUser: !!data.user,
-      user: data.user ? { id: data.user.id, email: data.user.email } : null
-    });
-    
-    // 验证数据完整性
-    if (!data.accessToken || typeof data.accessToken !== 'string') {
-      throw new Error('无效的访问令牌');
-    }
-    
-    if (data.user && typeof data.user !== 'object') {
-      throw new Error('无效的用户数据格式');
-    }
-    
-    // 使用localStorage存储令牌（添加安全措施）
-    localStorage.setItem('accessToken', data.accessToken);
-    
-    if (data.refreshToken) {
-      localStorage.setItem('refreshToken', data.refreshToken);
-    }
-    
-    if (data.user && typeof data.user === 'object') {
-      const userStr = JSON.stringify(data.user);
-      localStorage.setItem('user', userStr);
-    } else {
-      localStorage.removeItem('user');
-    }
-    
-    console.log('[auth] 认证数据保存完成，触发认证状态变化事件');
-    
-    // 触发认证状态变化事件，包含用户信息
-    const authChangeEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: true,
-        user: data.user
-      } 
-    });
-    window.dispatchEvent(authChangeEvent);
+    const { user } = await authApi.login({ email, password });
+    if (!user?.id) dispatchError('登录响应无效', '登录响应无效');
+    await saveAuthData(user);
+    return { user };
   } catch (error) {
-    console.error('Failed to save auth data to localStorage:', error);
-    throw new Error('保存认证数据失败');
+    dispatchError(standardizeError(error)?.userMessage || '登录失败，请检查邮箱和密码', standardizeError(error)?.userMessage || '登录失败，请检查邮箱和密码');
   }
 }
 
-// 自动刷新令牌机制
-export async function refreshTokens(maxRetries: number = 3): Promise<AuthTokens | null> {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) {
-    console.warn('没有可用的刷新令牌');
-    return null;
+export async function register(email: string, password: string, name: string): Promise<{ user: User }> {
+  dispatchAuthEvent({ isAuthenticated: false, user: null, loading: true, message: '正在注册...' });
+
+  try {
+    const { user } = await authApi.register({ email, password, name });
+    if (!user?.id) dispatchError('注册响应无效', '注册响应无效');
+    await saveAuthData(user);
+    return { user };
+  } catch (error) {
+    dispatchError(standardizeError(error)?.userMessage || '注册失败', standardizeError(error)?.userMessage || '注册失败');
   }
-  
-  let lastError: any = null;
-  
-  // 尝试多次刷新令牌
+}
+
+export async function refreshTokens(maxRetries: number = 3): Promise<{ user: User }> {
+  let lastError: Error | null = null;
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`尝试刷新令牌 (第${attempt}/${maxRetries}次)`);
-      
-      const data = await ApiHandlers.generic<TokenResponse>(
-        () => apiClient.post('/auth/refresh', { refreshToken })
-      );
-      
-      if (!data.accessToken) {
-        throw new Error('刷新令牌响应缺少访问令牌');
-      }
-      
-      if (!data.user) {
-        throw new Error('刷新令牌响应缺少用户信息');
-      }
-      
-      const tokens: AuthTokens = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        user: data.user
-      };
-      
-      saveAuthData(tokens);
-      
-      if (attempt > 1) {
-        console.log(`令牌刷新成功 (第${attempt}次尝试)`);
-      }
-      
-      return tokens;
-    } catch (error: any) {
-      console.error(`第${attempt}次令牌刷新失败:`, error);
-      lastError = error;
-      
-      // 如果不是最后一次尝试，等待一段时间后重试
+      const { user } = await authApi.refreshToken();
+      if (!user?.id) throw new Error('令牌刷新响应无效');
+      await saveAuthData(user);
+      return { user };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
       if (attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 1000; // 指数退避延迟
-        console.log(`等待${delay}ms后进行第${attempt + 1}次尝试`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
       }
     }
   }
-  
-  // 所有重试都失败了
-  console.error('令牌刷新失败，已达到最大重试次数:', lastError);
-  
-  // 如果是401未授权错误，清除认证状态并重定向到登录页面
-  if (lastError && lastError.message && lastError.message.includes('401')) {
-    console.warn('认证已失效，清除状态并重定向到登录页面');
-    logout();
-    
-    // 重定向到登录页面
+
+  if (lastError?.message?.includes('401')) {
+    dispatchAuthEvent({ isAuthenticated: false, user: null, error: '登录已过期，请重新登录' });
     if (typeof window !== 'undefined') {
-      setTimeout(() => {
-        window.location.href = '/auth/login';
-      }, 100);
+      setTimeout(() => { window.location.href = '/auth/login'; }, 100);
     }
   }
-  
-  // 提供更详细的错误信息
-  const standardizedError = standardizeError(lastError);
-  const errorMessage = standardizedError.userMessage || '刷新令牌失败，请重新登录';
-  throw new Error(errorMessage);
+
+  dispatchError(standardizeError(lastError)?.userMessage || '刷新令牌失败，请重新登录', standardizeError(lastError)?.userMessage || '刷新令牌失败，请重新登录');
 }
 
-// 获取当前用户
 export function getCurrentUser(): User | null {
   if (typeof window === 'undefined') return null;
-  
+
   try {
-    const userStr = localStorage.getItem('user');
-    
-    if (!userStr || userStr === 'undefined' || userStr === 'null') {
-      return null;
-    }
-    
+    const userStr = sessionStorage.getItem('user');
+    if (!userStr) return null;
+
     const user = JSON.parse(userStr);
-    return user;
-  } catch (error) {
-    localStorage.removeItem('user');
+    return (user?.id && user?.email) ? user : null;
+  } catch {
+    sessionStorage.removeItem('user');
     return null;
   }
 }
 
-// 获取访问令牌
-export function getAccessToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  const token = localStorage.getItem('accessToken');
-  
-  if (!token || token === 'undefined' || token === 'null') {
-    return null;
-  }
-  
-  return token;
-}
-
-// 检查JWT令牌是否过期
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = parseJWT(token);
-    if (!payload) return true;
-    const currentTime = Math.floor(Date.now() / 1000);
-    return payload.exp < currentTime;
-  } catch (error) {
-    console.error('解析JWT令牌失败:', error);
-    return true; // 如果解析失败，认为令牌无效
-  }
-}
-
-// 检查是否已认证
 export function isAuthenticated(): boolean {
-  const token = getAccessToken();
-  if (!token) return false;
-  
-  // 检查令牌是否过期
-  if (isTokenExpired(token)) {
-    // 令牌过期，清除认证数据
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    return false;
-  }
-  
-  return true;
+  return getCurrentUser() !== null;
 }
 
-// 登出
 export function logout(): void {
-  try {
-    console.log('[auth] 执行登出操作');
-    
-    // 清除localStorage中的认证信息
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    
-    console.log('[auth] 认证数据已清除，触发认证状态变化事件');
-    
-    // 触发认证状态变化事件，包含用户信息
-    const authChangeEvent = new CustomEvent('authStateChanged', { 
-      detail: { 
-        isAuthenticated: false,
-        user: null
-      } 
-    });
-    window.dispatchEvent(authChangeEvent);
-    
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-  } catch (error) {
-    console.error('登出失败:', error);
-  }
+  sessionStorage.removeItem('user');
+  window.dispatchEvent(new CustomEvent('authStateChanged', { detail: { isAuthenticated: false, user: null } }));
+  authApi.logout().catch(() => {});
+  setTimeout(() => { window.location.href = '/login'; }, 150);
 }

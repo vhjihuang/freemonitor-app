@@ -2,7 +2,7 @@
 import { Controller, Get, HttpCode, Header } from '@nestjs/common';
 import { HealthService } from './health.service';
 
-@Controller('health')
+@Controller('api/v1/health')
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 

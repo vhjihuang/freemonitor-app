@@ -2,7 +2,6 @@ import { Controller, Get, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import Tokens from 'csrf';
 import { createSuccessResponse } from '@freemonitor/types';
-import { Throttle } from '@nestjs/throttler';
 
 // 从环境变量获取CSRF密钥（与中间件使用相同的密钥）
 const secret = process.env.CSRF_SECRET || 'freemonitor-development-csrf-secret-key-fixed-value';
@@ -19,10 +18,9 @@ export class CsrfController {
    * @returns 包含CSRF令牌的响应
    */
   @Get('token')
-  @Throttle({ default: { limit: 100, ttl: 60000 } })
   getCsrfToken(@Req() req: Request, @Res() res: Response) {
     // 从请求中获取已生成的令牌
-    const token = (req as any).csrfToken;
+    const token = (req as Request & { csrfToken?: string }).csrfToken;
     
     // 如果没有令牌，则生成一个新的
     if (!token) {

@@ -8,15 +8,15 @@ import {
   Get,
   UseGuards,
   Request,
-  Patch,
   Param,
-  UsePipes,
-  ValidationPipe,
   Delete,
   Headers,
+  Res,
 } from '@nestjs/common';
+import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ThrottlerGuard } from '../throttler/throttler.guard';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ApiCommonResponses } from '../common/decorators/api-common-responses.decorator';
 import { ValidationException } from '../common/exceptions/app.exception';
 import { AuthService } from './auth.service';
@@ -29,18 +29,32 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { TokenResponse, RequestWithUser } from '@freemonitor/types';
+import { TokenResponse, UserResponseDto } from '@freemonitor/types';
 import { SessionResponseDto } from './dto/session.response.dto';
+import { CookieManagerService } from '../common/services/cookie-manager.service';
+
+// 扩展的请求接口，包含用户信息
+interface RequestWithUser extends ExpressRequest {
+  user: UserResponseDto;
+}
 
 @Controller('auth')
+@UseGuards(ThrottlerGuard) // 只对认证控制器应用限流
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly cookieManager: CookieManagerService,
+  ) {}
 
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
-  async login(@Body() loginDto: LoginDto, @Request() req): Promise<TokenResponse> {
+  async login(
+    @Body() loginDto: LoginDto, 
+    @Request() req, 
+    @Res({ passthrough: true }) res: ExpressResponse
+  ): Promise<Omit<TokenResponse, 'accessToken' | 'refreshToken'>> {
     const ip = req.ip || req.connection.remoteAddress;
     // 安全地访问user-agent头
     const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
@@ -50,30 +64,69 @@ export class AuthController {
       throw new ValidationException('无效的请求格式');
     }
     
-    return this.authService.login(loginDto, ip, userAgent);
+    const tokens = await this.authService.login(loginDto, ip, userAgent);
+    
+    // 使用Cookie管理服务设置认证Cookie
+    this.cookieManager.setAuthCookies(res, tokens);
+    
+    // 返回用户信息，不包含令牌
+    return {
+      user: tokens.user,
+      expiresIn: tokens.expiresIn,
+    };
   }
 
   @Public()
   @Post('register')
   @Throttle({ auth: { limit: 3, ttl: 3600000 } })
-  async register(@Body() registerDto: RegisterDto, @Request() req): Promise<TokenResponse> {
+  async register(
+    @Body() registerDto: RegisterDto, 
+    @Request() req, 
+    @Res({ passthrough: true }) res: ExpressResponse
+  ): Promise<Omit<TokenResponse, 'accessToken' | 'refreshToken'>> {
     const ip = req.ip || req.connection.remoteAddress;
     // 安全地访问user-agent头
     const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
-    return this.authService.register(registerDto, ip, userAgent);
+    
+    const tokens = await this.authService.register(registerDto, ip, userAgent);
+    
+    // 使用Cookie管理服务设置认证Cookie
+    this.cookieManager.setAuthCookies(res, tokens);
+    
+    // 返回用户信息，不包含令牌
+    return {
+      user: tokens.user,
+      expiresIn: tokens.expiresIn,
+    };
   }
 
   @Public()
   @Post('refresh')
   @Throttle({ auth: { limit: 10, ttl: 60000 } })
-  async refresh(@Body('refreshToken') refreshToken: string, @Request() req): Promise<TokenResponse> {
+  async refresh(
+    @Request() req, 
+    @Res({ passthrough: true }) res: ExpressResponse
+  ): Promise<Omit<TokenResponse, 'accessToken' | 'refreshToken'>> {
+    // 从Cookie中获取refreshToken
+    const refreshToken = req.cookies?.refreshToken;
+    
+    if (!refreshToken) {
+      throw new ValidationException('缺少刷新令牌');
+    }
+    
     const ip = req.ip || req.connection.remoteAddress;
     // 安全地访问user-agent头
     const userAgent = (req.headers && typeof req.headers === 'object' && req.headers['user-agent']) || '';
+    
     const result = await this.authService.refresh(refreshToken, ip, userAgent);
+    
+    // 使用Cookie管理服务更新访问令牌
+    this.cookieManager.setAccessToken(res, result.accessToken, result.expiresIn);
+    
+    // 返回用户信息，不包含令牌
     return {
-      ...result,
-      refreshToken: undefined
+      user: result.user,
+      expiresIn: result.expiresIn,
     };
   }
 
@@ -170,8 +223,20 @@ export class AuthController {
   @Public()
   @Post('logout')
   @Throttle({ default: { limit: 100, ttl: 60000 } })
-  async logout(@Body('refreshToken') refreshToken: string) {
-    await this.authService.logout(refreshToken);
+  async logout(
+    @Request() req,
+    @Res({ passthrough: true }) res: ExpressResponse
+  ) {
+    // 从Cookie中获取refreshToken
+    const refreshToken = req.cookies?.refreshToken || '';
+    
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    
+    // 使用Cookie管理服务清除认证Cookie
+    this.cookieManager.clearAuthCookies(res);
+    
     // 返回简单数据，拦截器会自动包装为统一格式
     return { success: true };
   }

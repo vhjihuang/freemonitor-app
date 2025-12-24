@@ -66,7 +66,7 @@ export class WebSocketClient {
     console.log('WebSocket: 尝试建立连接', {
       hasSocket: !!this.socket,
       isConnected: this.socket?.connected,
-      token: this.config.token ? getStringPrefix(this.config.token, 10) : 'null'
+      token: this.config.token ? 'cookie-auth' : 'null'
     });
     
     if (this.socket?.connected) {
@@ -80,14 +80,13 @@ export class WebSocketClient {
     this.reconnectAttempts = 0;
     this.clearReconnectTimeout();
 
-    // 使用最新的有效令牌
-    const token = this.getLatestToken();
-    console.log('WebSocket: 使用令牌建立连接', {
-      token: token ? getStringPrefix(token, 10) : 'null'
-    });
+    // 对于Cookie认证机制，我们不需要实际的令牌
+    // 服务器端会验证Cookie中的令牌
+    const token = 'cookie-auth';
+    console.log('WebSocket: 使用Cookie认证机制建立连接');
     
     const queryParams: Record<string, string> = {
-      token: token,
+      auth: 'cookie', // 使用Cookie认证标识
     };
 
     if (this.config.deviceId) {
@@ -98,11 +97,11 @@ export class WebSocketClient {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       query: queryParams,
-      auth: {
-        token: token,
-      },
+      // 对于Cookie认证，不需要在auth中传递令牌
+      // 浏览器会自动在请求中包含httpOnly Cookie
       reconnection: false, // 禁用Socket.IO内置重连，使用自定义重连逻辑
       timeout: 30000, // 增加超时时间到30秒
+      withCredentials: true, // 确保发送Cookie
     });
 
     this.setupEventListeners();
@@ -340,18 +339,34 @@ export class WebSocketClient {
     try {
       console.log('WebSocket: 执行健康检查');
       
-      // 检查令牌有效性
-      const token = this.getLatestToken();
-      if (!this.isTokenValid(token)) {
-        console.warn('WebSocket: 令牌即将过期，尝试刷新');
-        const newToken = await this.refreshAuthToken();
-        if (newToken) {
-          // 更新认证信息
-          this.config.token = newToken;
-          // 如果有socket连接，更新认证头
-          // 注意：Socket.IO v4+ 不再支持直接修改 opts，需要重新连接
-        } else {
-          console.error('WebSocket: 无法刷新令牌，准备断开连接');
+      // 对于Cookie认证机制，我们不需要检查令牌有效性
+      // 服务器端会验证Cookie中的令牌
+      // 我们只需要确认用户仍然通过前端认证即可
+      
+      // 检查sessionStorage中是否有用户信息作为认证状态的指示
+      if (typeof window !== 'undefined') {
+        try {
+          const userStr = sessionStorage.getItem('user');
+          
+          // 如果没有用户信息，认为未认证，断开连接
+          if (!userStr || userStr === 'undefined' || userStr === 'null') {
+            console.warn('WebSocket: 未找到用户信息，断开连接');
+            this.disconnect();
+            return;
+          }
+          
+          // 尝试解析用户信息
+          const user = JSON.parse(userStr);
+          
+          // 检查用户对象是否有效
+          if (!user || typeof user !== 'object' || !user.id || !user.email) {
+            console.warn('WebSocket: 用户信息无效，断开连接');
+            this.disconnect();
+            return;
+          }
+        } catch (error) {
+          console.error('WebSocket: 解析用户信息失败，断开连接:', error);
+          sessionStorage.removeItem('user');
           this.disconnect();
           return;
         }
@@ -404,45 +419,19 @@ export class WebSocketClient {
   
   // 获取最新的访问令牌
   private getLatestToken(): string {
-    // 首先尝试使用配置中的令牌
-    if (this.config && this.config.token) {
-      console.log('WebSocket: 使用配置中的令牌', {
-        token: getStringPrefix(this.config.token, 10)
-      });
-      return this.config.token;
-    }
-    
-    // 如果配置中没有令牌，尝试从localStorage获取
-    try {
-      const token = localStorage.getItem('accessToken');
-      console.log('WebSocket: 从localStorage获取令牌', {
-        token: getStringPrefix(token, 10)
-      });
-      if (token && token !== 'undefined' && token !== 'null') {
-        return token;
-      }
-    } catch (error) {
-      console.warn('获取访问令牌失败:', error);
-    }
-    
-    // 如果无法获取令牌，返回空字符串
-    console.log('WebSocket: 无法获取有效令牌');
-    return '';
+    // JWT令牌现在存储在httpOnly Cookie中，前端无法直接访问
+    // 对于WebSocket连接，我们需要一个特殊的令牌获取机制
+    // 这里返回一个占位符，实际的认证将在服务器端通过Cookie进行
+    console.log('WebSocket: 使用Cookie认证机制');
+    return 'cookie-auth';
   }
   
   // 检查令牌是否有效
   private isTokenValid(token: string): boolean {
-    if (!token) return false;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Math.floor(Date.now() / 1000);
-      // 提前5分钟认为令牌即将过期
-      return payload.exp > (currentTime + 300);
-    } catch (error) {
-      console.error('解析JWT令牌失败:', error);
-      return false;
-    }
+    // 对于Cookie认证机制，我们无法直接检查令牌有效性
+    // 服务器端会验证Cookie中的令牌
+    // 这里我们只检查是否使用了正确的认证机制标识
+    return token === 'cookie-auth';
   }
   
   // 刷新认证令牌
@@ -450,10 +439,11 @@ export class WebSocketClient {
     try {
       console.log('WebSocket: 尝试刷新认证令牌');
       const tokens = await refreshTokens(3);
-      if (tokens && tokens.accessToken) {
+      if (tokens) {
         console.log('WebSocket: 令牌刷新成功');
-        this.updateToken(tokens.accessToken);
-        return tokens.accessToken;
+        // 对于Cookie认证，令牌已经通过httpOnly Cookie更新
+        // 我们只需要返回认证机制标识
+        return 'cookie-auth';
       }
     } catch (error) {
       console.error('WebSocket: 令牌刷新失败:', error);
@@ -469,15 +459,38 @@ export class WebSocketClient {
   
   // 获取有效的访问令牌（包括刷新逻辑）
   private async getValidToken(): Promise<string | null> {
-    let token: string | null = this.getLatestToken();
+    // 对于Cookie认证机制，我们不需要获取实际的令牌
+    // 服务器端会验证Cookie中的令牌
+    // 我们只需要确认用户已经通过前端认证即可
     
-    // 如果令牌无效，尝试刷新
-    if (!this.isTokenValid(token)) {
-      console.log('WebSocket: 当前令牌无效，尝试刷新');
-      token = await this.refreshAuthToken();
+    // 检查sessionStorage中是否有用户信息作为认证状态的指示
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const userStr = sessionStorage.getItem('user');
+      
+      // 如果没有用户信息，认为未认证
+      if (!userStr || userStr === 'undefined' || userStr === 'null') {
+        console.log('WebSocket: 未找到用户信息，认为未认证');
+        return null;
+      }
+      
+      // 尝试解析用户信息
+      const user = JSON.parse(userStr);
+      
+      // 检查用户对象是否有效
+      if (user && typeof user === 'object' && user.id && user.email) {
+        console.log('WebSocket: 用户已认证，使用Cookie认证机制');
+        return 'cookie-auth';
+      } else {
+        console.log('WebSocket: 用户信息无效，认为未认证');
+        return null;
+      }
+    } catch (error) {
+      console.error('WebSocket: 解析用户信息失败:', error);
+      sessionStorage.removeItem('user');
+      return null;
     }
-    
-    return token || null;
   }
   
   // 更新配置中的令牌
@@ -498,9 +511,7 @@ export class WebSocketClient {
   // 处理认证失败
   private handleAuthenticationFailure(): void {
     // 清除本地存储的认证信息
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     
     // 断开WebSocket连接
     this.disconnect();
@@ -509,7 +520,7 @@ export class WebSocketClient {
     if (typeof window !== 'undefined') {
       // 使用setTimeout避免在错误处理过程中立即重定向
       setTimeout(() => {
-        window.location.href = '/auth/login';
+        window.location.href = '/login';
       }, 100);
     }
   }

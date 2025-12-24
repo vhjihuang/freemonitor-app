@@ -21,11 +21,15 @@ export interface SuccessResponse<T = any> extends BaseResponse {
 }
 
 // 错误响应接口
-export interface ErrorResponse extends BaseResponse {
+export interface ErrorResponse {
   success: false;
-  errorCode: string;
-  details?: ErrorDetails;
-  stack?: string; // 仅开发环境
+  error: {
+    code: string;
+    message: string;
+    traceId: string;
+    details?: ErrorDetails;
+    stack?: string; // 仅开发环境
+  };
 }
 
 // 分页元数据

@@ -7,17 +7,32 @@ import Cookies from 'js-cookie';
 
 // Cookie 配置
 const COOKIE_CONFIG = {
+  // JWT 访问令牌配置
+  accessToken: {
+    name: 'accessToken',
+    expires: 15 * 60, // 15分钟（秒）
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+  },
+  // JWT 刷新令牌配置
+  refreshToken: {
+    name: 'refreshToken',
+    expires: 7 * 24 * 60 * 60, // 7天（秒）
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict' as const,
+    path: '/api/v1/auth/refresh',
+  },
   // CSRF 令牌配置
   csrf: {
     name: 'XSRF-TOKEN',
-    expires: 24 * 60 * 60 * 1000, // 24小时
+    expires: 24 * 60 * 60, // 24小时（秒）
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
   },
   // 会话配置
   session: {
     name: 'session',
-    expires: 24 * 60 * 60 * 1000, // 24小时
+    expires: 24 * 60 * 60, // 24小时（秒）
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
   },
@@ -66,12 +81,16 @@ export function setCookie(
 /**
  * 删除 Cookie
  * @param name Cookie 名称
+ * @param options 删除选项
  */
-export function removeCookie(name: string): void {
+export function removeCookie(
+  name: string, 
+  options?: Partial<Cookies.CookieAttributes>
+): void {
   if (typeof window === 'undefined') return;
   
   try {
-    Cookies.remove(name);
+    Cookies.remove(name, options);
   } catch (error) {
     console.error(`删除 Cookie ${name} 失败:`, error);
   }
@@ -137,22 +156,108 @@ export function isSessionValid(): boolean {
 }
 
 /**
- * 获取所有相关 Cookie
- * @returns 包含所有相关 Cookie 的对象
+ * 获取访问令牌
+ * @returns 访问令牌或 null
  */
-export function getAuthCookies() {
-  return {
-    csrfToken: getCsrfToken(),
-    sessionId: getSessionId(),
-  };
+export function getAccessToken(): string | null {
+  return getCookie(COOKIE_CONFIG.accessToken.name);
 }
 
 /**
- * 清除所有认证相关 Cookie
+ * 设置访问令牌
+ * @param token 访问令牌
+ * @param expiresIn 过期时间（秒）
+ */
+export function setAccessToken(token: string, expiresIn?: number): void {
+  const expires = expiresIn || COOKIE_CONFIG.accessToken.expires;
+  setCookie(COOKIE_CONFIG.accessToken.name, token, {
+    expires,
+    httpOnly: false, // 前端需要读取
+  });
+}
+
+/**
+ * 清除访问令牌
+ */
+export function clearAccessToken(): void {
+  removeCookie(COOKIE_CONFIG.accessToken.name);
+}
+
+/**
+ * 获取刷新令牌
+ * @returns 刷新令牌或 null
+ */
+export function getRefreshToken(): string | null {
+  return getCookie(COOKIE_CONFIG.refreshToken.name);
+}
+
+/**
+ * 设置刷新令牌
+ * @param token 刷新令牌
+ */
+export function setRefreshToken(token: string): void {
+  setCookie(COOKIE_CONFIG.refreshToken.name, token, {
+    expires: COOKIE_CONFIG.refreshToken.expires,
+    path: COOKIE_CONFIG.refreshToken.path,
+    httpOnly: false, // 前端需要读取
+  });
+}
+
+/**
+ * 清除刷新令牌
+ */
+export function clearRefreshToken(): void {
+  removeCookie(COOKIE_CONFIG.refreshToken.name, {
+    path: COOKIE_CONFIG.refreshToken.path,
+  });
+}
+
+/**
+ * 设置认证相关的所有Cookie
+ * @param accessToken 访问令牌
+ * @param refreshToken 刷新令牌
+ * @param expiresIn 访问令牌过期时间（秒）
+ */
+export function setAuthCookies(
+  accessToken: string,
+  refreshToken: string,
+  expiresIn?: number
+): void {
+  setAccessToken(accessToken, expiresIn);
+  setRefreshToken(refreshToken);
+}
+
+/**
+ * 清除所有认证相关的Cookie
  */
 export function clearAuthCookies(): void {
+  clearAccessToken();
+  clearRefreshToken();
   clearCsrfToken();
   clearSession();
+}
+
+/**
+ * 检查用户是否已认证
+ * @returns 用户是否已认证
+ */
+export function isAuthenticated(): boolean {
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+  return !!(accessToken || refreshToken);
+}
+
+/**
+ * 获取所有认证相关Cookie
+ * @returns 包含所有认证相关Cookie的对象
+ */
+export function getAuthCookies() {
+  return {
+    accessToken: getAccessToken(),
+    refreshToken: getRefreshToken(),
+    csrfToken: getCsrfToken(),
+    sessionId: getSessionId(),
+  };
 }
 
 /**

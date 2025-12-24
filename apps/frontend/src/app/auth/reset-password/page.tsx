@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Icons } from '@/components/icons'
 import Link from 'next/link'
-import { apiClient } from '@/lib/api'
+import { apiClient } from '@/clients'
 import { SuccessResponse } from '@freemonitor/types'
 import { validatePassword } from '@freemonitor/types'
 

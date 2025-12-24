@@ -1,6 +1,5 @@
 // apps/backend/src/app.module.ts
 import { Module, MiddlewareConsumer, NestModule } from "@nestjs/common";
-import { APP_GUARD } from "@nestjs/core";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaModule } from "../prisma/prisma.module";
@@ -17,16 +16,18 @@ import { NotificationModule } from "./notification/notification.module";
 import { DevelopmentModule } from "./development/development.module";
 import { developmentConfig } from "./config/development.config";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
+import { TraceIdMiddleware } from "./common/middleware/trace-id.middleware";
 import { CsrfModule } from "./common/csrf.module";
 import { ThrottlerModule } from "@nestjs/throttler";
-import { ThrottlerGuard } from "@nestjs/throttler";
 import { WebSocketModule } from "./websocket/websocket.module";
+import { QueueModule } from "./queue/queue.module";
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
+    QueueModule,
     DevicesModule,
     HealthModule,
     SecurityModule,
@@ -38,16 +39,6 @@ import { WebSocketModule } from "./websocket/websocket.module";
     WebSocketModule,
     ThrottlerModule.forRoot({
       throttlers: [
-        {
-          name: "default",
-          ttl: 60000,
-          limit: 100,
-        },
-        {
-          name: "health",
-          ttl: 60000,
-          limit: 1000,
-        },
         {
           name: "auth",
           ttl: 60000,
@@ -69,14 +60,13 @@ import { WebSocketModule } from "./websocket/websocket.module";
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // 首先应用TraceIdMiddleware，确保traceId在请求早期就被设置
+    consumer.apply(TraceIdMiddleware).forRoutes("*");
+    // 然后应用RequestLoggerMiddleware，此时logger已经有正确的traceId
     consumer.apply(RequestLoggerMiddleware).forRoutes("*");
   }
 }

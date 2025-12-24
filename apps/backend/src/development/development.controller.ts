@@ -7,7 +7,7 @@ import { Role } from '@freemonitor/types';
 import { AppLoggerService } from '../common/services/logger.service';
 import { DevelopmentService } from './development.service';
 
-@Controller('development')
+@Controller('api/v1/development')
 @UseGuards(DevAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class DevelopmentController {

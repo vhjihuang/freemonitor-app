@@ -49,6 +49,7 @@ export interface NotificationResult {
   messageId?: string;
   error?: string;
   timestamp: Date;
+  metadata?: Record<string, any>;
 }
 
 export interface NotificationServiceInterface {

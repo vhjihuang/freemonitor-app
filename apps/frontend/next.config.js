@@ -28,13 +28,32 @@ const nextConfig = {
     ], // 优化包导入
     optimizeServerReact: true, // 服务端React优化
     scrollRestoration: true,   // 滚动恢复
+    turbo: {
+      resolveExtensions: ['.tsx', '.ts', '.jsx', '.js', '.md', '.mdx', '.json'],
+    },
   },
   
-  // 编译器优化
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-    styledComponents: false, // 不使用styled-components
+  // 生产环境专项优化
+  modularizeImports: {
+    '@radix-ui/react-icons': {
+      transform: '@radix-ui/react-icons/{{member}}',
+      skipDefaultConversion: true,
+    },
+    lodash: {
+      transform: 'lodash/{{member}}',
+    },
   },
+
+  // 生成独立的 CSS 文件
+  cssChunking: true,
+
+  // 生产环境更激进的优化
+  ...(process.env.NODE_ENV === 'production' && {
+    compiler: {
+      ...nextConfig.compiler,
+      reactRemoveProperties: true,
+    },
+  }),
   
   // Webpack优化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {

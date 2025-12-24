@@ -4,6 +4,7 @@ import { AppLoggerService } from './services/logger.service';
 import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-exception.filter';
 import { ResponseInterceptor } from './interceptors/response.interceptor';
 import { CsrfController } from './csrf.controller';
+import { TraceIdMiddleware } from './middleware/trace-id.middleware';
 
 /**
  * 公共模块
@@ -14,6 +15,7 @@ import { CsrfController } from './csrf.controller';
   controllers: [CsrfController],
   providers: [
     AppLoggerService,
+    TraceIdMiddleware,
     ResponseInterceptor,
     {
       provide: APP_FILTER,
@@ -28,6 +30,6 @@ import { CsrfController } from './csrf.controller';
       useClass: ResponseInterceptor,
     },
   ],
-  exports: [AppLoggerService, ResponseInterceptor]
+  exports: [AppLoggerService, TraceIdMiddleware, ResponseInterceptor]
 })
 export class CommonModule {}

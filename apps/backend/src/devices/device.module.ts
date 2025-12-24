@@ -4,9 +4,10 @@ import { DeviceService } from './device.service';
 import { DeviceController } from './device.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { NotificationModule } from '../notification/notification.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
-  imports: [PrismaModule, NotificationModule],
+  imports: [PrismaModule, NotificationModule, QueueModule],
   controllers: [DeviceController],
   providers: [DeviceService],
   exports: [DeviceService],

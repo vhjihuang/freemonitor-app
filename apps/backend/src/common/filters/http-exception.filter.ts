@@ -54,8 +54,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         stack: process.env.NODE_ENV === 'development' ? exception.stack : undefined,
       },
       {
-        statusCode: status,
-        path: request.path,
         requestId: request.headers['x-request-id'] as string,
       }
     );
@@ -100,8 +98,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
           : undefined,
       },
       {
-        statusCode: status,
-        path: request.path,
         requestId: request.headers['x-request-id'] as string,
       }
     );

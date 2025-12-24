@@ -11,11 +11,13 @@ import { RolesGuard } from './guards/roles.guard';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
 import { TokenBlacklistService } from './token-blacklist.service';
+import { CsrfModule } from '../common/csrf.module';
 
 @Module({
   imports: [
     PrismaModule,
     MailModule,
+    CsrfModule,
     JwtModule.registerAsync({
       useFactory: (configService: ConfigService) => {
         // 将 JWT 配置转换为 number 类型以符合 JwtModule 要求

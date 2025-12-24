@@ -12,6 +12,10 @@ export class RequestLoggerMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const startTime = Date.now();
     const { method, originalUrl, ip, headers } = req;
+    
+    // 获取traceId
+    const traceId = (req as any).traceId || 'unknown';
+    this.logger.setTraceId(traceId);
 
     // 记录请求开始
     this.logger.devDebug(
@@ -22,6 +26,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         userAgent: headers['user-agent'],
         contentType: headers['content-type'],
         contentLength: headers['content-length'],
+        traceId
       }
     );
 
@@ -49,12 +54,14 @@ export class RequestLoggerMiddleware implements NestMiddleware {
         userAgent: headers['user-agent'],
         executionTime,
         contentLength: res.get('content-length'),
+        traceId
       });
 
       // 记录性能指标
       this.logger.logPerformance(`HTTP ${method} ${originalUrl}`, executionTime, 1000, {
         statusCode,
         userId,
+        traceId
       });
 
       // 记录慢请求警告
@@ -64,9 +71,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
           'RequestLogger',
           {
             executionTime,
-            statusCode,
-            userId,
-            ip,
+            traceId
           }
         );
       }
@@ -82,6 +87,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
           {
             executionTime,
             ip,
+            traceId
           }
         );
       }

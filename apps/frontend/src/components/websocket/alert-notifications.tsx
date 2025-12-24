@@ -22,40 +22,50 @@ export const AlertNotifications: React.FC<AlertNotificationsProps> = ({
   maxAlerts = 5, 
   className = '' 
 }) => {
-  const { isConnected } = useWebSocketContext();
+  const {
+    isConnected,
+    connect,
+    disconnect,
+    onAlert,
+  } = useWebSocketContext();
   const [alerts, setAlerts] = useState<AlertNotification[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
 
-  // 模拟接收实时告警（实际应该通过WebSocket事件监听）
+  useEffect(() => {
+    console.log('AlertNotifications: 建立连接');
+    connect();
+
+    return () => {
+      console.log('AlertNotifications: 断开连接');
+      disconnect();
+    };
+  }, [connect, disconnect]);
+
   useEffect(() => {
     if (!isConnected) return;
 
-    const interval = setInterval(() => {
-      // 随机生成一些告警用于演示
-      if (Math.random() < 0.3) { // 30% 概率生成告警
-        const alertTypes: Array<'critical' | 'warning' | 'info'> = ['critical', 'warning', 'info'];
-        const alertType = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-        
-        const newAlert: AlertNotification = {
-          id: `alert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          deviceId: `device-${Math.floor(Math.random() * 10) + 1}`,
-          deviceName: `设备 ${Math.floor(Math.random() * 10) + 1}`,
-          alertType,
-          message: getAlertMessage(alertType),
-          timestamp: new Date().toISOString(),
-          acknowledged: false,
-        };
+    const handleAlert = (data: { alertId: string; deviceId: string; message: string; severity: 'low' | 'medium' | 'high' | 'critical'; timestamp: string; resolved?: boolean }) => {
+      const alertType = data.severity === 'critical' || data.severity === 'high' ? 'critical' : data.severity === 'medium' ? 'warning' : 'info';
+      
+      const newAlert: AlertNotification = {
+        id: data.alertId,
+        deviceId: data.deviceId,
+        alertType,
+        message: data.message,
+        timestamp: data.timestamp,
+        acknowledged: data.resolved,
+      };
 
-        setAlerts(prev => {
-          const newAlerts = [newAlert, ...prev];
-          // 只保留最近N条告警
-          return newAlerts.slice(0, maxAlerts);
-        });
-      }
-    }, 5000);
+      setAlerts(prev => {
+        const newAlerts = [newAlert, ...prev];
+        return newAlerts.slice(0, maxAlerts);
+      });
+    };
 
-    return () => clearInterval(interval);
-  }, [isConnected, maxAlerts]);
+    const unsubscribe = onAlert(handleAlert);
+
+    return unsubscribe;
+  }, [isConnected, onAlert, maxAlerts]);
 
   const getAlertMessage = (type: 'critical' | 'warning' | 'info'): string => {
     const messages = {

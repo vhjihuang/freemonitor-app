@@ -1,7 +1,6 @@
-// src/lib/api/alertApi.ts
-import { apiClient } from '../api';
+// apps/frontend/src/lib/api/alertApi.ts
+import { api, apiClient } from '../../clients';
 import { Alert, AlertQueryDto } from '@freemonitor/types';
-import { ApiHandlers } from '@freemonitor/types';
 
 // 定义 AlertStats 和 AlertListResponse
 export interface AlertStats {
@@ -29,29 +28,35 @@ export interface AlertResponse {
 
 
 export const getAlerts = async (params?: AlertQueryDto) => {
-  return ApiHandlers.generic(() => apiClient.get<AlertResponse>('devices/alerts/list', { params }));
+  return apiClient.get<AlertResponse>('devices/alerts/list', { params });
 };
 
 export const getAlertsWithMeta = async (params?: AlertQueryDto): Promise<AlertListResponse> => {
-  return ApiHandlers.object(() => apiClient.get<AlertResponse>('devices/alerts/list', { params }));
+  const response = await apiClient.get<AlertResponse>('devices/alerts/list', { params });
+  return response.data.data;
 };
 
 export const getRecentAlerts = async (limit: number = 10): Promise<AlertListResponse> => {
-  return ApiHandlers.object(() => apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } }));
+  const response = await apiClient.get<AlertResponse>('devices/alerts/recent', { params: { limit } });
+  return response.data.data;
 };
 
 export const acknowledgeAlert = async (alertId: string, comment: string): Promise<Alert> => {
-  return ApiHandlers.object(() => apiClient.post<Alert>(`devices/alerts/${alertId}/acknowledge`, { alertId, comment }));
+  const response = await apiClient.post<Alert>(`devices/alerts/${alertId}/acknowledge`, { alertId, comment });
+  return response.data;
 };
 
 export const bulkAcknowledgeAlerts = async (alertIds: string[], comment: string): Promise<Alert[]> => {
-  return ApiHandlers.object(() => apiClient.post<Alert[]>('devices/alerts/acknowledge/bulk', { alertIds, comment }));
+  const response = await apiClient.post<Alert[]>('devices/alerts/acknowledge/bulk', { alertIds, comment });
+  return response.data;
 };
 
 export const resolveAlert = async (alertId: string, solutionType: string, comment: string): Promise<Alert> => {
-  return ApiHandlers.object(() => apiClient.post<Alert>(`devices/alerts/${alertId}/resolve`, { alertId, solutionType, comment }));
+  const response = await apiClient.post<Alert>(`devices/alerts/${alertId}/resolve`, { alertId, solutionType, comment });
+  return response.data;
 };
 
 export const bulkResolveAlerts = async (alertIds: string[], solutionType: string, comment: string): Promise<Alert[]> => {
-  return ApiHandlers.object(() => apiClient.post<Alert[]>('devices/alerts/resolve/bulk', { alertIds, solutionType, comment }));
+  const response = await apiClient.post<Alert[]>('devices/alerts/resolve/bulk', { alertIds, solutionType, comment });
+  return response.data;
 };

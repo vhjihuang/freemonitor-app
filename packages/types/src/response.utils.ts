@@ -122,17 +122,26 @@ export function createErrorResponse(
   },
   options: ResponseOptions = {}
 ): ErrorResponse {
+  // 生成唯一的traceId
+  const traceId = options.requestId || generateTraceId();
+  
   return {
     success: false,
-    statusCode: options.statusCode || 500,
-    message: error.message,
-    errorCode: error.errorCode,
-    timestamp: options.timestamp || new Date().toISOString(),
-    path: options.path || '',
-    requestId: options.requestId,
-    details: error.details,
-    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    error: {
+      code: error.errorCode,
+      message: error.message,
+      traceId,
+      details: error.details,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    },
   };
+}
+
+/**
+ * 生成唯一的traceId
+ */
+function generateTraceId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 /**
@@ -173,13 +182,15 @@ export function extractResponseData<T>(response: ApiResponse<T>): T | null {
 export function extractErrorInfo(response: ApiResponse<unknown>): {
   message: string;
   code: string;
+  traceId: string;
   details?: ErrorDetails;
 } | null {
   if (isErrorResponse(response)) {
     return {
-      message: response.message,
-      code: response.errorCode,
-      details: response.details,
+      message: response.error.message,
+      code: response.error.code,
+      traceId: response.error.traceId,
+      details: response.error.details,
     };
   }
   return null;
@@ -208,7 +219,7 @@ export class ResponseTransformer {
     options: ResponseOptions = {}
   ): ErrorResponse {
     const message = typeof error === 'string' ? error : error.message;
-    const stack = typeof error === 'object' ? error.stack : undefined;
+    const stack = error instanceof Error ? error.stack : undefined;
     
     return createErrorResponse(
       { message, errorCode, stack },
@@ -261,26 +272,37 @@ export class ResponseValidator {
       return false;
     }
 
-    const requiredFields = ['success', 'statusCode', 'message', 'timestamp'];
-    const hasRequired = requiredFields.every(field => field in response);
-    
-    if (!hasRequired) {
-      return false;
-    }
-
-    // 验证基本类型
+    // 验证基本字段
     if (typeof response.success !== 'boolean') return false;
-    if (typeof response.statusCode !== 'number') return false;
-    if (typeof response.message !== 'string') return false;
-    if (typeof response.timestamp !== 'string') return false;
-    if (response.path && typeof response.path !== 'string') return false;
-    if (response.requestId && typeof response.requestId !== 'string') return false;
 
     // 根据 success 字段验证具体结构
     if (response.success === true) {
+      const requiredFields = ['statusCode', 'message', 'timestamp'];
+      const hasRequired = requiredFields.every(field => field in response);
+      
+      if (!hasRequired) return false;
+      
+      if (typeof response.statusCode !== 'number') return false;
+      if (typeof response.message !== 'string') return false;
+      if (typeof response.timestamp !== 'string') return false;
+      if (response.path && typeof response.path !== 'string') return false;
+      if (response.requestId && typeof response.requestId !== 'string') return false;
+      
       return 'data' in response;
     } else {
-      return 'errorCode' in response && typeof response.errorCode === 'string';
+      // 验证错误响应格式
+      if (!response.error || typeof response.error !== 'object') return false;
+      
+      const requiredErrorFields = ['code', 'message', 'traceId'];
+      const hasRequiredErrorFields = requiredErrorFields.every(field => field in response.error);
+      
+      if (!hasRequiredErrorFields) return false;
+      
+      if (typeof response.error.code !== 'string') return false;
+      if (typeof response.error.message !== 'string') return false;
+      if (typeof response.error.traceId !== 'string') return false;
+      
+      return true;
     }
   }
 
@@ -303,6 +325,11 @@ export class ResponseValidator {
    */
   static validateTimestamp(response: ApiResponse<unknown>, maxAgeHours: number = 24): boolean {
     try {
+      // 对于错误响应，没有timestamp字段，直接返回true
+      if (response.success === false) {
+        return true;
+      }
+      
       const timestamp = new Date(response.timestamp);
       const now = new Date();
       const diffHours = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60);

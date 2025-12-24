@@ -98,6 +98,11 @@ yarn-error.log*
 .vercel/       # Vercel 部署缓存
 build-cache/    # 自定义构建缓存
 
+# -----------------------
+# 开发工具
+# -----------------------
+cookies.txt     # HTTP Cookie 文件
+
 packages/*/dist/
 packages/*/build/
 packages/*/.next/
@@ -114,3 +119,8 @@ system_prompt.txt
 # -----------------------
 .kiro/ # Kiro IDE 配置和 AI 上下文文件
 bug.md # 临时 Bug 记录文件
+
+# -----------------------
+# 自动生成的文档
+# -----------------------
+apps/backend/docs/
