@@ -1,18 +1,24 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useAuth } from '@/hooks/useAuth';
-import { getAccessToken } from '@/lib/auth';
 import type { DeviceMetricsUpdate, AlertNotification } from '@/lib/websocket';
+
+type MetricsCallback = (data: DeviceMetricsUpdate) => void;
+type AlertCallback = (data: AlertNotification) => void;
 
 interface WebSocketContextType {
   isConnected: boolean;
   connectionId?: string;
+  connect: () => void;
+  disconnect: () => void;
   subscribeToDevices: (deviceIds: string[]) => void;
   unsubscribeFromDevices: (deviceIds: string[]) => void;
   sendDeviceMetrics: (data: DeviceMetricsUpdate) => void;
   sendAlertTrigger: (data: AlertNotification) => void;
+  onMetrics: (callback: MetricsCallback) => () => void;
+  onAlert: (callback: AlertCallback) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -25,8 +31,33 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const { user } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string>();
-  const [isInitialized, setIsInitialized] = useState(false);
   const lastAuthStateRef = useRef<{ isAuthenticated: boolean; user: any } | null>(null);
+  const metricsCallbacksRef = useRef<Set<MetricsCallback>>(new Set());
+  const alertCallbacksRef = useRef<Set<AlertCallback>>(new Set());
+
+  const handleMetricsUpdate = useCallback((data: DeviceMetricsUpdate) => {
+    console.log('收到指标更新:', data);
+    metricsCallbacksRef.current.forEach(callback => callback(data));
+  }, []);
+
+  const handleAlertNotification = useCallback((data: AlertNotification) => {
+    console.log('收到告警通知:', data);
+    alertCallbacksRef.current.forEach(callback => callback(data));
+  }, []);
+
+  const onMetrics = useCallback((callback: MetricsCallback) => {
+    metricsCallbacksRef.current.add(callback);
+    return () => {
+      metricsCallbacksRef.current.delete(callback);
+    };
+  }, []);
+
+  const onAlert = useCallback((callback: AlertCallback) => {
+    alertCallbacksRef.current.add(callback);
+    return () => {
+      alertCallbacksRef.current.delete(callback);
+    };
+  }, []);
 
   const {
     connect,
@@ -38,7 +69,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     isConnected: isWsConnected,
     getConnectionStats,
   } = useWebSocket({
-    token: 'cookie-auth', // 使用Cookie认证机制
+    token: 'cookie-auth',
     onConnect: () => {
       console.log('WebSocket Provider: 连接已建立');
       setIsConnected(true);
@@ -52,19 +83,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     },
     onError: (error) => {
       console.error('WebSocket 错误:', error);
-      // 可以在这里添加全局错误处理，比如显示通知
     },
-    onMetricsUpdate: (data) => {
-      console.log('收到指标更新:', data);
-      // 不再将数据存储在状态中，直接通过回调传递给组件
-    },
-    onAlertNotification: (data) => {
-      console.log('收到告警通知:', data);
-      // 不再将数据存储在状态中，直接通过回调传递给组件
-    },
+    onMetricsUpdate: handleMetricsUpdate,
+    onAlertNotification: handleAlertNotification,
   });
 
-  // 初始化认证状态
+  // 初始化认证状态（仅记录，不自动连接）
   useEffect(() => {
     const authenticated = !!user;
     console.log('WebSocket Provider: 初始化认证状态', {
@@ -73,45 +97,18 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     });
     
     lastAuthStateRef.current = { isAuthenticated: authenticated, user };
-    setIsInitialized(true);
-    
-    if (authenticated) {
-      console.log('初始化 WebSocket 连接');
-      connect();
-    }
   }, []);
 
-  // 监听全局认证状态变化
+  // 监听全局认证状态变化（仅记录状态，不自动管理连接）
   useEffect(() => {
     const handleAuthStateChange = (event: CustomEvent) => {
       const { isAuthenticated, user } = event.detail;
-      console.log('WebSocket Provider: 收到认证状态变化', { isAuthenticated, hasUser: !!user });
+      console.log('WebSocket Provider: 认证状态变化（按需连接由组件自行管理）', { 
+        isAuthenticated, 
+        hasUser: !!user 
+      });
       
-      // 检查认证状态是否真的发生了变化
-      const prevState = lastAuthStateRef.current;
-      if (prevState && 
-          prevState.isAuthenticated === isAuthenticated && 
-          (prevState.user?.id === user?.id)) {
-        console.log('WebSocket Provider: 认证状态未实际变化，跳过处理');
-        return;
-      }
-      
-      // 更新最后的状态
       lastAuthStateRef.current = { isAuthenticated, user };
-      
-      if (isAuthenticated && user) {
-        // 用户已认证，建立连接
-        console.log('用户已认证，尝试连接 WebSocket');
-        // 确保在建立新连接前断开任何现有连接
-        disconnect();
-        setTimeout(() => {
-          connect();
-        }, 100);
-      } else {
-        // 用户未认证，断开连接
-        console.log('用户未认证，断开 WebSocket 连接');
-        disconnect();
-      }
     };
 
     window.addEventListener('authStateChanged', handleAuthStateChange as EventListener);
@@ -119,7 +116,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     return () => {
       window.removeEventListener('authStateChanged', handleAuthStateChange as EventListener);
     };
-  }, [connect, disconnect]);
+  }, []);
 
   // 清理连接
   useEffect(() => {
@@ -132,10 +129,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const value: WebSocketContextType = {
     isConnected: isWsConnected(),
     connectionId,
+    connect,
+    disconnect,
     subscribeToDevices,
     unsubscribeFromDevices,
     sendDeviceMetrics,
     sendAlertTrigger,
+    onMetrics,
+    onAlert,
   };
 
   return (
