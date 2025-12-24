@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { SystemMetricsService } from './system-metrics.service';
@@ -13,6 +13,7 @@ export class MetricsPublisherService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly systemMetricsService: SystemMetricsService,
+    @Inject(forwardRef(() => AppWebSocketGateway))
     private readonly webSocketGateway: AppWebSocketGateway,
     private readonly configService: ConfigService,
   ) {
@@ -20,31 +21,19 @@ export class MetricsPublisherService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    const intervalSeconds = this.configService.get<number>('METRICS_INTERVAL_SECONDS') || 5;
     this.logger.log(`MetricsPublisherService initialized for device: ${this.deviceId}`);
-    this.logger.log(`Starting metrics publishing with ${intervalSeconds}s interval`);
-    this.startPublishing(intervalSeconds);
+    this.logger.log(`Metrics publishing is disabled by default. Send 'metrics:start' command to enable.`);
   }
 
   onModuleDestroy() {
     this.stopPublishing();
   }
 
-  private startPublishing(intervalSeconds: number): void {
-    if (this.isPublishing) {
-      this.logger.warn('Metrics publishing is already running');
+  stopPublishing(): void {
+    if (!this.isPublishing) {
       return;
     }
 
-    this.isPublishing = true;
-    this.publishInterval = setInterval(async () => {
-      await this.publishMetrics();
-    }, intervalSeconds * 1000);
-
-    this.logger.log('Started metrics publishing');
-  }
-
-  private stopPublishing(): void {
     if (this.publishInterval) {
       clearInterval(this.publishInterval);
       this.publishInterval = null;
@@ -53,7 +42,26 @@ export class MetricsPublisherService implements OnModuleInit, OnModuleDestroy {
     this.logger.log('Stopped metrics publishing');
   }
 
+  startPublishing(): void {
+    if (this.isPublishing) {
+      this.logger.warn('Metrics publishing is already running');
+      return;
+    }
+
+    const intervalSeconds = this.configService.get<number>('METRICS_INTERVAL_SECONDS') || 5;
+    this.isPublishing = true;
+    this.publishInterval = setInterval(async () => {
+      await this.publishMetrics();
+    }, intervalSeconds * 1000);
+
+    this.logger.log(`Started metrics publishing with ${intervalSeconds}s interval`);
+  }
+
   private async publishMetrics(): Promise<void> {
+    if (!this.webSocketGateway.isMetricsEnabled(this.deviceId)) {
+      return;
+    }
+
     try {
       const metrics = await this.systemMetricsService.getCurrentMetrics();
       this.webSocketGateway.broadcastDeviceMetrics(this.deviceId, {
@@ -63,6 +71,7 @@ export class MetricsPublisherService implements OnModuleInit, OnModuleDestroy {
         disk: metrics.disk,
         networkIn: metrics.networkIn,
         networkOut: metrics.networkOut,
+        timestamp: metrics.timestamp,
       });
       this.logger.debug(`Published metrics for device: ${metrics.deviceId}`);
     } catch (error) {
