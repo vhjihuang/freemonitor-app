@@ -53,8 +53,8 @@ export class WebSocketClient {
   private maxReconnectAttempts = 5;
   private baseReconnectInterval = 1000;
   private maxReconnectInterval = 30000;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
   private isManualDisconnect = false;
   private isReconnecting = false;
 
