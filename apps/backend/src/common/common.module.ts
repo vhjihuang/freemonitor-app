@@ -1,22 +1,22 @@
 import { Module, Global } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { PrismaModule } from '../../prisma/prisma.module';
 import { AppLoggerService } from './services/logger.service';
 import { HttpExceptionFilter, AllExceptionsFilter } from './filters/http-exception.filter';
 import { ResponseInterceptor } from './interceptors/response.interceptor';
 import { CsrfController } from './csrf.controller';
 import { TraceIdMiddleware } from './middleware/trace-id.middleware';
+import { PrismaConnectionMonitor } from './services/prisma-connection-monitor.service';
 
-/**
- * 公共模块
- * 包含应用程序中共享的服务、过滤器和工具
- */
 @Global()
 @Module({
+  imports: [PrismaModule],
   controllers: [CsrfController],
   providers: [
     AppLoggerService,
     TraceIdMiddleware,
     ResponseInterceptor,
+    PrismaConnectionMonitor,
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,
@@ -30,6 +30,6 @@ import { TraceIdMiddleware } from './middleware/trace-id.middleware';
       useClass: ResponseInterceptor,
     },
   ],
-  exports: [AppLoggerService, TraceIdMiddleware, ResponseInterceptor]
+  exports: [AppLoggerService, TraceIdMiddleware, ResponseInterceptor, PrismaConnectionMonitor]
 })
 export class CommonModule {}

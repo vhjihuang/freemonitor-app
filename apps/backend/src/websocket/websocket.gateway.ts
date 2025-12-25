@@ -1,4 +1,4 @@
-import { UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
+import { UsePipes, ValidationPipe, UseGuards, Inject, forwardRef } from '@nestjs/common';
 import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
@@ -8,6 +8,7 @@ import { WebSocketService } from './websocket.service';
 import { DevAuthGuard } from '../auth/guards/dev-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DeviceMetricsDto } from './websocket.dtos';
+import { MetricsPublisherService } from './metrics-publisher.service';
 
 // 类型定义
 type Timeout = ReturnType<typeof setTimeout>;
@@ -60,6 +61,7 @@ interface DeviceMetricsData {
   networkOut?: number;
   uptime?: number;
   temperature?: number;
+  timestamp?: string;
   custom?: Record<string, unknown>;
 }
 
@@ -89,6 +91,8 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
     private readonly webSocketService: WebSocketService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => MetricsPublisherService))
+    private readonly metricsPublisher: MetricsPublisherService,
   ) {}
 
   @WebSocketServer()
@@ -96,6 +100,7 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
 
   private connectedClients = new Map<string, { connectedAt: Date; lastActivity: Date }>();
   private cleanupInterval: Timeout;
+  private metricsSubscribers = new Map<string, Set<string>>();
 
   afterInit(_server: Server) {
     this.logger.log('WebSocket Gateway initialized');
@@ -414,23 +419,127 @@ export class AppWebSocketGateway implements OnGatewayInit, OnGatewayConnection, 
   @SubscribeMessage('device:subscribe')
   handleDeviceSubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: SubscribeData) {
     this.updateClientActivity(client.id);
-    const { deviceId } = data;
-    if (deviceId) {
-      client.join(`device:${deviceId}`);
-      this.logger.log(`Client subscribed to device ${deviceId}`);
+    
+    // 支持单个设备ID或设备ID数组
+    const deviceIds = data.deviceId 
+      ? (Array.isArray(data.deviceId) ? data.deviceId : [data.deviceId])
+      : [];
+    
+    if (deviceIds.length === 0) {
+      // 如果没有指定deviceId，订阅默认设备
+      const defaultDeviceId = this.configService.get<string>('METRICS_DEVICE_ID') || 'local-dev-machine';
+      deviceIds.push(defaultDeviceId);
     }
-    return { event: 'device:subscribe', data: 'success' };
+    
+    for (const deviceId of deviceIds) {
+      if (deviceId) {
+        client.join(`device:${deviceId}`);
+        this.logger.log(`Client ${client.id} subscribed to device: ${deviceId}`);
+      }
+    }
+    
+    return { event: 'device:subscribe', data: 'success', subscribedDevices: deviceIds };
   }
 
   @SubscribeMessage('device:unsubscribe')
   handleDeviceUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() data: SubscribeData) {
     this.updateClientActivity(client.id);
-    const { deviceId } = data;
-    if (deviceId) {
-      client.leave(`device:${deviceId}`);
-      this.logger.log(`Client unsubscribed from device ${deviceId}`);
+    
+    // 支持单个设备ID或设备ID数组
+    const deviceIds = data.deviceId 
+      ? (Array.isArray(data.deviceId) ? data.deviceId : [data.deviceId])
+      : [];
+    
+    for (const deviceId of deviceIds) {
+      if (deviceId) {
+        client.leave(`device:${deviceId}`);
+        this.logger.log(`Client ${client.id} unsubscribed from device: ${deviceId}`);
+      }
     }
-    return { event: 'device:unsubscribe', data: 'success' };
+    
+    return { event: 'device:unsubscribe', data: 'success', unsubscribedDevices: deviceIds };
+  }
+
+  @SubscribeMessage('metrics:start')
+  handleStartMetrics(@ConnectedSocket() client: Socket, @MessageBody() data: { deviceId?: string }) {
+    this.updateClientActivity(client.id);
+    const deviceId = data?.deviceId || this.configService.get<string>('METRICS_DEVICE_ID') || 'local-dev-machine';
+    
+    if (!this.metricsSubscribers.has(deviceId)) {
+      this.metricsSubscribers.set(deviceId, new Set());
+    }
+    this.metricsSubscribers.get(deviceId)!.add(client.id);
+    
+    // 加入设备 room，确保能收到广播
+    client.join(`device:${deviceId}`);
+    
+    const wasEnabled = this.metricsPublisher.startPublishing();
+    this.logger.log(`Client ${client.id} started metrics for device: ${deviceId}, publishing: ${wasEnabled}`);
+    
+    const response = { 
+      event: 'metrics:start', 
+      data: 'success', 
+      deviceId,
+      message: 'Metrics streaming started' 
+    };
+    
+    // emit同名事件，确保前端once监听器能收到
+    client.emit('metrics:start', response);
+    
+    return response;
+  }
+
+  @SubscribeMessage('metrics:stop')
+  handleStopMetrics(@ConnectedSocket() client: Socket, @MessageBody() data: { deviceId?: string }) {
+    this.updateClientActivity(client.id);
+    const deviceId = data?.deviceId || this.configService.get<string>('METRICS_DEVICE_ID') || 'local-dev-machine';
+    
+    const subscribers = this.metricsSubscribers.get(deviceId);
+    if (subscribers) {
+      subscribers.delete(client.id);
+      if (subscribers.size === 0) {
+        this.metricsSubscribers.delete(deviceId);
+        this.metricsPublisher.stopPublishing();
+      }
+    }
+    
+    // 离开设备 room
+    client.leave(`device:${deviceId}`);
+    
+    this.logger.log(`Client ${client.id} stopped metrics for device: ${deviceId}`);
+    
+    const response = { 
+      event: 'metrics:stop', 
+      data: 'success', 
+      deviceId,
+      message: 'Metrics streaming stopped' 
+    };
+    
+    // emit同名事件，确保前端once监听器能收到
+    client.emit('metrics:stop', response);
+    
+    return response;
+  }
+
+  isMetricsEnabled(deviceId: string): boolean {
+    const subscribers = this.metricsSubscribers.get(deviceId);
+    return subscribers ? subscribers.size > 0 : false;
+  }
+
+  @SubscribeMessage('metrics:status')
+  handleMetricsStatus(@ConnectedSocket() client: Socket, @MessageBody() data: { deviceId?: string }) {
+    this.updateClientActivity(client.id);
+    const deviceId = data?.deviceId || this.configService.get<string>('METRICS_DEVICE_ID') || 'local-dev-machine';
+    
+    const subscribers = this.metricsSubscribers.get(deviceId);
+    const isStreaming = subscribers ? subscribers.size > 0 : false;
+    
+    return {
+      event: 'metrics:status',
+      data: isStreaming ? 'streaming' : 'stopped',
+      deviceId,
+      subscriberCount: subscribers?.size || 0
+    };
   }
 
   @SubscribeMessage('ping')

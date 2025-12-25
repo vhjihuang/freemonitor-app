@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, Play, Pause } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { useDevices } from '@/hooks/useDevices';
 import { useMetrics } from '@/hooks/useMetrics';
@@ -58,6 +58,8 @@ export function RealtimeDataChart() {
   const [page, setPage] = useState(1);
   const [limit] = useState(100);
   const [isWsConnected, setIsWsConnected] = useState(false);
+  const [isMetricsStreaming, setIsMetricsStreaming] = useState(false);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
   
   const { data: devices = [], isLoading: devicesLoading } = useDevices();
   const {
@@ -66,6 +68,8 @@ export function RealtimeDataChart() {
     subscribeToDevices,
     unsubscribeFromDevices,
     onMetrics,
+    startMetrics,
+    stopMetrics,
   } = useWebSocketContext();
   
   const subscribedRef = useRef(false);
@@ -81,6 +85,15 @@ export function RealtimeDataChart() {
   useEffect(() => {
     currentDeviceRef.current = selectedDeviceId;
   }, [selectedDeviceId]);
+
+  // 设备切换时重置 streaming 状态和数据
+  useEffect(() => {
+    if (isMetricsStreaming) {
+      stopMetrics(selectedDeviceId).catch(console.error);
+      setIsMetricsStreaming(false);
+    }
+    setChartData([]); // 清空图表数据，避免不同设备数据混合
+  }, [selectedDeviceId, stopMetrics]);
 
   useEffect(() => {
     if (wsIsConnected && selectedDeviceId === LOCAL_DEVICE_ID && !subscribedRef.current) {
@@ -98,7 +111,9 @@ export function RealtimeDataChart() {
 
   // 处理 WebSocket 实时指标数据
   useEffect(() => {
-    if (!wsIsConnected) return;
+    if (!wsIsConnected) {
+      return;
+    }
 
     const handleWsMetrics = (data: {
       deviceId: string;
@@ -208,8 +223,9 @@ export function RealtimeDataChart() {
   });
 
   // 转换数据格式 - 使用 date-fns 简化时间格式化
+  // 注意：只在首次加载时使用API数据，后续由实时数据追加
   useEffect(() => {
-    if (metricsData?.data) {
+    if (metricsData?.data && chartData.length === 0) {
       const formattedData: ChartDataPoint[] = metricsData.data.map((metric: Metric) => ({
         timestamp: format(new Date(metric.timestamp), 'HH:mm'),
         cpu: metric.cpu,
@@ -227,17 +243,42 @@ export function RealtimeDataChart() {
         setSelectedDeviceId(devices[0].id);
       }
     }
-  }, [metricsData, selectedDeviceId, devices]);
+  }, [metricsData, selectedDeviceId, devices, chartData.length]);
 
   // 手动刷新数据
   const handleRefresh = () => {
     refetchMetrics();
   };
 
+  // 启动/停止实时指标推送
+  const toggleMetricsStreaming = async () => {
+    if (!wsIsConnected) return;
+
+    setIsMetricsLoading(true);
+    try {
+      if (isMetricsStreaming) {
+        const success = await stopMetrics(selectedDeviceId);
+        if (success) {
+          setIsMetricsStreaming(false);
+        }
+      } else {
+        const success = await startMetrics(selectedDeviceId);
+        if (success) {
+          setIsMetricsStreaming(true);
+        }
+      }
+    } catch (error) {
+      console.error('切换指标推送失败:', error);
+    } finally {
+      setIsMetricsLoading(false);
+    }
+  };
+
   // 计算加载状态和错误状态
-  const loading = devicesLoading || metricsLoading;
+  // 注意：只要有数据（API或实时）就不显示加载状态
+  const loading = (devicesLoading || metricsLoading) && chartData.length === 0;
   const error = metricsError ? '获取数据失败，请稍后重试' : null;
-  const isRefreshing = metricsLoading && chartData.length > 0; // 有数据时的加载视为刷新
+  const isRefreshing = metricsLoading && chartData.length > 0;
 
   // 设备加载中
   if (devicesLoading) {
@@ -245,9 +286,31 @@ export function RealtimeDataChart() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>实时数据图表</CardTitle>
-          <Button variant="outline" size="sm" disabled>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant={isMetricsStreaming ? "default" : "outline"}
+              size="sm"
+              disabled={!wsIsConnected || isMetricsLoading}
+              onClick={toggleMetricsStreaming}
+            >
+              {isMetricsLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : isMetricsStreaming ? (
+                <>
+                  <Pause className="h-4 w-4 mr-1" />
+                  关闭推送
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-1" />
+                  开启推送
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-80 flex items-center justify-center">
@@ -264,9 +327,31 @@ export function RealtimeDataChart() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>实时数据图表</CardTitle>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant={isMetricsStreaming ? "default" : "outline"}
+              size="sm"
+              disabled={!wsIsConnected || isMetricsLoading}
+              onClick={toggleMetricsStreaming}
+            >
+              {isMetricsLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : isMetricsStreaming ? (
+                <>
+                  <Pause className="h-4 w-4 mr-1" />
+                  关闭推送
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-1" />
+                  开启推送
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-80 flex flex-col items-center justify-center space-y-4">
@@ -296,9 +381,31 @@ export function RealtimeDataChart() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle>实时数据图表</CardTitle>
-          <Button variant="outline" size="sm" disabled>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant={isMetricsStreaming ? "default" : "outline"}
+              size="sm"
+              disabled={!wsIsConnected || isMetricsLoading}
+              onClick={toggleMetricsStreaming}
+            >
+              {isMetricsLoading ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : isMetricsStreaming ? (
+                <>
+                  <Pause className="h-4 w-4 mr-1" />
+                  关闭推送
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-1" />
+                  开启推送
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-80 flex items-center justify-center">
@@ -326,6 +433,27 @@ export function RealtimeDataChart() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant={isMetricsStreaming ? "default" : "outline"}
+            size="sm"
+            onClick={toggleMetricsStreaming}
+            disabled={!wsIsConnected || isMetricsLoading}
+            aria-label={isMetricsStreaming ? "停止实时指标推送" : "启动实时指标推送"}
+          >
+            {isMetricsLoading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : isMetricsStreaming ? (
+              <>
+                <Pause className="h-4 w-4 mr-1" />
+                关闭推送
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-1" />
+                开启推送
+              </>
+            )}
+          </Button>
           <Button 
             variant="outline" 
             size="sm" 

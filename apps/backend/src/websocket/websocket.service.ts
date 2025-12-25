@@ -1,10 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Socket } from 'socket.io';
 import { DeviceMetricsDto, AlertNotificationDto } from './websocket.dtos';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DatabaseFilters } from '@freemonitor/types';
 
-// 用户信息接口
 interface UserInfo {
   id: string;
   email: string;
@@ -14,13 +13,116 @@ interface UserInfo {
   exp?: number;
 }
 
+interface LRUEntry<T> {
+  value: T;
+  expiry: number;
+  accessCount: number;
+  lastAccessed: number;
+}
+
 @Injectable()
-export class WebSocketService {
+export class WebSocketService implements OnModuleInit {
   private readonly logger = new Logger(WebSocketService.name);
   
+  private static readonly CACHE_MAX_SIZE = 1000;
+  private static readonly CACHE_TTL_MS = 60000;
+  private static readonly CACHE_CHECK_INTERVAL_MS = 300000;
+
+  private deviceAccessCache = new Map<string, LRUEntry<boolean>>();
+  private cacheCleanupInterval: NodeJS.Timeout;
+
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  onModuleInit() {
+    this.startCacheCleanup();
+  }
+
+  private startCacheCleanup(): void {
+    this.cacheCleanupInterval = setInterval(() => {
+      this.cleanupExpiredCacheEntries();
+    }, WebSocketService.CACHE_CHECK_INTERVAL_MS);
+  }
+
+  private cleanupExpiredCacheEntries(): void {
+    const now = Date.now();
+    let removedCount = 0;
+
+    for (const [key, entry] of this.deviceAccessCache.entries()) {
+      if (now > entry.expiry) {
+        this.deviceAccessCache.delete(key);
+        removedCount++;
+      }
+    }
+
+    if (removedCount > 0) {
+      this.logger.log(`清理了 ${removedCount} 个过期的设备访问缓存条目`);
+    }
+
+    if (this.deviceAccessCache.size > WebSocketService.CACHE_MAX_SIZE * 0.9) {
+      this.evictLRUEntries(WebSocketService.CACHE_MAX_SIZE * 0.1);
+    }
+  }
+
+  private evictLRUEntries(count: number): void {
+    const entries = Array.from(this.deviceAccessCache.entries())
+      .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)
+      .slice(0, count);
+
+    for (const [key] of entries) {
+      this.deviceAccessCache.delete(key);
+    }
+  }
+
+  private getCachedDeviceAccess(userId: string, deviceId: string): boolean | undefined {
+    const cacheKey = `${userId}:${deviceId}`;
+    const entry = this.deviceAccessCache.get(cacheKey);
+
+    if (!entry) {
+      return undefined;
+    }
+
+    if (Date.now() > entry.expiry) {
+      this.deviceAccessCache.delete(cacheKey);
+      return undefined;
+    }
+
+    entry.accessCount++;
+    entry.lastAccessed = Date.now();
+    return entry.value;
+  }
+
+  private setDeviceAccessCache(userId: string, deviceId: string, valid: boolean): void {
+    const cacheKey = `${userId}:${deviceId}`;
+
+    if (this.deviceAccessCache.size >= WebSocketService.CACHE_MAX_SIZE) {
+      this.evictLRUEntries(WebSocketService.CACHE_MAX_SIZE * 0.2);
+    }
+
+    this.deviceAccessCache.set(cacheKey, {
+      value: valid,
+      expiry: Date.now() + WebSocketService.CACHE_TTL_MS,
+      accessCount: 1,
+      lastAccessed: Date.now(),
+    });
+  }
+
+  getCacheStats(): { size: number; hits: number; misses: number } {
+    let hits = 0;
+    let misses = 0;
+
+    for (const entry of this.deviceAccessCache.values()) {
+      if (entry.accessCount > 0) hits++;
+    }
+    misses = this.deviceAccessCache.size - hits;
+
+    return {
+      size: this.deviceAccessCache.size,
+      hits,
+      misses,
+    };
+  }
   
   // 存储连接信息
   private connections = new Map<string, {
@@ -177,8 +279,12 @@ export class WebSocketService {
   }
 
   private async validateDeviceAccess(userId: string, deviceId: string): Promise<boolean> {
+    const cached = this.getCachedDeviceAccess(userId, deviceId);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     try {
-      // 查询设备是否存在且属于当前用户
       const device = await this.prisma.device.findFirst({
         where: {
           id: deviceId,
@@ -187,12 +293,14 @@ export class WebSocketService {
         },
       });
 
-      if (!device) {
+      const valid = !!device;
+      this.setDeviceAccessCache(userId, deviceId, valid);
+
+      if (!valid) {
         this.logger.warn(`用户 ${userId} 尝试访问无权限的设备 ${deviceId}`);
-        return false;
       }
 
-      return true;
+      return valid;
     } catch (error) {
       this.logger.error(`验证设备访问权限时出错: ${error.message}`, error.stack);
       return false;

@@ -419,30 +419,23 @@ export class DeviceService {
     }
 
     // 构建排序选项
-    const orderBy: Prisma.DeviceOrderByWithRelationInput[] = [];
+    type OrderByInput = Prisma.DeviceOrderByWithRelationInput;
+    let orderBy: OrderByInput | OrderByInput[] = { createdAt: "desc" };
 
     if (sortBy && sortOrder) {
-      // 验证排序字段是否有效
       const validSortFields = ["name", "hostname", "ipAddress", "status", "type", "createdAt", "updatedAt"];
       if (validSortFields.includes(sortBy)) {
-        orderBy.push({ [sortBy]: sortOrder });
+        orderBy = { [sortBy]: sortOrder };
       }
     }
 
-    // 默认按创建时间降序排列
-    if (orderBy.length === 0) {
-      orderBy.push({ createdAt: "desc" });
-    }
-
     // 处理分页
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const take = limit ? limit : undefined;
+    const take = limit && limit > 0 && limit <= 100 ? limit : undefined;
 
     // 执行查询
     const devices = await this.prisma.device.findMany({
       where,
       orderBy,
-      skip,
       take,
       select: DeviceService.SELECT,
     });

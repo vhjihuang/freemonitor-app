@@ -113,7 +113,7 @@ export class DeviceController {
       });
       
       const devices = await this.deviceService.findAllByUser(
-        req.user?.id || "dev-user-id", 
+        req.user?.id, 
         search, 
         status, 
         validatedPage, 
@@ -178,7 +178,7 @@ export class DeviceController {
       });
       
       const result = await this.deviceService.findDevicesByCursor(
-        req.user?.id || "dev-user-id", 
+        req.user?.id, 
         query
       );
       
@@ -224,7 +224,7 @@ export class DeviceController {
         userId: req.user?.id,
       });
       
-      const device = await this.deviceService.findOne(id, req.user?.id || "dev-user-id");
+      const device = await this.deviceService.findOne(id, req.user?.id);
       
       const executionTime = Date.now() - startTime;
       this.logger.debug('设备详情获取成功', {
@@ -283,7 +283,7 @@ export class DeviceController {
       const device = await this.deviceService.update(
         id,
         updateDeviceDto,
-        req.user?.id || "dev-user-id"
+        req.user?.id
       );
       
       const executionTime = Date.now() - startTime;
@@ -336,7 +336,7 @@ export class DeviceController {
         deviceId: id,
       });
 
-      const result = await this.deviceService.softDelete(id, req.user?.id || "dev-user-id");
+      const result = await this.deviceService.softDelete(id, req.user?.id);
       
       const executionTime = Date.now() - startTime;
       this.logger.log(`设备 ${id} 删除成功`, {
@@ -387,7 +387,7 @@ export class DeviceController {
     
     this.logger.log(`设备 ${id} 正在上报指标`);
     
-    const metric = await this.deviceService.createMetric(dto, req.user?.id || "dev-user-id");
+    const metric = await this.deviceService.createMetric(dto, req.user?.id);
     
     this.logger.log(`设备 ${id} 指标上报成功`);
     return metric;
@@ -410,7 +410,7 @@ export class DeviceController {
     
     this.logger.log(`设备 ${id} 正在上报告警`);
     
-    const alert = await this.deviceService.createAlert(dto, req.user?.id || "dev-user-id");
+    const alert = await this.deviceService.createAlert(dto, req.user?.id);
     
     this.logger.log(`设备 ${id} 告警上报成功`);
     return alert;
@@ -426,7 +426,7 @@ export class DeviceController {
   ) {
     this.logger.log('查询告警列表', { query, userId: req.user?.id });
     
-    const result = await this.deviceService.queryAlerts(query, req.user?.id || "dev-user-id");
+    const result = await this.deviceService.queryAlerts(query, req.user?.id);
     
     this.logger.log('告警列表查询成功', { 
       count: result.data.length, 
@@ -448,7 +448,7 @@ export class DeviceController {
   ) {
     this.logger.log('使用游标分页查询告警列表', { query, userId: req.user?.id });
     
-    const result = await this.deviceService.queryAlertsByCursor(query, req.user?.id || "dev-user-id");
+    const result = await this.deviceService.queryAlertsByCursor(query, req.user?.id);
     
     this.logger.log('告警游标列表查询成功', { 
       count: result.items.length, 
@@ -477,7 +477,7 @@ export class DeviceController {
       sortOrder: 'desc'
     };
     
-    const result = await this.deviceService.queryAlerts(query, req.user?.id || "dev-user-id");
+    const result = await this.deviceService.queryAlerts(query, req.user?.id);
     
     this.logger.log('最近告警获取成功', { 
       count: result.data.length, 
@@ -501,7 +501,7 @@ export class DeviceController {
     const result = await this.deviceService.acknowledgeAlert(
       alertId,
       dto,
-      req.user?.id || 'dev-user-id',
+      req.user?.id,
     );
 
     this.logger.log('告警确认成功', { alertId, userId: req.user?.id });
@@ -519,7 +519,7 @@ export class DeviceController {
 
     const result = await this.deviceService.bulkAcknowledgeAlerts(
       dto,
-      req.user?.id || 'dev-user-id',
+      req.user?.id,
     );
 
     this.logger.log('批量告警确认成功', { 
@@ -543,7 +543,7 @@ export class DeviceController {
     const result = await this.deviceService.resolveAlert(
       alertId,
       dto,
-      req.user?.id || 'dev-user-id',
+      req.user?.id,
     );
 
     this.logger.log('告警解决成功', { alertId, userId: req.user?.id });
@@ -561,7 +561,7 @@ export class DeviceController {
 
     const result = await this.deviceService.bulkResolveAlerts(
       dto,
-      req.user?.id || 'dev-user-id',
+      req.user?.id,
     );
 
     this.logger.log('批量告警解决成功', { 
@@ -581,7 +581,7 @@ export class DeviceController {
   ) {
     this.logger.log('查询指标列表', { query, userId: req.user?.id });
     
-    const result = await this.deviceService.queryMetrics(query, req.user?.id || "dev-user-id");
+    const result = await this.deviceService.queryMetrics(query, req.user?.id);
     
     this.logger.log('指标列表查询成功', { 
       count: result.data.length, 
@@ -602,7 +602,7 @@ export class DeviceController {
   ) {
     this.logger.log('使用游标分页查询指标列表', { query, userId: req.user?.id });
     
-    const result = await this.deviceService.queryMetricsByCursor(query, req.user?.id || "dev-user-id");
+    const result = await this.deviceService.queryMetricsByCursor(query, req.user?.id);
     
     this.logger.log('指标游标列表查询成功', { 
       count: result.items.length, 

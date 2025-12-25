@@ -86,7 +86,7 @@ export class WebSocketClient {
     console.log('WebSocket: 使用Cookie认证机制建立连接');
     
     const queryParams: Record<string, string> = {
-      auth: 'cookie', // 使用Cookie认证标识
+      auth: 'cookie-auth', // 使用Cookie认证标识
     };
 
     if (this.config.deviceId) {
@@ -308,6 +308,96 @@ export class WebSocketClient {
     // 重置状态
     this.reconnectAttempts = 0;
     this.isReconnecting = false;
+  }
+
+  // 启动实时指标推送
+  startMetrics(deviceId?: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        console.warn('WebSocket 未连接，无法启动指标推送');
+        resolve(false);
+        return;
+      }
+
+      const payload = deviceId ? { deviceId } : {};
+      
+      // 监听一次性响应事件
+      const responseHandler = (response: { event: string; data: string; deviceId: string; message: string }) => {
+        if (response.event === 'metrics:start') {
+          this.socket?.off('metrics:start', responseHandler);
+          resolve(true);
+        }
+      };
+      
+      this.socket?.once('metrics:start', responseHandler);
+      this.socket?.emit('metrics:start', payload);
+      
+      // 超时保护
+      setTimeout(() => {
+        this.socket?.off('metrics:start', responseHandler);
+        resolve(false);
+      }, 5000);
+    });
+  }
+
+  // 停止实时指标推送
+  stopMetrics(deviceId?: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        console.warn('WebSocket 未连接，无法停止指标推送');
+        resolve(false);
+        return;
+      }
+
+      const payload = deviceId ? { deviceId } : {};
+
+      // 监听一次性响应事件
+      const responseHandler = (response: { event: string; data: string; deviceId: string; message: string }) => {
+        if (response.event === 'metrics:stop') {
+          this.socket?.off('metrics:stop', responseHandler);
+          resolve(true);
+        }
+      };
+
+      this.socket?.once('metrics:stop', responseHandler);
+      this.socket?.emit('metrics:stop', payload);
+
+      // 超时保护
+      setTimeout(() => {
+        this.socket?.off('metrics:stop', responseHandler);
+        resolve(false);
+      }, 5000);
+    });
+  }
+
+  // 查询推送状态
+  getMetricsStatus(deviceId?: string): Promise<{ isStreaming: boolean; subscriberCount: number }> {
+    return new Promise((resolve) => {
+      if (!this.socket?.connected) {
+        resolve({ isStreaming: false, subscriberCount: 0 });
+        return;
+      }
+
+      const payload = deviceId ? { deviceId } : {};
+
+      const responseHandler = (response: { event: string; data: string; deviceId: string; subscriberCount: number }) => {
+        if (response.event === 'metrics:status') {
+          this.socket?.off('metrics:status', responseHandler);
+          resolve({
+            isStreaming: response.data === 'streaming',
+            subscriberCount: response.subscriberCount
+          });
+        }
+      };
+
+      this.socket?.once('metrics:status', responseHandler);
+      this.socket?.emit('metrics:status', payload);
+
+      setTimeout(() => {
+        this.socket?.off('metrics:status', responseHandler);
+        resolve({ isStreaming: false, subscriberCount: 0 });
+      }, 5000);
+    });
   }
 
   // 启动健康检查
@@ -552,6 +642,9 @@ export const useWebSocket = (config: WebSocketConfig) => {
     sendAlertTrigger: (data: AlertNotification) => client.sendAlertTrigger(data),
     isConnected: () => client.isConnected(),
     getConnectionStats: () => client.getConnectionStats(),
+    startMetrics: (deviceId?: string) => client.startMetrics(deviceId),
+    stopMetrics: (deviceId?: string) => client.stopMetrics(deviceId),
+    getMetricsStatus: (deviceId?: string) => client.getMetricsStatus(deviceId),
   };
 };
 

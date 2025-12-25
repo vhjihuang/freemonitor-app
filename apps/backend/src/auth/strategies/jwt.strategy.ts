@@ -33,16 +33,34 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       // 优先从Cookie中提取JWT令牌，如果没有则从Authorization头中提取
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request) => {
-          // 尝试从Cookie中获取JWT令牌
-          if (request && request.cookies) {
-            const token = request.cookies['accessToken'];
-            if (token) {
-              return token;
-            }
+          if (!request) {
+            return null;
           }
-          
-          // 如果Cookie中没有，则尝试从Authorization头中获取
-          return ExtractJwt.fromAuthHeaderAsBearerToken()(request);
+
+          try {
+            if (request.cookies) {
+              const token = request.cookies['accessToken'];
+              if (token) {
+                return token;
+              }
+            }
+
+            if (request.headers && typeof request.headers.get === 'function') {
+              const authHeader = request.headers.get('authorization');
+              if (authHeader && authHeader.startsWith('Bearer ')) {
+                return authHeader.substring(7);
+              }
+            } else if (request.headers && typeof request.headers === 'object') {
+              const authHeader = request.headers['authorization'] || request.headers['Authorization'];
+              if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+                return authHeader.substring(7);
+              }
+            }
+          } catch (error) {
+            this.logger.warn('JWT extraction error', undefined, { error: error.message });
+          }
+
+          return null;
         }
       ]),
       ignoreExpiration: false,

@@ -19,6 +19,9 @@ interface WebSocketContextType {
   sendAlertTrigger: (data: AlertNotification) => void;
   onMetrics: (callback: MetricsCallback) => () => void;
   onAlert: (callback: AlertCallback) => () => void;
+  startMetrics: (deviceId?: string) => Promise<boolean>;
+  stopMetrics: (deviceId?: string) => Promise<boolean>;
+  getMetricsStatus: (deviceId?: string) => Promise<{ isStreaming: boolean; subscriberCount: number }>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -29,7 +32,6 @@ interface WebSocketProviderProps {
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string>();
   const lastAuthStateRef = useRef<{ isAuthenticated: boolean; user: any } | null>(null);
   const metricsCallbacksRef = useRef<Set<MetricsCallback>>(new Set());
@@ -66,19 +68,20 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     unsubscribeFromDevices,
     sendDeviceMetrics,
     sendAlertTrigger,
-    isConnected: isWsConnected,
+    isConnected: rawIsConnected,
     getConnectionStats,
+    startMetrics,
+    stopMetrics,
+    getMetricsStatus,
   } = useWebSocket({
     token: 'cookie-auth',
     onConnect: () => {
       console.log('WebSocket Provider: 连接已建立');
-      setIsConnected(true);
       const stats = getConnectionStats();
       setConnectionId(stats.id);
     },
     onDisconnect: (reason) => {
       console.log('WebSocket 断开连接，原因:', reason);
-      setIsConnected(false);
       setConnectionId(undefined);
     },
     onError: (error) => {
@@ -87,6 +90,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     onMetricsUpdate: handleMetricsUpdate,
     onAlertNotification: handleAlertNotification,
   });
+
+  const isWsConnected = useCallback(() => rawIsConnected(), [rawIsConnected]);
 
   // 初始化认证状态（仅记录，不自动连接）
   useEffect(() => {
@@ -118,11 +123,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     };
   }, []);
 
-  // 清理连接
+  // 清理连接 - 只在页面完全卸载时清理，不在组件卸载时清理（避免 Fast Refresh 断开连接）
   useEffect(() => {
-    return () => {
-      console.log('清理 WebSocket 连接');
+    const handleBeforeUnload = () => {
       disconnect();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [disconnect]);
 
@@ -137,6 +147,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     sendAlertTrigger,
     onMetrics,
     onAlert,
+    startMetrics,
+    stopMetrics,
+    getMetricsStatus,
   };
 
   return (
