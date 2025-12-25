@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
   private readonly logger = new Logger(PrismaService.name);
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   // Demo项目优化配置
   private readonly MAX_RECONNECT_ATTEMPTS = 20; // 增加重试次数，适应长时间停机

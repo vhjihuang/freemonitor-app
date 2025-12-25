@@ -45,7 +45,7 @@ export default [
     },
   },
   {
-    files: ['**/*.test.ts', '**/*.spec.ts', 'test/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/*.e2e-spec.ts', 'test/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
