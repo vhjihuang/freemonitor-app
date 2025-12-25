@@ -72,6 +72,7 @@
     "socket.io": "^4.8.0",
     "supertest": "^7.1.4",
     "swagger-ui-express": "^5.0.1",
+    "systeminformation": "^5.28.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
