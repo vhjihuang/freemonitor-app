@@ -14,6 +14,8 @@ export default [
       '.next/**',
       '*.config.*',
       '!**/.eslintrc*',
+      'scripts/**',
+      'packages/types/dist/**',
     ],
   },
   {
