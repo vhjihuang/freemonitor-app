@@ -5,6 +5,17 @@ import tsparser from '@typescript-eslint/parser';
 export default [
   js.configs.recommended,
   {
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'apps/backend/docs/**',
+      '.next/**',
+      '*.config.*',
+      '!**/.eslintrc*',
+    ],
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsparser,
@@ -28,18 +39,15 @@ export default [
       '@typescript-eslint': tseslint,
     },
     rules: {
-      // TypeScript specific rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      
-      // General rules
       'no-console': 'off',
       'no-debugger': 'off',
       'prefer-const': 'error',
       'no-var': 'error',
-      'no-unused-vars': 'off', // Turn off for TypeScript files
+      'no-unused-vars': 'off',
     },
   },
   {
@@ -76,18 +84,15 @@ export default [
       '@typescript-eslint': tseslint,
     },
     rules: {
-      // TypeScript specific rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      
-      // General rules
       'no-console': 'off',
       'no-debugger': 'off',
       'prefer-const': 'error',
       'no-var': 'error',
-      'no-unused-vars': 'off', // Turn off for TypeScript files
+      'no-unused-vars': 'off',
     },
   },
   {
@@ -131,13 +136,5 @@ export default [
       'no-var': 'error',
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
-  },
-  {
-    ignores: [
-      'dist/**',
-      'node_modules/**',
-      'coverage/**',
-      'apps/backend/docs/**',
-    ],
   },
 ];

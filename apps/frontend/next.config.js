@@ -41,10 +41,9 @@ const nextConfig = {
     },
   },
 
-  // 生成独立的 CSS 文件
-  cssChunking: true,
-
-  compiler: {},
+  compiler: {
+    reactRemoveProperties: true,
+  },
   
   // Webpack优化
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
