@@ -42,7 +42,7 @@ export class DashboardController {
     
     // 直接返回数据，让拦截器处理统一格式
     // 异常会被全局异常过滤器自动处理
-    const stats = await this.dashboardService.getDashboardStats(req.user?.id || "dev-user-id");
+    const stats = await this.dashboardService.getDashboardStats(req.user?.id);
     return stats;
   }
 

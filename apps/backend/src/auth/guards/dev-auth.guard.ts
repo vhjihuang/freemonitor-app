@@ -4,7 +4,6 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
